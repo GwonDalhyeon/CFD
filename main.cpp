@@ -5,6 +5,9 @@
 #include "LevelSetReinitializationProblem.h"
 
 #include "LevelSetAdvectionProblem.h"
+
+#include "EulerianFluidSolver.h"
+
 void main()
 {
 //	int omp_get_max_threads(void);
@@ -15,8 +18,12 @@ void main()
 //
 //	cout << omp_get_thread_num() << endl;
 
-	LevelSetAdvection levelSet;
-	levelSet.advectionSolver(5, false, false, true, 0.1);
+
+
+	EulerianFluidSolver2D Euler;
+	Euler.FluidSolver(1, 1);
+	//LevelSetAdvection levelSet;
+	//levelSet.advectionSolver(5, false, false, true, 0.1);
 
 
 	//SurfaceReconst<double> surface;

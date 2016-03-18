@@ -69,6 +69,8 @@ public:
 
 	inline TT operator ()(const double& x, const double& y) const;
 
+	inline void operator = (const Field2D<TT>& ipField);
+
 	//inline TT& operator ()(const Vector2D <double>& ipVector) const
 	//{
 	//	assert(ipVector.x >= xMin && ipVector.x <= xMax);
@@ -244,9 +246,26 @@ const int Field2D<TT>::index(const Vector2D<int>& ipVector) const
 template<class TT>
 const int Field2D<TT>::index(const int & i, const int & j) const
 {
-	assert(i >= iStart && i <= iEnd);
-	assert(j >= jStart && j <= jEnd);
-	return dataArray.index(i, j);
+	if ((i >= iStart && i <= iEnd)&& (j >= jStart && j <= jEnd))
+	{
+		return dataArray.index(i, j);
+
+	}
+	else if ((i >= iStart - ghostWidth && i <= iEnd + ghostWidth) && (j >= jStart - ghostWidth && j <= jEnd + ghostWidth))
+	{
+		return ghostDataArray.index(i, j);
+	}
+	else
+	{
+		assert(i >= iStart);
+		assert(i <= iEnd);
+		assert(j >= jStart);
+		assert(j <= jEnd);
+		assert(i >= iStart - ghostWidth);
+		assert(i <= iEnd + ghostWidth);
+		assert(j >= jStart - ghostWidth);
+		assert(j <= jEnd + ghostWidth);
+	}
 }
 
 template<class TT>
@@ -267,11 +286,25 @@ inline TT & Field2D<TT>::operator()(const Vector2D<int>& ipVector) const
 template<class TT>
 inline TT & Field2D<TT>::operator()(const int & i, const int & j) const
 {
-	assert(i >= iStart);
-	assert(i <= iEnd);
-	assert(j >= jStart);
-	assert(j <= jEnd);
-	return dataArray(i, j);
+	if ((i >= iStart && i <= iEnd) && (j >= jStart && j <= jEnd))
+	{
+		return dataArray(i, j);
+	}
+	else if ((i >= iStart - ghostWidth && i <= iEnd + ghostWidth) && (j >= jStart - ghostWidth && j <= jEnd + ghostWidth))
+	{
+		return ghostDataArray(i, j);
+	}
+	else
+	{
+		assert(i >= iStart);
+		assert(i <= iEnd);
+		assert(j >= jStart);
+		assert(j <= jEnd);
+		assert(i >= iStart - ghostWidth);
+		assert(i <= iEnd + ghostWidth);
+		assert(j >= jStart - ghostWidth);
+		assert(j <= jEnd + ghostWidth);
+	}
 }
 
 template<class TT>
@@ -296,6 +329,15 @@ inline TT Field2D<TT>::operator()(const double & x, const double & y) const
 
 	return ((dataArray(cell)*distance00 + dataArray(cell.i + 1, cell.j)*distance10 + dataArray(cell.i, cell.j + 1)*distance01 + dataArray(cell.i + 1, cell.j + 1)*distance11) / (distance00 + distance01 + distance10 + distance11));
 	//return dataArray(1,1);
+}
+
+template<class TT>
+inline void Field2D<TT>::operator=(const Field2D<TT>& ipField)
+{
+	grid = ipField.grid;
+	ghostGrid = ipField.ghostGrid;
+	dataArray = ipField.dataArray;
+	ghostDataArray = ipField.ghostDataArray;
 }
 
 template<class TT>

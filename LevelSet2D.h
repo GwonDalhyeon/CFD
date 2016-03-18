@@ -40,6 +40,8 @@ public:
 
 	inline double operator ()(const Vector2D<double>& ipVector) const;
 
+	inline void operator = (const LevelSet2D& ipLevelSet);
+
 	inline void computeNormal();
 	inline Vector2D<double> computeNormal(const int& i, const int& j);
 	inline Vector2D<double> computeNormal(const Vector2D<int> ipVector);
@@ -58,6 +60,8 @@ public:
 	inline double interpolation(const Vector2D<double>& ipVector);
 	inline double interpolation(const int& i, const int& j);
 	//inline double interpolation(const Vector2D<int>& ipVector);
+
+	inline void FillGhostCell();
 
 	// Derivative
 	inline double dxxPhi(const int& i, const int& j);
@@ -144,6 +148,15 @@ inline double LevelSet2D::operator()(const Vector2D<double>& ipVector) const
 	assert(ipVector[0] >= grid.xMin && ipVector[0] <= grid.xMax);
 	assert(ipVector[1] >= grid.yMin && ipVector[1] <= grid.yMax);
 	return phi(ipVector.x, ipVector.y);
+}
+
+inline void LevelSet2D::operator=(const LevelSet2D & ipLevelSet)
+{
+	phi = ipLevelSet.phi;
+	normal = ipLevelSet.normal;
+	unitNormal = ipLevelSet.unitNormal;
+	tangential = ipLevelSet.tangential;
+	meanCurvature = ipLevelSet.meanCurvature;
 }
 
 inline void LevelSet2D::computeNormal()
@@ -473,6 +486,15 @@ inline double LevelSet2D::interpolation(const Vector2D<double>& ipVector)
 inline double LevelSet2D::interpolation(const int & i, const int & j)
 {
 	return interpolation(grid.point(i, j));
+}
+
+inline void LevelSet2D::FillGhostCell()
+{
+	phi.FillGhostCell();
+	normal.FillGhostCell();
+	unitNormal.FillGhostCell();
+	tangential.FillGhostCell();
+	meanCurvature.FillGhostCell();
 }
 
 inline double LevelSet2D::dxxPhi(const int & i, const int & j)
