@@ -76,6 +76,10 @@ public:
 
 	Array2D<TT> operator / (const TT& constant);
 
+	static TT L1Norm(const Array2D<TT>& ipArray1);
+	static TT L2Norm(const Array2D<TT>& ipArray1);
+	static TT InnerProduct(const Array2D<TT>& ipArray1, const Array2D<TT>& ipArray2);
+
 private:
 
 };
@@ -454,5 +458,45 @@ Array2D<TT> Array2D<TT>::operator/(const TT & constant)
 	}
 	return tempArray;
 }
+
+
+template<class TT>
+inline TT Array2D<TT>::L1Norm(const Array2D<TT>& ipArray1)
+{
+	TT l1 = 0;
+#pragma omp parallel for reduction(+ : l1)
+	for (int i = 0; i < ijRes; i++)
+	{
+		l1 += abs(ipArray1[i]);
+	}
+	return l1;
+}
+
+template<class TT>
+inline TT Array2D<TT>::L2Norm(const Array2D<TT>& ipArray1)
+{
+
+	TT l2 = 0;
+#pragma omp parallel for reduction(+ : l2)
+	for (int i = 0; i < ijRes; i++)
+	{
+		l2 += ipArray1[i]* ipArray1[i];
+	}
+	return sqrt(l2);
+}
+
+template<class TT>
+inline TT Array2D<TT>::InnerProduct(const Array2D<TT>& ipArray1, const Array2D<TT>& ipArray2)
+{
+	TT inner = 0;
+
+#pragma omp parallel for reduction(+ : inner)
+	for (int i = 0; i < ijRes; i++)
+	{
+		inner += ipArray1[i] * ipArray2[i];
+	}
+	return TT();
+}
+
 
 

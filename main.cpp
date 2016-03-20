@@ -5,7 +5,6 @@
 #include "LevelSetReinitializationProblem.h"
 
 #include "LevelSetAdvectionProblem.h"
-
 #include "EulerianFluidSolver.h"
 
 void main()
@@ -20,8 +19,12 @@ void main()
 
 
 
-	EulerianFluidSolver2D Euler;
-	Euler.FluidSolver(1, 1);
+
+	//EulerianFluidSolver2D Euler;
+	//Euler.FluidSolver(1, 1);
+
+
+
 	//LevelSetAdvection levelSet;
 	//levelSet.advectionSolver(5, false, false, true, 0.1);
 

@@ -63,8 +63,8 @@ public:
 
 	Vector2D<TT> operator / (const TT& value);
 
-	TT magnitude();
-	TT magnitude2();
+	TT magnitude() const;
+	TT magnitude2() const ;
 
 	void normalize();
 
@@ -268,13 +268,13 @@ Vector2D<TT> Vector2D<TT>::operator/(const TT & value)
 }
 
 template<class TT>
-inline TT Vector2D<TT>::magnitude()
+inline TT Vector2D<TT>::magnitude() const 
 {
 	return TT(sqrt(x*x + y*y));
 }
 
 template<class TT>
-inline TT Vector2D<TT>::magnitude2()
+inline TT Vector2D<TT>::magnitude2() const
 {
 	return TT(x*x + y*y);
 }

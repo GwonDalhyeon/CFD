@@ -21,6 +21,7 @@ public:
 
 	static TT sign(const TT& constant);
 
+
 	static void WENO5th(const Field2D<TT>& ipField, Field2D<TT>& wenoXMinus, Field2D<TT>& wenoXPlus, Field2D<TT>& wenoYMinus, Field2D<TT>& wenoYPlus);
 	static void WENO5th(const TT& v1, const TT& v2, const TT& v3, const TT& v4, const TT& v5, TT& constant);
 	static void WENO5thApproxXMinus(const Field2D<TT>& ipField, Field2D<TT>& wenoXMinus);
@@ -96,6 +97,7 @@ inline TT AdvectionMethod2D<TT>::sign(const TT & constant)
 {
 	return TT(constant / sqrt(constant*constant + DBL_EPSILON));
 }
+
 
 template<class TT>
 inline void AdvectionMethod2D<TT>::WENO5th(const Field2D<TT>& ipField, Field2D<TT>& wenoXMinus, Field2D<TT>& wenoXPlus, Field2D<TT>& wenoYMinus, Field2D<TT>& wenoYPlus)

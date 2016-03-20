@@ -9,6 +9,7 @@
 #include "Field2D.h"
 #include "LevelSet2D.h"
 #include "AdvectionMethod2D.h"
+#include "BregmanMethod.h"
 
 class LevelSetAdvection
 {
@@ -84,6 +85,10 @@ public:
 	void levelSetPropagatingTVDRK3();
 	bool stoppingCriterion();
 
+	// Surface reconstruction : Split Bregman Method
+	void SurfaceReconstructionSplitBregman(const int & example, const bool & propa, const bool & reinitial, const bool & surfReconst, const double & cfl);
+
+
 
 	// Distance functions.
 	double distance2Data(const int&i, const int& j);
@@ -96,6 +101,8 @@ public:
 	double adaptiveTimeStep(const Field2D<double>& velocity1, const Field2D<double>& velocity2);
 
 	void outputResult(const int& iter);
+
+
 
 
 private:
@@ -813,6 +820,10 @@ inline void LevelSetAdvection::surfReconstInitialCondition(const int & example)
 			}
 		}
 	}
+	else if (example == 7)
+	{
+
+	}
 }
 
 inline void LevelSetAdvection::computeVelocity()
@@ -985,6 +996,14 @@ inline bool LevelSetAdvection::stoppingCriterion()
 	}
 
 	return criterion;
+}
+
+inline void LevelSetAdvection::SurfaceReconstructionSplitBregman(const int & example, const bool & propa, const bool & reinitial, const bool & surfReconst, const double & cfl)
+{
+	cflCondition = cfl;
+	initialCondition(example, propa, reinitial, surfReconst);
+
+
 }
 
 

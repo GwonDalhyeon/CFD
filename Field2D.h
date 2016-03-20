@@ -109,7 +109,9 @@ public:
 	inline TT dyMinusPhiSubcell(const int& i, const int& j) const;
 
 
-
+	static TT L1Norm(const Field2D<TT>& ipField1);
+	static TT L2Norm(const Field2D<TT>& ipField1);
+	static TT InnerProduct(const Field2D<TT>& ipField1, const Field2D<TT>& ipField2);
 private:
 
 };
@@ -644,6 +646,25 @@ template<class TT>
 inline TT Field2D<TT>::dyMinusPhiSubcell(const int & i, const int & j) const
 {
 	return TT();
+}
+
+template<class TT>
+inline TT Field2D<TT>::L1Norm(const Field2D<TT>& ipField1)
+{
+
+	return Array2D<TT>::L1Norm(ipField1.dataArray);
+}
+
+template<class TT>
+inline TT Field2D<TT>::L2Norm(const Field2D<TT>& ipField1)
+{
+	return Array2D<TT>::L2Norm(ipField1.dataArray);
+}
+
+template<class TT>
+inline TT Field2D<TT>::InnerProduct(const Field2D<TT>& ipField1, const Field2D<TT>& ipField2)
+{
+	return Array2D<TT>::InnerProduct(ipField1.dataArray, ipField2.dataArray);
 }
 
 
