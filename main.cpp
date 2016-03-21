@@ -17,17 +17,15 @@ void main()
 //
 //	cout << omp_get_thread_num() << endl;
 
-
-
-
 	//EulerianFluidSolver2D Euler;
 	//Euler.FluidSolver(1, 1);
-
 
 
 	//LevelSetAdvection levelSet;
 	//levelSet.advectionSolver(5, false, false, true, 0.1);
 
+	LevelSetAdvection levelSet;
+	levelSet.SurfaceReconstructionSplitBregman(7, false, false, true);
 
 	//SurfaceReconst<double> surface;
 	//surface.surfaceReconstructionSolver(4);

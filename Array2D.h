@@ -60,21 +60,21 @@ public:
 
 	inline void operator =(const Array2D<TT>& ipArray);
 
-	Array2D<TT> operator + (const Array2D<TT>& ipArray);
+	Array2D<TT> operator + (const Array2D<TT>& ipArray) const;
 
-	Array2D<TT> operator - (const Array2D<TT>& ipArray);
+	Array2D<TT> operator - (const Array2D<TT>& ipArray) const;
 
-	Array2D<TT> operator * (const Array2D<TT>& ipArray);
+	Array2D<TT> operator * (const Array2D<TT>& ipArray) const;
 
-	Array2D<TT> operator / (const Array2D<TT>& ipArray);
+	Array2D<TT> operator / (const Array2D<TT>& ipArray) const;
 
-	Array2D<TT> operator + (const TT& constant);
+	Array2D<TT> operator + (const TT& constant) const;
 
-	Array2D<TT> operator - (const TT& constant);
+	Array2D<TT> operator - (const TT& constant) const;
 
-	Array2D<TT> operator * (const TT& constant);
+	Array2D<TT> operator * (const TT& constant) const;
 
-	Array2D<TT> operator / (const TT& constant);
+	Array2D<TT> operator / (const TT& constant) const;
 
 	static TT L1Norm(const Array2D<TT>& ipArray1);
 	static TT L2Norm(const Array2D<TT>& ipArray1);
@@ -352,109 +352,113 @@ inline void Array2D<TT>::operator=(const Array2D<TT>& ipArray)
 }
 
 template<class TT>
-Array2D<TT> Array2D<TT>::operator+(const Array2D<TT>& ipArray)
+Array2D<TT> Array2D<TT>::operator+(const Array2D<TT>& ipArray) const
 {
 	Array2D<TT> tempArray(ipArray.iStart, ipArray.iRes, ipArray.jStart, ipArray.jRes);
 
 #pragma omp parallel for
-	for (int i = 0; i < tempArray.ijRes; i++)
+	for (int i = 0; i < ijRes; i++)
 	{
-		tempArray.values[i] = value[i] + ipArray.values[i];
+			tempArray(i) = values[i] + ipArray(i);
 	}
 	return tempArray;
 }
 
 template<class TT>
-Array2D<TT> Array2D<TT>::operator-(const Array2D<TT>& ipArray)
+Array2D<TT> Array2D<TT>::operator-(const Array2D<TT>& ipArray) const
 {
 	Array2D<TT> tempArray(ipArray.iStart, ipArray.iRes, ipArray.jStart, ipArray.jRes);
 
 #pragma omp parallel for
-	for (int i = 0; i < tempArray.ijRes; i++)
+	for (int i = 0; i < ijRes; i++)
 	{
-		tempArray.values[i] = value[i] - ipArray.values[i];
+		tempArray(i) = values[i] - ipArray(i);
 	}
 	return tempArray;
 }
 
 template<class TT>
-Array2D<TT> Array2D<TT>::operator*(const Array2D<TT>& ipArray)
+Array2D<TT> Array2D<TT>::operator*(const Array2D<TT>& ipArray) const
 {
 	Array2D<TT> tempArray(ipArray.iStart, ipArray.iRes, ipArray.jStart, ipArray.jRes);
 
 #pragma omp parallel for
-	for (int i = 0; i < tempArray.ijRes; i++)
+	for (int i = 0; i < ijRes; i++)
 	{
-		tempArray.values[i] = value[i] * ipArray.values[i];
+		tempArray(i) = values[i] * ipArray(i);
 	}
 	return tempArray;
 }
 
 template<class TT>
-Array2D<TT> Array2D<TT>::operator/(const Array2D<TT>& ipArray)
+Array2D<TT> Array2D<TT>::operator/(const Array2D<TT>& ipArray) const
 {
 	Array2D<TT> tempArray(ipArray.iStart, ipArray.iRes, ipArray.jStart, ipArray.jRes);
 
 #pragma omp parallel for
-	for (int i = 0; i < tempArray.ijRes; i++)
+	for (int i = 0; i < ijRes; i++)
 	{
-		if (ipArray.values[i] != 0)
-		{
-			tempArray.values[i] = value[i] / ipArray.values[i];
-		}
+			if (ipArray(i) != 0)
+			{
+				tempArray(i) = values[i] / ipArray(i);
+			}
+			else
+			{
+				tempArray(i) = 0;
+			}
 	}
 	return tempArray;
 }
 
 template<class TT>
-Array2D<TT> Array2D<TT>::operator+(const TT & constant)
+Array2D<TT> Array2D<TT>::operator+(const TT & constant) const
 {
 	Array2D<TT> tempArray = this;
 
 #pragma omp parallel for
-	for (int i = 0; i < tempArray.ijRes; i++)
+	for (int i = 0; i < ijRes; i++)
 	{
-		tempArray.values[i] = constant + ipArray.values[i];
+		tempArray(i) = values[i] + constant;
 	}
 	return tempArray;
 }
 
 template<class TT>
-Array2D<TT> Array2D<TT>::operator-(const TT & constant)
+Array2D<TT> Array2D<TT>::operator-(const TT & constant) const
 {
 	Array2D<TT> tempArray = this;
 
 #pragma omp parallel for
-	for (int i = 0; i < tempArray.ijRes; i++)
+	for (int i = 0; i < ijRes; i++)
 	{
-		tempArray.values[i] = ipArray.values[i] - constant;
+		tempArray(i) = values[i] - constant;
 	}
 	return tempArray;
 }
 
 template<class TT>
-Array2D<TT> Array2D<TT>::operator*(const TT & constant)
+Array2D<TT> Array2D<TT>::operator*(const TT & constant) const
 {
 	Array2D<TT> tempArray = this;
 
 #pragma omp parallel for
-	for (int i = 0; i < tempArray.ijRes; i++)
+	for (int i = 0; i < ijRes; i++)
 	{
-		tempArray.values[i] = ipArray.values[i] - constant;
+		tempArray(i) = values[i] - constant;
 	}
 	return tempArray;
 }
 
 template<class TT>
-Array2D<TT> Array2D<TT>::operator/(const TT & constant)
+Array2D<TT> Array2D<TT>::operator/(const TT & constant) const
 {
 	assert(constant != 0);
 	Array2D<TT> tempArray = this;
 
 #pragma omp parallel for
-	for (int i = 0; i < tempArray.ijRes; i++)
+	for (int i = 0; i < ijRes; i++)
 	{
-		tempArray.values[i] = ipArray.values[i] - constant;
+		tempArray(i) = values[i] / constant;
 	}
 	return tempArray;
 }

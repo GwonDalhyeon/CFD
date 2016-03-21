@@ -15,6 +15,9 @@ public:
 	static Vector2D<TT> Shrink(const Vector2D<TT>& input, const TT& lambda);
 	static Field2D<Vector2D<TT>> Shrink(const Field2D<Vector2D<TT>>& input, const TT& lambda);
 
+	
+
+
 private:
 
 };

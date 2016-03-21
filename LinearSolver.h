@@ -1,12 +1,13 @@
 #pragma once
 
 
-//#ifndef LinearSolver_H
-//#define LinearSolver_H
+#pragma once
 #include "CommonDef.h"
 #include "VectorND.h"
 #include "CSROld.h"
 #include "CSR.h"
+#include "Field2D.h"
+#include "Array2D.h"
 
 template <class TT>
 VectorND<TT> CG(const CSR<TT>& A, VectorND<TT> b);
@@ -18,15 +19,13 @@ double* CG(int num, double* A, double* b);
 
 //void incompleteCholesky(int num, double* A);
 
-
 double* PCG(int num, double* A, double* b);
 
+template <class TT>
+static  Array2D<TT> GaussSeidel(const Array2D<TT>& A, const Array2D<TT>& x, Array2D<TT>& b);
 
 
-//#endif // !LinearSolver_H
-
-
-
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template <class TT>
 VectorND<TT> CG(const CSR<TT>& A, VectorND<TT> b)
@@ -198,6 +197,16 @@ double* CG(const CSR<TT>& A, double* b)
 	delete[] rNew, rOld, p;
 	return x;
 
+}
+
+template<class TT>
+inline Array2D<TT> GaussSeidel(const Array2D<TT>& A, const Array2D<TT>& x, Array2D<TT>& b)
+{
+	VectorND<TT> reshapeX = VectorND<TT>(x.ijRes);
+	VectorND<TT> reshapeB = VectorND<TT>(b.ijRes);
+	CSR<double> Acsr = CSR<double>(A);
+
+	return Array2D<TT>();
 }
 
 double* CG(int num, double* A, double* b)

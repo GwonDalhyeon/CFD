@@ -86,9 +86,11 @@ public:
 	bool stoppingCriterion();
 
 	// Surface reconstruction : Split Bregman Method
-	void SurfaceReconstructionSplitBregman(const int & example, const bool & propa, const bool & reinitial, const bool & surfReconst, const double & cfl);
-
-
+	double lambda;
+	double mu;
+	void SurfaceReconstructionSplitBregman(const int & example, const bool & propa, const bool & reinitial, const bool & surfReconst);
+	void GenerateLinearSystem(const Field2D<double>& u ,const Field2D<double>& f, const Field2D<Vector2D<double>>& d, const Field2D<Vector2D<double>>& b, Array2D<double>& matrixA, VectorND<double>& vectorB);
+	void OptimalU();
 
 	// Distance functions.
 	double distance2Data(const int&i, const int& j);
@@ -822,7 +824,60 @@ inline void LevelSetAdvection::surfReconstInitialCondition(const int & example)
 	}
 	else if (example == 7)
 	{
+		cout << "Surface reconstruction : Two circles with outlier." << endl;
+		cout << "Split Bregman Method." << endl;
 
+		grid = Grid2D(0, 1, 101, 0, 1, 101);
+		levelSet = LevelSet2D(grid);
+		distance = Field2D<double>(grid);
+		//reconstructionVelocity = Field2D<double>(grid);
+		givenPointNum = 400;
+		int outlier = 20;
+		givenPoint = VectorND<Vector2D<double>>(givenPointNum + outlier);
+		reconstMaxIteration = 2000;
+		reconstWriteIter = 10;
+		LpNorm = 2;
+		distanceThreshold = 10 * grid.dx;
+		curvatureThreshold = (grid.xMax - grid.xMin) * 10;
+
+		lambda = 0.5;
+		mu = 10e-5;
+
+		Vector2D<double> point1(0.6, 0.4);
+		Vector2D<double> point2(0.4, 0.6);
+
+#pragma omp parallel for
+		for (int i = 0; i < givenPointNum / 2; i++)
+		{
+			givenPoint(i) = 0.1*Vector2D<double>(cos(2 * PI*i / givenPointNum * 2), sin(2 * PI*i / givenPointNum * 2)) + point1 + grid.dx / 2;
+			givenPoint(i + givenPointNum / 2) = 0.1*Vector2D<double>(cos(2 * PI*i / givenPointNum * 2), sin(2 * PI*i / givenPointNum * 2)) + point2 + grid.dx / 2;
+		}
+
+		srand(time(NULL));
+		for (int i = 0; i < outlier; i++)
+		{
+			Vector2D<double> tempVector(double(rand()) / double(RAND_MAX), double(rand()) / double(RAND_MAX));
+			if (((tempVector - 0.5) / 3).magnitude()<0.28)
+			{
+				givenPoint(i + givenPointNum) = (tempVector - 0.5) / 3 + 0.5;
+			}
+			else
+			{
+				i--;
+			}
+
+		}
+		givenPointNum = givenPointNum + outlier;
+
+		exactDistance();
+#pragma omp parallel for
+		for (int i = grid.iStart; i <= grid.iEnd; i++)
+		{
+			for (int j = grid.jStart; j <= grid.jEnd; j++)
+			{
+				levelSet.phi(i, j) = -(grid(i, j) - 0.5).magnitude() + 0.28;
+			}
+		}
 	}
 }
 
@@ -998,12 +1053,110 @@ inline bool LevelSetAdvection::stoppingCriterion()
 	return criterion;
 }
 
-inline void LevelSetAdvection::SurfaceReconstructionSplitBregman(const int & example, const bool & propa, const bool & reinitial, const bool & surfReconst, const double & cfl)
+inline void LevelSetAdvection::SurfaceReconstructionSplitBregman(const int & example, const bool & propa, const bool & reinitial, const bool & surfReconst)
 {
-	cflCondition = cfl;
+
 	initialCondition(example, propa, reinitial, surfReconst);
 
+	Field2D<Vector2D<double>> b = Field2D<Vector2D<double>>(grid);
+	Field2D<Vector2D<double>> d = Field2D<Vector2D<double>>(grid);
 
+	Array2D<double> matrixA = Array2D<double>(1, (grid.iRes - 2)*(grid.jRes - 2), 1, (grid.iRes - 2)*(grid.jRes - 2));
+	VectorND<double> matrixB = VectorND<double>(matrixA.iRes);
+	Field2D<double> f = Field2D<double>(grid);
+
+	GenerateLinearSystem(levelSet.phi, f, d, b, matrixA, matrixB);
+
+	//ofstream solutionFile1;
+	//solutionFile1.open("D:\\Data/matrixA.txt", ios::binary);
+	//for (int i = matrixA.iStart; i <= matrixA.iEnd; i++)
+	//{
+	//	for (int j = matrixA.jStart; j <= matrixA.jEnd; j++)
+	//	{
+	//		solutionFile1 << i << " " << j << " " << matrixA(i, j) << endl;
+	//	}
+	//}
+	//solutionFile1.close();
+
+
+}
+
+inline void LevelSetAdvection::GenerateLinearSystem(const Field2D<double>& u, const Field2D<double>& f, const Field2D<Vector2D<double>>& d, const Field2D<Vector2D<double>>& b, Array2D<double>& matrixA, VectorND<double>& vectorB)
+{
+	matrixA = 0;
+	vectorB = 0;
+
+	int index, leftIndex, rightIndex, bottomIndex, topIndex;
+	int innerIRes = grid.iRes - 2;
+	int innerJRes = grid.jRes - 2;
+
+#pragma omp parallel for private(index, leftIndex, rightIndex, bottomIndex, topIndex)
+	for (int i = grid.iStart + 1; i <= grid.iEnd - 1; i++)
+	{
+		for (int j = grid.jStart + 1; j <= grid.jEnd - 1; j++)
+		{
+			index = (i - 1)*innerIRes*innerJRes + (i - 1) + (j - 1)*innerIRes*(innerIRes*innerJRes + 1);
+			leftIndex = (i - 1)*innerIRes*innerJRes + (i - 1 - 1) + (j - 1)*innerIRes*(innerIRes*innerJRes + 1);
+			rightIndex = (i - 1)*innerIRes*innerJRes + i + (j - 1)*innerIRes*(innerIRes*innerJRes + 1);
+			bottomIndex = (i - 1)*innerIRes*innerJRes + (i - 1) + (j - 1)*innerIRes*innerIRes*innerJRes + (j - 1 - 1)*innerIRes;
+			topIndex = (i - 1)*innerIRes*innerJRes + (i - 1) + (j - 1)*innerIRes*innerIRes*innerJRes + (j)*innerIRes;
+			
+			matrixA(index) = mu - 4 * lambda / grid.dx2;
+
+			if (i>grid.iStart+1)
+			{
+				matrixA(leftIndex) = -lambda / grid.dx2;
+			}
+			if (i<grid.iEnd-1)
+			{
+				matrixA(rightIndex) = -lambda / grid.dx2;
+			}
+			if (j>grid.jStart+1)
+			{
+				matrixA(bottomIndex) = -lambda / grid.dx2;
+			}
+			if (j<grid.jEnd-1)
+			{
+				matrixA(topIndex) = -lambda / grid.dx2;
+			}
+		}
+	}
+
+	Field2D<Vector2D<double>> temp(grid);
+	temp.dataArray = b.dataArray - d.dataArray;
+	Field2D<double> div = Field2D<double>::Divegence(temp);
+
+#pragma omp parallel for
+	for (int i = grid.iStart + 1; i <= grid.iEnd - 1; i++)
+	{
+		for (int j = grid.jStart + 1; j <= grid.jEnd - 1; j++)
+		{
+			index = (i - 1) + (j - 1)*innerIRes;
+
+			vectorB(index) = mu*f(i, j) + lambda*div(i, j);
+
+			if (i == grid.iStart + 1)
+			{
+				vectorB(index) += lambda* u(i - 1, j) / grid.dx2;
+			}
+			if (i == grid.iEnd - 1)
+			{
+				vectorB(index) += lambda* u(i + 1, j) / grid.dx2;
+			}
+			if (j == grid.jStart + 1)
+			{
+				vectorB(index) += lambda* u(i, j - 1) / grid.dy2;
+			}
+			if (j == grid.jEnd - 1)
+			{
+				vectorB(index) += lambda* u(i, j + 1) / grid.dy2;
+			}
+		}
+	}
+}
+
+inline void LevelSetAdvection::OptimalU()
+{
 }
 
 
@@ -1026,7 +1179,7 @@ inline double LevelSetAdvection::distance2Data(const int & i, const int & j)
 
 inline void LevelSetAdvection::exactDistance()
 {
-#pragma omp parallel for
+//#pragma omp parallel for
 	for (int i = grid.iStart; i <= grid.iEnd; i++)
 	{
 		for (int j = grid.jStart; j <= grid.jEnd; j++)

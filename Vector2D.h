@@ -47,21 +47,23 @@ public:
 
 	inline void operator /= (const TT& value);
 
-	Vector2D<TT> operator + (const Vector2D<TT>& inputVector);
+	Vector2D<TT> operator = (const Vector2D<TT>& inputVector) const;
 
-	Vector2D<TT> operator - (const Vector2D<TT>& inputVector);
+	Vector2D<TT> operator + (const Vector2D<TT>& inputVector) const;
 
-	Vector2D<TT> operator * (const Vector2D<TT>& inputVector);
+	Vector2D<TT> operator - (const Vector2D<TT>& inputVector) const;
+
+	Vector2D<TT> operator * (const Vector2D<TT>& inputVector) const;
 	
-	Vector2D<TT> operator / (const Vector2D<TT>& inputVector);
+	Vector2D<TT> operator / (const Vector2D<TT>& inputVector) const;
 
-	Vector2D<TT> operator + (const TT& value);
+	Vector2D<TT> operator + (const TT& value) const;
 
-	Vector2D<TT> operator - (const TT& value);
+	Vector2D<TT> operator - (const TT& value) const;
 
-	Vector2D<TT> operator * (const TT& value);
+	Vector2D<TT> operator * (const TT& value) const;
 
-	Vector2D<TT> operator / (const TT& value);
+	Vector2D<TT> operator / (const TT& value) const;
 
 	TT magnitude() const;
 	TT magnitude2() const ;
@@ -218,50 +220,56 @@ inline void Vector2D<TT>::operator/=(const TT & value)
 }
 
 template<class TT>
-Vector2D<TT> Vector2D<TT>::operator+(const Vector2D<TT>& inputVector)
+inline Vector2D<TT> Vector2D<TT>::operator=(const Vector2D<TT>& inputVector) const
+{
+	return Vector2D<TT>(inputVector.x, inputVector.y);
+}
+
+template<class TT>
+Vector2D<TT> Vector2D<TT>::operator+(const Vector2D<TT>& inputVector) const
 {
 	return Vector2D<TT>(x + inputVector.x, y + inputVector.y);
 }
 
 template<class TT>
-Vector2D<TT> Vector2D<TT>::operator-(const Vector2D<TT>& inputVector)
+Vector2D<TT> Vector2D<TT>::operator-(const Vector2D<TT>& inputVector) const
 {
 	return Vector2D<TT>(x - inputVector.x, y - inputVector.y);
 }
 
 template<class TT>
-Vector2D<TT> Vector2D<TT>::operator*(const Vector2D<TT>& inputVector)
+Vector2D<TT> Vector2D<TT>::operator*(const Vector2D<TT>& inputVector) const
 {
 	return Vector2D<TT>(x *inputVector.x, y * inputVector.y);
 }
 
 template<class TT>
-Vector2D<TT> Vector2D<TT>::operator/(const Vector2D<TT>& inputVector)
+Vector2D<TT> Vector2D<TT>::operator/(const Vector2D<TT>& inputVector) const
 {
 	assert(inputVector.x != 0 && inputVector.y != 0);
 	return Vector2D<TT>(x / inputVector.x, y / inputVector.y);
 }
 
 template<class TT>
-Vector2D<TT> Vector2D<TT>::operator+(const TT & value)
+Vector2D<TT> Vector2D<TT>::operator+(const TT & value) const
 {
 	return Vector2D<TT>(x + value, y + value);
 }
 
 template<class TT>
-Vector2D<TT> Vector2D<TT>::operator-(const TT & value)
+Vector2D<TT> Vector2D<TT>::operator-(const TT & value) const
 {
 	return Vector2D<TT>(x - value, y - value);
 }
 
 template<class TT>
-Vector2D<TT> Vector2D<TT>::operator*(const TT & value)
+Vector2D<TT> Vector2D<TT>::operator*(const TT & value) const
 {
 	return Vector2D<TT>(x * value, y * value);
 }
 
 template<class TT>
-Vector2D<TT> Vector2D<TT>::operator/(const TT & value)
+Vector2D<TT> Vector2D<TT>::operator/(const TT & value) const
 {
 	assert(value != 0);
 	return Vector2D<TT>(x / value, y / value);

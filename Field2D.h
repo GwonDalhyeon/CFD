@@ -71,6 +71,30 @@ public:
 
 	inline void operator = (const Field2D<TT>& ipField);
 
+	inline void operator *=(const double& constant);
+
+	inline void operator +=(const double& constant);
+
+	inline void operator -=(const double& constant);
+
+	inline void operator /=(const double& constant);
+
+	Field2D<TT> operator + (const Field2D<TT>& ipField) const;
+
+	Field2D<TT> operator - (const Field2D<TT>& ipField) const;
+
+	Field2D<TT> operator * (const Field2D<TT>& ipField) const;
+
+	Field2D<TT> operator / (const Field2D<TT>& ipField) const;
+
+	Field2D<TT> operator + (const TT& constant) const;
+
+	Field2D<TT> operator - (const TT& constant) const;
+
+	Field2D<TT> operator * (const TT& constant) const;
+
+	Field2D<TT> operator / (const TT& constant) const;
+
 	//inline TT& operator ()(const Vector2D <double>& ipVector) const
 	//{
 	//	assert(ipVector.x >= xMin && ipVector.x <= xMax);
@@ -112,6 +136,10 @@ public:
 	static TT L1Norm(const Field2D<TT>& ipField1);
 	static TT L2Norm(const Field2D<TT>& ipField1);
 	static TT InnerProduct(const Field2D<TT>& ipField1, const Field2D<TT>& ipField2);
+
+	static Field2D<Vector2D<double>> Gradient(const Field2D<double>& ipField);
+	static Field2D<double> Divegence(const Field2D<Vector2D<double>>& ipField);
+
 private:
 
 };
@@ -224,7 +252,7 @@ inline void Field2D<TT>::initialize(const int & ipGhostWidth, const Grid2D & ipG
 	double widthX = double(ghostWidth)*(ipGrid.xMax - ipGrid.xMin) / double(ipGrid.iRes - 1);
 	double widthY = double(ghostWidth)*(ipGrid.yMax - ipGrid.yMin) / double(ipGrid.jRes - 1);
 
-	ghostGrid.initialize(ipGrid.xMin - widthX, ipGrid.xMax + widthX, ipGrid.iStart - ghostWidth, ipGrid.iRes + 2 * ghostWidth, ipGrid.yMin - widthY, ipGrid.yMax + widthY, ipGrid.iStart - widthY, ipGrid.jRes + 2 * ghostWidth);
+	ghostGrid.initialize(ipGrid.xMin - widthX, ipGrid.xMax + widthX, ipGrid.iStart - ghostWidth, ipGrid.iRes + 2 * ghostWidth, ipGrid.yMin - widthY, ipGrid.yMax + widthY, ipGrid.jStart - ghostWidth, ipGrid.jRes + 2 * ghostWidth);
 	ghostDataArray = Array2D<TT>(ghostGrid);
 }
 
@@ -340,8 +368,221 @@ inline void Field2D<TT>::operator=(const Field2D<TT>& ipField)
 	ghostGrid = ipField.ghostGrid;
 	dataArray = ipField.dataArray;
 	ghostDataArray = ipField.ghostDataArray;
+
+	iRes = ipField.iRes;
+	jRes = ipField.jRes;
+	iStart = ipField.iStart;
+	jStart = ipField.jStart;
+	iEnd = iStart + iRes - 1;
+	jEnd = jStart + jRes - 1;
+	xMin = ipField.xMin;
+	yMin = ipField.yMin;
+	xMax = ipField.xMax;
+	yMax = ipField.yMax;
+	xLength = xMax - xMin;
+	yLength = yMax - yMin;
+	dx = xLength / (double)(iRes - 1);
+	dy = yLength / (double)(jRes - 1);
+	twodx = 2.0 * dx;
+	twody = 2.0*dy;
+	dx2 = dx*dx;
+	dy2 = dy*dy;
+	oneOverdx = 1.0 / dx;
+	oneOverdy = 1.0 / dy;
+	oneOver2dx = 1.0 / twodx;
+	oneOver2dy = 1.0 / twody;
+	oneOverdx2 = oneOverdx*oneOverdx;
+	oneOverdy2 = oneOverdy*oneOverdy;
 }
 
+
+
+template<class TT>
+inline void Field2D<TT>::operator*=(const double & constant)
+{
+#pragma omp parallel for
+	for (int i = iStart; i <= iEnd; i++)
+	{
+		for (int j = jStart; j <= jEnd; j++)
+		{
+			dataArray(i,j) *= constant;
+		}
+	}
+}
+
+template<class TT>
+inline void Field2D<TT>::operator+=(const double & constant)
+{
+#pragma omp parallel for
+	for (int i = iStart; i <= iEnd; i++)
+	{
+		for (int j = jStart; j <= jEnd; j++)
+		{
+			dataArray(i, j) += constant;
+		}
+	}
+}
+
+template<class TT>
+inline void Field2D<TT>::operator-=(const double & constant)
+{
+#pragma omp parallel for
+	for (int i = iStart; i <= iEnd; i++)
+	{
+		for (int j = jStart; j <= jEnd; j++)
+		{
+			dataArray(i, j) -= constant;
+		}
+	}
+}
+
+template<class TT>
+inline void Field2D<TT>::operator/=(const double & constant)
+{
+	assert(constant != 0);
+
+#pragma omp parallel for
+	for (int i = iStart; i <= iEnd; i++)
+	{
+		for (int j = jStart; j <= jEnd; j++)
+		{
+			dataArray(i, j) *= 1 / constant;
+		}
+	}
+}
+
+template<class TT>
+Field2D<TT> Field2D<TT>::operator+(const Field2D<TT>& ipField) const
+{
+	Field2D<TT> tempField(ipField.ghostWidth,ipField.grid);
+
+#pragma omp parallel for
+	for (int i = iStart; i <= iEnd; i++)
+	{
+		for (int j = jStart; j <= jEnd; j++)
+		{
+			tempField(i, j) = dataArray(i, j) + ipField(i, j);
+
+		}
+	}
+	return tempField;
+}
+
+template<class TT>
+Field2D<TT> Field2D<TT>::operator-(const Field2D<TT>& ipField) const
+{
+	FField2D<TT> tempField(ipField.ghostWidth, ipField.grid);
+
+#pragma omp parallel for
+	for (int i = iStart; i <= iEnd; i++)
+	{
+		for (int j = jStart; j <= jEnd; j++)
+		{
+			tempField(i, j) = dataArray(i, j) - ipField(i, j);
+		}
+	}
+	return tempField;
+}
+
+template<class TT>
+Field2D<TT> Field2D<TT>::operator*(const Field2D<TT>& ipField) const
+{
+	Field2D<TT> tempField(ipField.ghostWidth, ipField.grid);
+
+#pragma omp parallel for
+	for (int i = iStart; i <= iEnd; i++)
+	{
+		for (int j = jStart; j <= jEnd; j++)
+		{
+			tempField(i, j) = dataArray(i, j) * ipField(i, j);
+		}
+	}
+	return tempField;
+}
+
+template<class TT>
+Field2D<TT> Field2D<TT>::operator/(const Field2D<TT>& ipField) const
+{
+	Field2D<TT> tempField(ipField.ghostWidth, ipField.grid);
+
+#pragma omp parallel for
+	for (int i = iStart; i <= iEnd; i++)
+	{
+		for (int j = jStart; j <= jEnd; j++)
+		{
+			if (ipField(i, j) != 0)
+			{
+				tempField(i, j) = dataArray(i, j) / ipField(i, j);
+			}
+		}
+	}
+	return tempField;
+}
+
+template<class TT>
+Field2D<TT> Field2D<TT>::operator+(const TT & constant) const
+{
+	Field2D<TT> tempField(ipField.ghostWidth, ipField.grid);
+
+#pragma omp parallel for
+	for (int i = iStart; i <= iEnd; i++)
+	{
+		for (int j = jStart; j <= jEnd; j++)
+		{
+			tempField(i, j) = constant + dataArray(i, j);
+		}
+	}
+	return tempField;
+}
+
+template<class TT>
+Field2D<TT> Field2D<TT>::operator-(const TT & constant) const
+{
+	Field2D<TT> tempField(ipField.ghostWidth, ipField.grid);
+
+#pragma omp parallel for
+	for (int i = iStart; i <= iEnd; i++)
+	{
+		for (int j = jStart; j <= jEnd; j++)
+		{
+			tempField(i, j) = dataArray(i, j) - constant;
+		}
+	}
+	return tempField;
+}
+
+template<class TT>
+Field2D<TT> Field2D<TT>::operator*(const TT & constant) const
+{
+	Field2D<TT> tempField(ipField.ghostWidth, ipField.grid);
+
+#pragma omp parallel for
+	for (int i = iStart; i <= iEnd; i++)
+	{
+		for (int j = jStart; j <= jEnd; j++)
+		{
+			tempField(i, j) = dataArray(i, j) - constant;
+		}
+	}
+	return tempField;
+}
+
+template<class TT>
+Field2D<TT> Field2D<TT>::operator/(const TT & constant) const
+{
+	assert(constant != 0); 
+	Field2D<TT> tempField(ipField.ghostWidth, ipField.grid);
+
+#pragma omp parallel for
+	for (int i = iStart; i <= iEnd; i++)
+	{
+		for (int j = jStart; j <= jEnd; j++)
+		{
+			tempField(i, j) = dataArray(i, j) / constant;
+		}
+	}
+	return tempField;
+}
 template<class TT>
 inline TT Field2D<TT>::interpolation(const double & x, const double & y) const
 {
@@ -666,5 +907,39 @@ inline TT Field2D<TT>::InnerProduct(const Field2D<TT>& ipField1, const Field2D<T
 {
 	return Array2D<TT>::InnerProduct(ipField1.dataArray, ipField2.dataArray);
 }
+
+template<class TT>
+inline Field2D<Vector2D<double>> Field2D<TT>::Gradient(const Field2D<double>& ipField)
+{
+	Field2D<Vector2D<double>> gradient(ipField.grid);
+#pragma omp parallel for
+	for (int i = gradient.iStart; i <= gradient.iEnd; i++)
+	{
+		for (int j = gradient.jStart; j <= gradient.jEnd; j++)
+		{
+			gradient(i, j) = Vector2D<double>(ipField.dxPhi(i, j), ipField.dyPhi(i, j));
+		}
+	}
+	return gradient;
+}
+
+template<class TT>
+inline Field2D<double> Field2D<TT>::Divegence(const Field2D<Vector2D<double>>& ipField)
+{
+	Field2D<double> divergence(ipField.grid);
+	Field2D<Vector2D<double>> dxField(ipField.grid);
+	Field2D<Vector2D<double>> dyField(ipField.grid);
+
+#pragma omp parallel for
+	for (int i = divergence.iStart; i <= divergence.iEnd; i++)
+	{
+		for (int j = divergence.jStart; j <= divergence.jEnd; j++)
+		{
+			divergence(i, j) = dxField.dxPhi(i, j).x + dyField.dyPhi(i, j).y;
+		}
+	}
+	return divergence;
+}
+
 
 

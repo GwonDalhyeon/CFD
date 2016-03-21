@@ -24,6 +24,7 @@ public:
 	~CSR();
 
 	CSR(const Array2D<TT>& ipArray);
+	//CSR(const Field2D<TT>& ipField);
 
 	inline void operator = (const CSR<TT>& ipCSR);
 
@@ -95,6 +96,7 @@ inline CSR<TT>::CSR(const Array2D<TT>& ipArray)
 	}
 	delete[] tempVal, tempCol;
 }
+
 
 template<class TT>
 inline void CSR<TT>::operator=(const CSR<TT>& ipCSR)
