@@ -32,8 +32,6 @@ public:
 	void FluidSolver(const int& example, const int& timeSteppingOrder);
 
 	void TimeAdvanceForwardEuler(Field2D<Vector2D<double>>& ipVelocity);
-
-	void OutputResult(const int& iter);
 private:
 
 };
@@ -80,7 +78,7 @@ inline void EulerianFluidSolver2D::FluidSolver(const int & example, const int& t
 	InitialCondition(example);
 
 	//OutputResult(0);
-
+	string fileName;
 	for (int i = 0; i < maxIteration; i++)
 	{
 		if (timeSteppingOrder==1)
@@ -90,7 +88,10 @@ inline void EulerianFluidSolver2D::FluidSolver(const int & example, const int& t
 
 		if (i%writeOutputIteration == 0)
 		{
-			//OutputResult(i);
+			fileName = "pressure" + to_string(i);
+			velocity.WriteFile(fileName);
+			fileName = "velocity" + to_string(i);
+			velocity.WriteFile(fileName);
 		}
 	}
 }
@@ -121,29 +122,3 @@ inline void EulerianFluidSolver2D::TimeAdvanceForwardEuler(Field2D<Vector2D<doub
 
 }
 
-inline void EulerianFluidSolver2D::OutputResult(const int & iter)
-{
-	cout << "Write results" << endl;
-
-	ofstream solutionFile1;
-	solutionFile1.open("D:\\Data/velocity" + to_string(iter) + ".txt", ios::binary);
-	for (int i = grid.iStart; i <= grid.iEnd; i++)
-	{
-		for (int j = grid.jStart; j <= grid.jEnd; j++)
-		{
-			solutionFile1 << i << " " << j << " " << grid(i, j) << " " << velocity(i, j) << endl;
-		}
-	}
-	solutionFile1.close();
-
-	ofstream solutionFile2;
-	solutionFile2.open("D:\\Data/pressure" + to_string(iter) + ".txt", ios::binary);
-	for (int i = grid.iStart; i <= grid.iEnd; i++)
-	{
-		for (int j = grid.jStart; j <= grid.jEnd; j++)
-		{
-			solutionFile2 << i << " " << j << " " << grid(i, j) << " " << pressure(i, j) << endl;
-		}
-	}
-	solutionFile2.close();
-}

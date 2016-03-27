@@ -152,6 +152,7 @@ inline double LevelSet2D::operator()(const Vector2D<double>& ipVector) const
 
 inline void LevelSet2D::operator=(const LevelSet2D & ipLevelSet)
 {
+	grid = ipLevelSet.grid;
 	phi = ipLevelSet.phi;
 	normal = ipLevelSet.normal;
 	unitNormal = ipLevelSet.unitNormal;

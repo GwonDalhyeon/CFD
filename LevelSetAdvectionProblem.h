@@ -86,11 +86,15 @@ public:
 	bool stoppingCriterion();
 
 	// Surface reconstruction : Split Bregman Method
+	// Notation : Geodesic Application of the Split Bregman Method ... Osher.
 	double lambda;
 	double mu;
 	void SurfaceReconstructionSplitBregman(const int & example, const bool & propa, const bool & reinitial, const bool & surfReconst);
-	void GenerateLinearSystem(const Field2D<double>& u ,const Field2D<double>& f, const Field2D<Vector2D<double>>& d, const Field2D<Vector2D<double>>& b, Array2D<double>& matrixA, VectorND<double>& vectorB);
-	void OptimalU();
+	void GenerateLinearSystem(Array2D<double>& matrixA);
+	void GenerateLinearSystem(const Field2D<double>& u, const Field2D<double>& f, const Field2D<Vector2D<double>>& d, const Field2D<Vector2D<double>>& b, VectorND<double>& vectorB);
+	void OptimalU(const Field2D<double>& f, const Field2D<Vector2D<double>>& d, const Field2D<Vector2D<double>>& b, const CSR<double>& csrA, Field2D<double>& u);
+	void OptimalD(const Field2D<Vector2D<double>>& gradientU, const Field2D<Vector2D<double>>& b, Field2D<Vector2D<double>>& d);
+	void OptimalB(const Field2D<Vector2D<double>>& gradientU, const Field2D<Vector2D<double>>& d, Field2D<Vector2D<double>>& b);
 
 	// Distance functions.
 	double distance2Data(const int&i, const int& j);
@@ -104,6 +108,9 @@ public:
 
 	void outputResult(const int& iter);
 
+	void outputResult(const int& iter, const Field2D<double>& ipField, const string& fileName);
+
+	void outputResult(const int& iter, const VectorND<Vector2D<double>>& ipVector, const string& fileName);
 
 
 
@@ -154,22 +161,56 @@ inline void LevelSetAdvection::advectionSolver(const int & example, const bool &
 	cflCondition = cfl;
 	initialCondition(example, propa, reinitial, surfReconst);
 
+	grid.Variable();
+	distance.Variable("distance");
+	VecND2DVariable("pointData", givenPoint);
+	levelSet.phi.Variable("phi0");
+
+	string str;
+	const char*cmd;
+
 	// Reconstruction
 	if (isSurfaceReconstruction)
 	{
 		AdvectionMethod2D<double>::alpha = min(grid.dx, grid.dy); // delta function parameter.
-		outputResult(0);
+		
+		MATLAB.Command("figure('units','normalized','outerposition',[0 0 1 1])");
 
 		int i = 0;
-		while (!stoppingCriterion() && i < reconstMaxIteration)
+		//while (!stoppingCriterion() && i < reconstMaxIteration)
+		while (i < reconstMaxIteration)
 		{
 			i++;
 			cout << "Surface reconstruction : " << i << endl;
 
 			computeVelocity();
+			reconstructionVelocity.Variable("velocity");
+			
+			// MATLAB command : start
+			MATLAB.Command("subplot(1, 2, 1)");
+			MATLAB.Command("plot(pointData(:,1), pointData(:,2),'ro');axis([0 1 0 1]);grid on");
+			MATLAB.Command("hold on");
+			MATLAB.Command("contour(X,Y,phi0,[0 0],'color','r');");
+			MATLAB.Command("contour(X,Y,phi,[0 0]);");
+			MATLAB.Command("axis([0 1 0 1]);");
+			MATLAB.Command("hold off");
+			str = string("title(['velocity : ', num2str(") + to_string(i) + string(")]);");
+			cmd = str.c_str();
+			MATLAB.Command(cmd);
+			MATLAB.Command("drawnow;");
+			// MATLAB command : end
 
 			dt = adaptiveTimeStep(reconstructionVelocity);
 			levelSetPropagatingTVDRK3();
+			
+			// MATLAB command : start
+			levelSet.phi.Variable("phi");
+			MATLAB.Command("subplot(1, 2, 2)");
+			MATLAB.Command("surf(X,Y,phi)");
+			str = string("title(['velocity : ', num2str(")+to_string(i)+string(")]);");
+			cmd = str.c_str();
+			MATLAB.Command(cmd);
+			// MATLAB command : end
 
 			if (needReinitial)
 			{
@@ -181,10 +222,10 @@ inline void LevelSetAdvection::advectionSolver(const int & example, const bool &
 				}
 			}
 
-			if (i %reconstWriteIter == 0)
-			{
-				outputResult(i);
-			}
+			//if (i %reconstWriteIter == 0)
+			//{
+			//	outputResult(i);
+			//}
 			cout << endl;
 		}
 		outputResult(i);
@@ -1060,32 +1101,56 @@ inline void LevelSetAdvection::SurfaceReconstructionSplitBregman(const int & exa
 
 	Field2D<Vector2D<double>> b = Field2D<Vector2D<double>>(grid);
 	Field2D<Vector2D<double>> d = Field2D<Vector2D<double>>(grid);
+	Field2D<Vector2D<double>> gradientU = Field2D<Vector2D<double>>(grid);;
+	Field2D<double> f = Field2D<double>(grid);
+	
+	distance = distance;
+#pragma omp parallel for
+	for (int i = distance.iStart; i <= distance.iEnd; i++)
+	{
+		for (int j = distance.jStart; j <= distance.jEnd; j++)
+		{
+			distance(i, j) = -distance(i,j);
+		}
+	}
 
 	Array2D<double> matrixA = Array2D<double>(1, (grid.iRes - 2)*(grid.jRes - 2), 1, (grid.iRes - 2)*(grid.jRes - 2));
-	VectorND<double> matrixB = VectorND<double>(matrixA.iRes);
-	Field2D<double> f = Field2D<double>(grid);
+	GenerateLinearSystem(matrixA);
+	cout << "Start CSR." << endl;
+	CSR<double> csrA(matrixA);
+	cout << "End CSR." << endl;
 
-	GenerateLinearSystem(levelSet.phi, f, d, b, matrixA, matrixB);
+	string fileName;
 
-	//ofstream solutionFile1;
-	//solutionFile1.open("D:\\Data/matrixA.txt", ios::binary);
-	//for (int i = matrixA.iStart; i <= matrixA.iEnd; i++)
-	//{
-	//	for (int j = matrixA.jStart; j <= matrixA.jEnd; j++)
-	//	{
-	//		solutionFile1 << i << " " << j << " " << matrixA(i, j) << endl;
-	//	}
-	//}
-	//solutionFile1.close();
+	fileName = "pointData" + to_string(0);
+	givenPoint.WriteFile(fileName);
+	fileName = "distance" + to_string(0);
+	distance.WriteFile(fileName);
+	fileName = "phi" + to_string(0);
+	levelSet.phi.WriteFile(fileName);
+
+	
+
+	int maxIter = 20;
+	for (int i = 1; i < maxIter; i++)
+	{
+		OptimalU(distance, d, b, csrA, levelSet.phi);
+		gradientU = Field2D<Vector2D<double>>::Gradient(levelSet.phi);
+		OptimalD(gradientU, b, d);
+		OptimalB(gradientU, d, b);
+		
+		fileName = "phi" + to_string(i);
+		levelSet.phi.WriteFile(fileName);
+
+	}
+
 
 
 }
 
-inline void LevelSetAdvection::GenerateLinearSystem(const Field2D<double>& u, const Field2D<double>& f, const Field2D<Vector2D<double>>& d, const Field2D<Vector2D<double>>& b, Array2D<double>& matrixA, VectorND<double>& vectorB)
+inline void LevelSetAdvection::GenerateLinearSystem(Array2D<double>& matrixA)
 {
-	matrixA = 0;
-	vectorB = 0;
-
+	cout << "Start Generate Linear System : matrix A" << endl;
 	int index, leftIndex, rightIndex, bottomIndex, topIndex;
 	int innerIRes = grid.iRes - 2;
 	int innerJRes = grid.jRes - 2;
@@ -1100,27 +1165,34 @@ inline void LevelSetAdvection::GenerateLinearSystem(const Field2D<double>& u, co
 			rightIndex = (i - 1)*innerIRes*innerJRes + i + (j - 1)*innerIRes*(innerIRes*innerJRes + 1);
 			bottomIndex = (i - 1)*innerIRes*innerJRes + (i - 1) + (j - 1)*innerIRes*innerIRes*innerJRes + (j - 1 - 1)*innerIRes;
 			topIndex = (i - 1)*innerIRes*innerJRes + (i - 1) + (j - 1)*innerIRes*innerIRes*innerJRes + (j)*innerIRes;
-			
-			matrixA(index) = mu - 4 * lambda / grid.dx2;
 
-			if (i>grid.iStart+1)
+			matrixA(index) = -(mu - 4 * lambda / grid.dx2);
+
+			if (i>grid.iStart + 1)
 			{
-				matrixA(leftIndex) = -lambda / grid.dx2;
+				matrixA(leftIndex) = lambda / grid.dx2;
 			}
-			if (i<grid.iEnd-1)
+			if (i<grid.iEnd - 1)
 			{
-				matrixA(rightIndex) = -lambda / grid.dx2;
+				matrixA(rightIndex) = lambda / grid.dx2;
 			}
-			if (j>grid.jStart+1)
+			if (j>grid.jStart + 1)
 			{
-				matrixA(bottomIndex) = -lambda / grid.dx2;
+				matrixA(bottomIndex) = lambda / grid.dx2;
 			}
-			if (j<grid.jEnd-1)
+			if (j<grid.jEnd - 1)
 			{
-				matrixA(topIndex) = -lambda / grid.dx2;
+				matrixA(topIndex) = lambda / grid.dx2;
 			}
 		}
 	}
+	cout << "End Generate Linear System : matrix A" << endl;
+}
+
+inline void LevelSetAdvection::GenerateLinearSystem(const Field2D<double>& u, const Field2D<double>& f, const Field2D<Vector2D<double>>& d, const Field2D<Vector2D<double>>& b, VectorND<double>& vectorB)
+{
+	int index;
+	int innerIRes = grid.iRes - 2;
 
 	Field2D<Vector2D<double>> temp(grid);
 	temp.dataArray = b.dataArray - d.dataArray;
@@ -1133,30 +1205,95 @@ inline void LevelSetAdvection::GenerateLinearSystem(const Field2D<double>& u, co
 		{
 			index = (i - 1) + (j - 1)*innerIRes;
 
-			vectorB(index) = mu*f(i, j) + lambda*div(i, j);
+			vectorB(index) = -(mu*f(i, j) + lambda*div(i, j));
 
 			if (i == grid.iStart + 1)
 			{
-				vectorB(index) += lambda* u(i - 1, j) / grid.dx2;
+				vectorB(index) += -lambda* u(i - 1, j) / grid.dx2;
 			}
 			if (i == grid.iEnd - 1)
 			{
-				vectorB(index) += lambda* u(i + 1, j) / grid.dx2;
+				vectorB(index) += -lambda* u(i + 1, j) / grid.dx2;
 			}
 			if (j == grid.jStart + 1)
 			{
-				vectorB(index) += lambda* u(i, j - 1) / grid.dy2;
+				vectorB(index) += -lambda* u(i, j - 1) / grid.dy2;
 			}
 			if (j == grid.jEnd - 1)
 			{
-				vectorB(index) += lambda* u(i, j + 1) / grid.dy2;
+				vectorB(index) += -lambda* u(i, j + 1) / grid.dy2;
 			}
 		}
 	}
 }
 
-inline void LevelSetAdvection::OptimalU()
+inline void LevelSetAdvection::OptimalU(const Field2D<double>& f, const Field2D<Vector2D<double>>& d, const Field2D<Vector2D<double>>& b, const CSR<double>& csrA, Field2D<double>& u)
 {
+	cout << "Start Optimal U" << endl;
+
+
+	VectorND<double> vectorB = VectorND<double>((u.iRes-2)*(u.jRes - 2));
+	GenerateLinearSystem(u, f, d, b, vectorB);
+	ofstream solutionFile1;
+	//solutionFile1.open("D:\\Data/vectorB.txt", ios::binary);
+	//for (int i = 0; i <= vectorB.iEnd; i++)
+	//{
+	//		solutionFile1 << vectorB(i) << endl;
+	//}
+	//solutionFile1.close();
+
+	VectorND<double> uStar = CG(csrA, vectorB);
+
+	int idx;
+	int innerIRes = u.iRes - 2;
+
+#pragma omp parallel for private(idx)
+	for (int i = u.iStart+1; i <= u.iEnd-1; i++)
+	{
+		for (int j = u.jStart+1; j <= u.jEnd-1; j++)
+		{
+			idx = (i - 1) + (j - 1)*innerIRes;
+			u(i, j) = uStar(idx);
+		}
+	}
+
+
+	solutionFile1.open("D:\\Data/innerU.txt", ios::binary);
+	for (int i = grid.iStart + 1; i <= grid.iEnd - 1; i++)
+	{
+		for (int j = grid.jStart + 1; j <= grid.jEnd - 1; j++)
+		{
+			solutionFile1 << i << " " << j << " " << grid(i, j) << " " << u(i, j) << endl;
+		}
+	}
+	solutionFile1.close();
+
+	cout << "End Optimal U" << endl;
+	cout << endl;
+}
+
+inline void LevelSetAdvection::OptimalD(const Field2D<Vector2D<double>>& gradientU, const Field2D<Vector2D<double>>& b, Field2D<Vector2D<double>>& d)
+{
+#pragma omp parallel for
+	for (int i = d.iStart; i <= d.iEnd; i++)
+	{
+		for (int j = d.jStart; j <= d.jEnd; j++)
+		{
+			d(i, j) = BregmanMethod<double>::Shrink(gradientU(i, j) + b(i, j), lambda);
+		}
+	}
+}
+
+inline void LevelSetAdvection::OptimalB(const Field2D<Vector2D<double>>& gradientU, const Field2D<Vector2D<double>>& d, Field2D<Vector2D<double>>& b)
+{
+#pragma omp parallel for
+	for (int i = b.iStart; i <= b.iEnd; i++)
+	{
+		for (int j = b.jStart; j <= b.jEnd; j++)
+		{
+			b(i, j) = b(i, j) + gradientU(i, j) - d(i, j);
+		}
+	}
 }
 
 
@@ -1319,30 +1456,13 @@ inline void LevelSetAdvection::outputResult(const int & iter)
 {
 	cout << "Write results" << endl;
 
-	ofstream solutionFile1;
-	solutionFile1.open("D:\\Data/phi" + to_string(iter) + ".txt", ios::binary);
-	for (int i = grid.iStart; i <= grid.iEnd; i++)
-	{
-		for (int j = grid.jStart; j <= grid.jEnd; j++)
-		{
-			solutionFile1 << i << " " << j << " " << grid(i, j) << " " << levelSet(i, j) << endl;
-		}
-	}
-	solutionFile1.close();
-
+	string fileName = "phi" + to_string(iter);
+	levelSet.phi.WriteFile(fileName);
 
 	if (isSurfaceReconstruction)
 	{
-		ofstream solutionFile2;
-		solutionFile2.open("D:\\Data/velocity" + to_string(iter) + ".txt", ios::binary);
-		for (int i = grid.iStart; i <= grid.iEnd; i++)
-		{
-			for (int j = grid.jStart; j <= grid.jEnd; j++)
-			{
-				solutionFile2 << i << " " << j << " " << grid(i, j) << " " << reconstructionVelocity(i, j) << endl;
-			}
-		}
-		solutionFile2.close();
+		fileName = "velocity" + to_string(iter);
+		reconstructionVelocity.WriteFile(fileName);
 	}
 
 
@@ -1350,41 +1470,50 @@ inline void LevelSetAdvection::outputResult(const int & iter)
 	{
 		if (isPropagation)
 		{
-			ofstream solutionFile2;
-			solutionFile2.open("D:\\Data/velocity.txt", ios::binary);
-			for (int i = grid.iStart; i <= grid.iEnd; i++)
-			{
-				for (int j = grid.jStart; j <= grid.jEnd; j++)
-				{
-					solutionFile2 << i << " " << j << " " << grid(i, j) << " " << velocityX(i, j) << " " << velocityY(i, j) << endl;
-				}
-			}
-			solutionFile2.close();
+			fileName = "velocityX";
+			velocityX.WriteFile(fileName);
+			fileName = "velocityY";
+			velocityY.WriteFile(fileName);
 		}
 
 		if (isSurfaceReconstruction)
 		{
-			ofstream solutionFile3;
-			solutionFile3.open("D:\\Data/distance.txt", ios::binary);
-			for (int i = grid.iStart; i <= grid.iEnd; i++)
-			{
-				for (int j = grid.jStart; j <= grid.jEnd; j++)
-				{
-					solutionFile3 << i << " " << j << " " << grid(i, j) << " " << distance(i, j) << endl;
-				}
-			}
-			solutionFile3.close();
+			fileName = "distance";
+			distance.WriteFile(fileName);
 
-
-			ofstream solutionFile4;
-			solutionFile4.open("D:\\Data/pointData.txt", ios::binary);
-			for (int i = 0; i <= givenPoint.iEnd; i++)
-			{
-				solutionFile4 << givenPoint(i) << endl;
-			}
-			solutionFile4.close();
+			fileName = "pointData";
+			givenPoint.WriteFile(fileName);
 		}
 
 
 	}
+}
+
+inline void LevelSetAdvection::outputResult(const int & iter, const Field2D<double>& ipField, const string & fileName)
+{
+	cout << "Write results" << endl;
+
+	ofstream solutionFile1;
+	solutionFile1.open("D:\\Data/"+ fileName + to_string(iter) + ".txt", ios::binary);
+	for (int i = grid.iStart; i <= grid.iEnd; i++)
+	{
+		for (int j = grid.jStart; j <= grid.jEnd; j++)
+		{
+			solutionFile1 << i << " " << j << " " << grid(i, j) << " " << ipField(i, j) << endl;
+		}
+	}
+	solutionFile1.close();
+}
+
+inline void LevelSetAdvection::outputResult(const int & iter, const VectorND<Vector2D<double>>& ipVector, const string & fileName)
+{
+	cout << "Write results" << endl;
+
+	ofstream solutionFile4;
+	solutionFile4.open("D:\\Data/" + fileName + ".txt", ios::binary);
+	for (int i = 0; i <= givenPoint.iEnd; i++)
+	{
+		solutionFile4 << givenPoint(i) << endl;
+	}
+	solutionFile4.close();
 }

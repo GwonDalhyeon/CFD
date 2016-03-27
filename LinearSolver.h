@@ -10,7 +10,7 @@
 #include "Array2D.h"
 
 template <class TT>
-VectorND<TT> CG(const CSR<TT>& A, VectorND<TT> b);
+VectorND<TT> CG(const CSR<TT>& A, const VectorND<TT>& b);
 
 template <class TT>
 double* CG(const CSR<TT>& A, double* b);
@@ -28,10 +28,10 @@ static  Array2D<TT> GaussSeidel(const Array2D<TT>& A, const Array2D<TT>& x, Arra
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template <class TT>
-VectorND<TT> CG(const CSR<TT>& A, VectorND<TT> b)
+VectorND<TT> CG(const CSR<TT>& A, const VectorND<TT>& b)
 {
 	int num = A.rowNum;
-	double tolerance = 1000 * DBL_EPSILON;
+	double tolerance = 10e-5; 1000 * DBL_EPSILON;
 
 	VectorND<TT> rOld(num);
 	VectorND<TT> p(num);
@@ -55,6 +55,7 @@ VectorND<TT> CG(const CSR<TT>& A, VectorND<TT> b)
 	{
 		temp1 = 0;
 		temp2 = 0;
+#pragma omp parallel for private (j) reduction(+:temp2)
 		for (int i = 0; i < num; i++)
 		{
 			//A.indPrt
@@ -70,6 +71,7 @@ VectorND<TT> CG(const CSR<TT>& A, VectorND<TT> b)
 		{
 			x[i] = x[i] + alpha*p[i];
 			temp = 0;
+#pragma omp parallel for private (j) reduction(+:temp) 
 			for (int n = A.indPrt[i]; n < A.indPrt[i + 1]; n++)
 			{
 				j = int(A.columns[n]);
@@ -91,7 +93,7 @@ VectorND<TT> CG(const CSR<TT>& A, VectorND<TT> b)
 		}
 
 		beta = residual / residualOld;
-
+#pragma omp parallel for
 		for (int i = 0; i < p.iLength; i++)
 		{
 			p[i] = rNew[i] + beta*p[i];

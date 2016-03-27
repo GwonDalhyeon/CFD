@@ -87,6 +87,9 @@ public:
 	Vector2D<double> point(const int& i, const int& j);
 	Vector2D<double> cellCenter(const int& i, const int& j);
 	Vector2D<int> cellIndex(const double& x, const double& y);
+
+	inline void Variable();
+	inline void Variable(const char * varName1, const char * varName2);
 private:
 
 };
@@ -158,7 +161,6 @@ inline Vector2D<double> Grid2D::operator()(const int & i, const int & j) const
 {
 	//assert(i >= iStart && i <= iEnd);
 	//assert(j >= jStart && j <= jEnd);
-
 	return Vector2D<double>(xMin + double(i - iStart)*dx, yMin + double(j - jStart)*dy);
 }
 
@@ -189,6 +191,21 @@ inline Vector2D<double> Grid2D::cellCenter(const int & i, const int & j)
 inline Vector2D<int> Grid2D::cellIndex(const double & x, const double & y)
 {
 	return Vector2D<int>(floor((x - xMin) + oneOverdx), floor((y - yMin) + oneOverdy));
+}
+
+inline void Grid2D::Variable()
+{
+	
+	string str = "[X,Y]=meshgrid(" +to_string(xMin) +":" +to_string(dx)+":"+to_string(xMax)+"," + to_string(yMin) + ":" + to_string(dy) + ":" + to_string(yMax) + +");";
+	const char* cmd = str.c_str();
+	MATLAB.Command(cmd);
+}
+
+inline void Grid2D::Variable(const char * varName1, const char * varName2)
+{
+	string str = "["+string(varName1)+","+ string(varName2) +"]=meshgrid(" + to_string(xMin) + ":" + to_string(dx) + ":" + to_string(xMax) + "," + to_string(yMin) + ":" + to_string(dy) + ":" + to_string(yMax) + +");";
+	const char* cmd = str.c_str();
+	MATLAB.Command(cmd);
 }
 
 inline std::ostream& operator<<(std::ostream& output, const Grid2D& grid)

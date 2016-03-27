@@ -80,6 +80,9 @@ public:
 	static TT L2Norm(const Array2D<TT>& ipArray1);
 	static TT InnerProduct(const Array2D<TT>& ipArray1, const Array2D<TT>& ipArray2);
 
+	// Write MATLAB Variable.
+	inline void Variable(const char * varName);
+
 private:
 
 };
@@ -237,7 +240,7 @@ const int Array2D<TT>::index(const Vector2D<int>& ipVector) const
 {
 	assert(ipVector[0] >= iStart && ipVector[0] <= iEnd);
 	assert(ipVector[1] >= jStart && ipVector[1] <= jEnd);
-	return (ipVector[0] - iStart) + (ipVector[1] - jStart)*iRes;
+	return (ipVector[0] - iStart) + (ipVector[1] - jStart)*jRes;
 }
 
 template<class TT>
@@ -500,6 +503,12 @@ inline TT Array2D<TT>::InnerProduct(const Array2D<TT>& ipArray1, const Array2D<T
 		inner += ipArray1[i] * ipArray2[i];
 	}
 	return TT();
+}
+
+template<class TT>
+inline void Array2D<TT>::Variable(const char * varName)
+{
+	MATLAB.Variable(varName, iRes, jRes, values);
 }
 
 

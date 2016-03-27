@@ -3,7 +3,7 @@
 //#ifndef VectorND_H
 //#define VectorND_H
 #include"CommonDef.h"
-
+#include "ToMATLAB.h";
 
 template <class TT>
 class VectorND
@@ -60,10 +60,15 @@ public:
 
 	VectorND<TT> operator / (const TT& constant);
 
+	inline void WriteFile(const string& fileName);
+
 	TT magnitude();
 	TT magnitude2();
 
 	void normalize();
+
+	inline void Variable(const char * varName);
+	inline void Variable(const char * varName, const int & dim);
 
 private:
 
@@ -387,13 +392,25 @@ VectorND<TT> VectorND<TT>::operator/(const TT & constant)
 	return returnVT;
 }
 
+template<class TT>
+inline void VectorND<TT>::WriteFile(const string & fileName)
+{
+	ofstream solutionFile;
+	solutionFile.open("D:\\Data/" + fileName + ".txt", ios::binary);
+	for (int i = 0; i <= iEnd; i++)
+	{
+		solutionFile << values[i] << endl;
+	}
+	solutionFile.close();
+}
+
 
 
 template<class TT>
 inline TT VectorND<TT>::magnitude2()
 {
 	TT mag2 = 0;
-
+#pragma omp parallel for reduction(+:mag2)
 	for (int i = 0; i <= iEnd; i++)
 	{
 		mag2 = mag2 + values[i] * values[i];
@@ -412,6 +429,13 @@ inline void VectorND<TT>::normalize()
 {
 	*this /= magnitude();
 }
+
+template<class TT>
+inline void VectorND<TT>::Variable(const char * varName)
+{
+	MATLAB.Variable(varName, iLength, 1, values);
+}
+
 
 
 template<class TT>
@@ -471,7 +495,7 @@ inline TT dotProduct(const VectorND<TT>& ipVector1, const VectorND<TT>& ipVector
 	assert(ipVector1.iLength == ipVector2.iLength);
 
 	double dotPro = 0;
-
+#pragma omp parallel for reduction(+:dotPro)
 	for (int i = 0; i <= iEnd; i++)
 	{
 		dotPro = dotPro + ipVector1[i] * ipVector2[i];

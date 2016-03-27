@@ -1,14 +1,12 @@
 #pragma once
 
 
-//#ifndef Field2D_H
-//#define Field2D_H
 #include "CommonDef.h"
 #include "Vector2D.h"
 #include "VectorND.h"
 #include "Grid2D.h"
 #include "Array2D.h"
-
+#include "CombineStructure.h"
 
 template<class TT>
 class Field2D
@@ -102,6 +100,12 @@ public:
 
 	//	return interpolation(ipVector.x, ipVector.y);
 	//}
+
+	
+	// Write MATLAB Variable
+	inline void Variable(const char * varName);
+
+	inline void WriteFile(const string& fileName);
 
 	inline TT interpolation(const double& x, const double& y) const;
 	inline TT interpolation(const Vector2D<double>& ipVector) const;
@@ -246,7 +250,7 @@ inline void Field2D<TT>::initialize(const int & ipGhostWidth, const Grid2D & ipG
 {
 	ghostWidth = ipGhostWidth;
 
-	initialize(ipGrid.xMin, ipGrid.xMax, ipGrid.iStart, ipGrid.iRes, ipGrid.yMin, ipGrid.yMax, ipGrid.iStart, ipGrid.iRes);
+	initialize(ipGrid.xMin, ipGrid.xMax, ipGrid.iStart, ipGrid.iRes, ipGrid.yMin, ipGrid.yMax, ipGrid.jStart, ipGrid.jRes);
 	dataArray = Array2D<TT>(ipGrid);
 
 	double widthX = double(ghostWidth)*(ipGrid.xMax - ipGrid.xMin) / double(ipGrid.iRes - 1);
@@ -326,6 +330,12 @@ inline TT & Field2D<TT>::operator()(const int & i, const int & j) const
 	}
 	else
 	{
+		cout << "(i,j)=(" << i << "," << j << ")" << endl;
+		cout << "iStart = " << iStart<< endl;
+		cout << "iEnd   = " << iEnd << endl;
+		cout << "jStart = " << jStart << endl;
+		cout << "jEnd   = " << jEnd << endl;
+		cout << "jEnd   = " << jEnd << endl;
 		assert(i >= iStart);
 		assert(i <= iEnd);
 		assert(j >= jStart);
@@ -369,6 +379,7 @@ inline void Field2D<TT>::operator=(const Field2D<TT>& ipField)
 	dataArray = ipField.dataArray;
 	ghostDataArray = ipField.ghostDataArray;
 
+	ghostWidth = ipField.ghostWidth;
 	iRes = ipField.iRes;
 	jRes = ipField.jRes;
 	iStart = ipField.iStart;
@@ -583,6 +594,29 @@ Field2D<TT> Field2D<TT>::operator/(const TT & constant) const
 	}
 	return tempField;
 }
+
+template<class TT>
+inline void Field2D<TT>::Variable(const char * varName)
+{
+	MATLAB.Variable(varName, iRes, jRes, dataArray.values);
+}
+
+
+template<class TT>
+inline void Field2D<TT>::WriteFile(const string & fileName)
+{
+	ofstream solutionFile;
+	solutionFile.open("D:\\Data/" + fileName + ".txt", ios::binary);
+	for (int i = grid.iStart; i <= grid.iEnd; i++)
+	{
+		for (int j = grid.jStart; j <= grid.jEnd; j++)
+		{
+			solutionFile << i << " " << j << " " << grid(i, j) << " " << dataArray(i, j) << endl;
+		}
+	}
+	solutionFile.close();
+}
+
 template<class TT>
 inline TT Field2D<TT>::interpolation(const double & x, const double & y) const
 {
@@ -940,6 +974,3 @@ inline Field2D<double> Field2D<TT>::Divegence(const Field2D<Vector2D<double>>& i
 	}
 	return divergence;
 }
-
-
-

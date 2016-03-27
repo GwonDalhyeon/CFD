@@ -1,10 +1,7 @@
 #pragma once
 
-
-//#ifndef Vector2D_H
-//#define Vector2D_H
 #include "CommonDef.h"
-
+#include "ToMATLAB.h";
 
 template <class TT>
 class Vector2D
@@ -69,6 +66,8 @@ public:
 	TT magnitude2() const ;
 
 	void normalize();
+	
+	inline void Variable(const char * varName);
 
 private:
 
@@ -291,6 +290,12 @@ template<class TT>
 inline void Vector2D<TT>::normalize()
 {
 	*this /= magnitude();
+}
+
+template<class TT>
+inline void Vector2D<TT>::Variable(const char * varName)
+{
+	MATLAB.Variable(varName, 1, 2, values);
 }
 
 template<class TT>

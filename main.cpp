@@ -7,8 +7,13 @@
 #include "LevelSetAdvectionProblem.h"
 #include "EulerianFluidSolver.h"
 
+#include "VortexSheet.h"
+#include "ToMATLAB.h"
 void main()
 {
+	MATLAB.Command("clear all;close all;");
+	MATLAB.Command("workspace");
+
 //	int omp_get_max_threads(void);
 //	void omp_set_num_threads(int);
 //	cout << omp_get_max_threads() << endl;
@@ -17,15 +22,20 @@ void main()
 //
 //	cout << omp_get_thread_num() << endl;
 
+
+	//testVN.Variable("testVN");
+	
+	//VortexSheet vortex;
+	//vortex.VortexSolver(1, 0.1);
+
+	LevelSetAdvection levelSet;
+	levelSet.advectionSolver(4, false, false, true, 0.1);
+
 	//EulerianFluidSolver2D Euler;
 	//Euler.FluidSolver(1, 1);
 
-
 	//LevelSetAdvection levelSet;
-	//levelSet.advectionSolver(5, false, false, true, 0.1);
-
-	LevelSetAdvection levelSet;
-	levelSet.SurfaceReconstructionSplitBregman(7, false, false, true);
+	//levelSet.SurfaceReconstructionSplitBregman(7, false, false, true);
 
 	//SurfaceReconst<double> surface;
 	//surface.surfaceReconstructionSolver(4);

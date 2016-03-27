@@ -14,6 +14,14 @@
 #include <omp.h>
 #include <stdlib.h>  
 
+// MATLAB Engine
+#include <engine.h>
+#pragma comment(lib, "Libmx.lib")
+#pragma comment(lib, "libmex.lib")
+#pragma comment(lib, "libeng.lib")
+#pragma comment(lib, "libmat.lib")
+#pragma comment(lib, "mclmcr.lib")
+
 //#include "MACROS.h"
 //#include "VECTOR_2D.h"
 //#include
