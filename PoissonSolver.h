@@ -38,11 +38,11 @@ public:
 	// A Boundary Condition Capturing Method
 	PoissonSolver(const Grid2D& ipGrid, const LevelSet2D& ipLevelSet, const Field2D<double>& ipBeta, const Field2D<double>& ipF, const Field2D<double>& ipjCondition1, const Field2D<double>& ipjCondition2);
 
-	void generateJumpCondi(int example, Field2D<double>& beta, Field2D<double>& f, Field2D<double>& jCondition1, Field2D<double>& jCondition2);
-	void generatePoissonMatrixJumpCondi(const Field2D<double>& ipBeta, const Field2D<double>& ipF, const Field2D<double>& ipjCondition1, const Field2D<double>& ipjCondition2);
-	void generatePoissonVectorJumpCondi(const Field2D<double>& ipBeta, const Field2D<double>& ipF, const Field2D<double>& ipjCondition1, const Field2D<double>& ipjCondition2);
-	void solvePoissonJumpCondi(int example, const Grid2D& ipGrid);
-	void outputResult();
+	void GenerateJumpCondi(int example, Field2D<double>& beta, Field2D<double>& f, Field2D<double>& jCondition1, Field2D<double>& jCondition2);
+	void GeneratePoissonMatrixJumpCondi(const Field2D<double>& ipBeta, const Field2D<double>& ipF, const Field2D<double>& ipjCondition1, const Field2D<double>& ipjCondition2);
+	void GeneratePoissonVectorJumpCondi(const Field2D<double>& ipBeta, const Field2D<double>& ipF, const Field2D<double>& ipjCondition1, const Field2D<double>& ipjCondition2);
+	void SolvePoissonJumpCondi(int example, const Grid2D& ipGrid);
+	void OutputResult();
 
 
 private:
@@ -105,7 +105,7 @@ inline int PoissonSolver::indexMat(int i, int j)
 }
 
 
-inline void PoissonSolver::generateJumpCondi(int example, Field2D<double>& beta, Field2D<double>& f, Field2D<double>& jCondition1, Field2D<double>& jCondition2)
+inline void PoissonSolver::GenerateJumpCondi(int example, Field2D<double>& beta, Field2D<double>& f, Field2D<double>& jCondition1, Field2D<double>& jCondition2)
 {
 	if (example == 1)
 	{
@@ -252,7 +252,7 @@ inline void PoissonSolver::generateJumpCondi(int example, Field2D<double>& beta,
 	}
 }
 
-inline void PoissonSolver::generatePoissonMatrixJumpCondi(const Field2D<double>& beta, const Field2D<double>& f, const Field2D<double>& jCondition1, const Field2D<double>& jCondition2)
+inline void PoissonSolver::GeneratePoissonMatrixJumpCondi(const Field2D<double>& beta, const Field2D<double>& f, const Field2D<double>& jCondition1, const Field2D<double>& jCondition2)
 {
 	double tempBeta = 0;
 
@@ -458,7 +458,7 @@ inline void PoissonSolver::generatePoissonMatrixJumpCondi(const Field2D<double>&
 
 }
 
-inline void PoissonSolver::generatePoissonVectorJumpCondi(const Field2D<double>& beta, const Field2D<double>& f, const Field2D<double>& jCondition1, const Field2D<double>& jCondition2)
+inline void PoissonSolver::GeneratePoissonVectorJumpCondi(const Field2D<double>& beta, const Field2D<double>& f, const Field2D<double>& jCondition1, const Field2D<double>& jCondition2)
 {
 	double aGamma = 0;
 	double bGamma = 0;
@@ -685,7 +685,7 @@ inline void PoissonSolver::generatePoissonVectorJumpCondi(const Field2D<double>&
 	//fff.close();	
 }
 
-inline void PoissonSolver::solvePoissonJumpCondi(int example, const Grid2D& ipGrid)
+inline void PoissonSolver::SolvePoissonJumpCondi(int example, const Grid2D& ipGrid)
 {
 	grid = ipGrid;
 	solution = Field2D<double>(grid);
@@ -701,11 +701,11 @@ inline void PoissonSolver::solvePoissonJumpCondi(int example, const Grid2D& ipGr
 	poissonMatrix = Array2D<double>(1, innerGrid.iRes*innerGrid.jRes, 1, innerGrid.iRes*innerGrid.jRes);
 	poissonVector = VectorND<double>(poissonMatrix.iRes);
 
-	generateJumpCondi(example, beta, f, jCondition1, jCondition2);
+	GenerateJumpCondi(example, beta, f, jCondition1, jCondition2);
 
-	generatePoissonMatrixJumpCondi(beta, f, jCondition1, jCondition2);
+	GeneratePoissonMatrixJumpCondi(beta, f, jCondition1, jCondition2);
 
-	generatePoissonVectorJumpCondi(beta, f, jCondition1, jCondition2);
+	GeneratePoissonVectorJumpCondi(beta, f, jCondition1, jCondition2);
 
 
 	//ofstream qwer;
@@ -742,11 +742,11 @@ inline void PoissonSolver::solvePoissonJumpCondi(int example, const Grid2D& ipGr
 	}
 
 
-	outputResult();
+	OutputResult();
 
 }
 
-inline void PoissonSolver::outputResult()
+inline void PoissonSolver::OutputResult()
 {
 	//clock_t before;
 	//double  result;

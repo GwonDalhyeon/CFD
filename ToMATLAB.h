@@ -31,7 +31,6 @@ ToMATLAB::ToMATLAB()
 
 ToMATLAB::~ToMATLAB()
 {
-	system("pause");
 	engClose(ME);
 }
 

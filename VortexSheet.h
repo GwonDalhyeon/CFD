@@ -38,7 +38,7 @@ public:
 	~VortexSheet();
 
 	inline void InitialCondition(const int& example);
-	inline void VortexSolver(const int& example, const int& timeSteppingOrder);
+	inline void VortexSolver(const int& example);
 
 	inline void GenerateLinearSystem(Array2D<double>& matrixA, const double & scaling);
 	inline void GenerateLinearSystem(const Field2D<double>& P, VectorND<double>& vectorB, const double & scaling);
@@ -125,7 +125,7 @@ inline void VortexSheet::InitialCondition(const int & example)
 	}
 }
 
-inline void VortexSheet::VortexSolver(const int & example, const int & timeSteppingOrder)
+inline void VortexSheet::VortexSolver(const int & example)
 {
 	string str;
 	const char*cmd;
@@ -166,19 +166,37 @@ inline void VortexSheet::VortexSolver(const int & example, const int & timeStepp
 	MATLAB.Command("subplot(1, 3, 1)");
 	MATLAB.Command("surf(X,Y,phi0)");
 	MATLAB.Command("subplot(1, 3, 2)");
-	str = string("contour(X, Y, phi0, [") + to_string(-eps / 2) + string(",") + to_string(eps / 2) + string("],'b');");
-	cmd = str.c_str();
-	MATLAB.Command(cmd);
-	MATLAB.Command("grid on");
-	str = string("title(['iteration : ', num2str(") + to_string(0) + string(")]);");
-	cmd = str.c_str();
-	MATLAB.Command(cmd);
+	if (example == 1)
+	{
+		MATLAB.Command("contour(X, Y, phi0, [0 0],'b');");
+		MATLAB.Command("grid on");
+		str = string("title(['iteration : ', num2str(") + to_string(0) + string(")]);");
+		cmd = str.c_str();
+		MATLAB.Command(cmd);
+	}
+	else if (example == 2)
+	{
+		str = string("contour(X, Y, phi0, [") + to_string(-eps / 2) + string(",") + to_string(eps / 2) + string("],'b');");
+		cmd = str.c_str();
+		MATLAB.Command(cmd);
+		MATLAB.Command("grid on");
+		str = string("title(['iteration : ', num2str(") + to_string(0) + string(")]);");
+		cmd = str.c_str();
+		MATLAB.Command(cmd);
+	}
+
 	MATLAB.Command("subplot(1, 3, 3)");
 	velocityX.Variable("velocityX");
 	velocityY.Variable("velocityY");
 	MATLAB.Command("quiver(X,Y,velocityX,velocityY);");
+	
+	/////////////////////////
+	////                /////
+	////    Iteration   /////
+	////                /////
+	/////////////////////////
 	//for (int i = 1; i <= maxIteration; i++)
-	for (int i = 1; i <= 100; i++)
+	for (int i = 1; i <= 1; i++)
 	{
 
 		GenerateLinearSystem(P, vectorB, -grid.dx*grid.dy);
@@ -205,35 +223,16 @@ inline void VortexSheet::VortexSolver(const int & example, const int & timeStepp
 		streamFunction.Variable("stream");
 
 		Stream2Velocity();
+
 		velocityX.Variable("velocityX");
 		velocityY.Variable("velocityY");
 		
 		dt = AdaptiveTimeStep(velocityX, velocityY);
 		totalT += dt;
-		AdvectionMethod2D<double>::levelSetPropagatingTVDRK3(levelSet, velocityX, velocityY, dt);
 
+		AdvectionMethod2D<double>::levelSetPropagatingTVDRK3(levelSet, velocityX, velocityY, dt);
 		levelSet.phi.Variable("phi");
-		MATLAB.Command("subplot(1, 3, 1)");
-		MATLAB.Command("surf(X,Y,phi)");
-		MATLAB.Command("subplot(1, 3, 2)");
-		str = string("contour(X, Y, phi0, [") + to_string(-eps / 2) + string(",") + to_string(eps / 2) + string("],'b');");
-		cmd = str.c_str();
-		MATLAB.Command(cmd);
-		MATLAB.Command("hold on");
-		str = string("contour(X, Y, phi, [") + to_string(-eps / 2) + string(",") + to_string(eps / 2) + string("],'r');");
-		cmd = str.c_str();
-		MATLAB.Command(cmd);
-		MATLAB.Command("grid on");
-		MATLAB.Command("hold off");
-		str = string("title(['iteration : ', num2str(") + to_string(i) +string(")]);");
-		cmd = str.c_str();
-		MATLAB.Command(cmd);
-		MATLAB.Command("subplot(1, 3, 3)");
-		velocityX.Variable("velocityX");
-		velocityY.Variable("velocityY");
-		MATLAB.Command("quiver(X,Y,velocityX,velocityY);");
-		//// Write Movie 2-3
-		//MATLAB.Command("f = getframe(fig);writeVideo(writerobj,f);");
+
 #pragma omp parallel for 
 		for (int i = grid.iStart; i <= grid.iEnd; i++)
 		{
@@ -257,7 +256,46 @@ inline void VortexSheet::VortexSolver(const int & example, const int & timeStepp
 			}
 		}
 
+
+		if (example == 1)
+		{
+			MATLAB.Command("subplot(1, 3, 1)");
+			MATLAB.Command("surf(X,Y,phi)");
+			MATLAB.Command("subplot(1, 3, 2)");
+			MATLAB.Command("contour(X, Y, phi0, [0 0],'b');");
+			MATLAB.Command("hold on");
+			MATLAB.Command("contour(X, Y, phi, [0 0],'r');");
+			MATLAB.Command("grid on");
+			MATLAB.Command("hold off");
+			str = string("title(['iteration : ', num2str(") + to_string(i) + string(")]);");
+			cmd = str.c_str();
+			MATLAB.Command(cmd);
+		}
+		else if (example == 2)
+		{
+			MATLAB.Command("subplot(1, 3, 1)");
+			MATLAB.Command("surf(X,Y,phi)");
+			MATLAB.Command("subplot(1, 3, 2)");
+			str = string("contour(X, Y, phi0, [") + to_string(-eps / 2) + string(",") + to_string(eps / 2) + string("],'b');");
+			cmd = str.c_str();
+			MATLAB.Command(cmd);
+			MATLAB.Command("hold on");
+			str = string("contour(X, Y, phi, [") + to_string(-eps / 2) + string(",") + to_string(eps / 2) + string("],'r');");
+			cmd = str.c_str();
+			MATLAB.Command(cmd);
+			MATLAB.Command("grid on");
+			MATLAB.Command("hold off");
+			str = string("title(['iteration : ', num2str(") + to_string(i) + string(")]);");
+			cmd = str.c_str();
+			MATLAB.Command(cmd);
+		}
+		MATLAB.Command("subplot(1, 3, 3)");
+		velocityX.Variable("velocityX");
+		velocityY.Variable("velocityY");
+		MATLAB.Command("quiver(X,Y,velocityX,velocityY);");
+
 		P.Variable("P");
+
 
 		//if (i%writeOutputIteration==0)
 		//{
@@ -273,6 +311,9 @@ inline void VortexSheet::VortexSolver(const int & example, const int & timeStepp
 		//	fileName = "stream" + to_string(i);
 		//	P.WriteFile(fileName);
 		//}
+
+		//// Write Movie 2-3
+		//MATLAB.Command("f = getframe(fig);writeVideo(writerobj,f);");
 	}
 	//// Write Movie 3-3
 	//MATLAB.Command("close(fig);close(writerobj);");
@@ -314,21 +355,6 @@ inline void VortexSheet::GenerateLinearSystem(Array2D<double>& matrixA, const do
 				matrixA(rightIndex) = scaling * 1 * grid.oneOverdx2;
 				matrixA(topIndex) = scaling * 1 * grid.oneOverdy2;
 			}
-			//else if (j == innerJStart + 1)
-			//{
-			//	if (i == innerIStart)
-			//	{
-			//		leftIndex = (i - innerIStart)*innerIRes*innerJRes + (innerIEnd - innerIStart) + (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart)*innerIRes;
-			//	}
-			//	else if (i == innerIEnd)
-			//	{
-			//		rightIndex = (i - innerIStart)*innerIRes*innerJRes + (innerIStart - innerIStart) + (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart)*innerIRes;
-			//	}
-			//	matrixA(index) = scaling*(-2 * grid.oneOverdx2 - 2 * grid.oneOverdy2);
-			//	matrixA(leftIndex) = scaling * 1 * grid.oneOverdx2;
-			//	matrixA(rightIndex) = scaling * 1 * grid.oneOverdx2;
-			//	matrixA(topIndex) = scaling * 1 * grid.oneOverdy2;
-			//}
 			else if (j>innerJStart && j<innerJEnd)
 			{
 				if (i == innerIStart)
@@ -380,11 +406,6 @@ inline void VortexSheet::GenerateLinearSystem(const Field2D<double>& P, VectorND
 			index = (i - innerIStart) + (j - innerJStart)*innerIRes;
 
 			vectorB(index) = scaling*(-P(i, j));
-
-			if (j == innerJStart)
-			{
-				//vectorB(index) += -Phi(i, innerJStart)*  grid.oneOver2dy;
-			}
 		}
 	}
 	//vectorB.Variable("B");

@@ -23,10 +23,9 @@ void main()
 //	cout << omp_get_thread_num() << endl;
 
 
-	//testVN.Variable("testVN");
 	
-	VortexSheet vortex;
-	vortex.VortexSolver(2, 0.1);
+	//VortexSheet vortex;
+	//vortex.VortexSolver(1);
 
 	//LevelSetAdvection levelSet;
 	//levelSet.advectionSolver(4, false, false, true, 0.1);
@@ -35,13 +34,13 @@ void main()
 	//Euler.FluidSolver(1, 1);
 
 	//LevelSetAdvection levelSet;
-	//levelSet.SurfaceReconstructionSplitBregman(7, false, false, true);
+	//levelSet.SurfaceReconstructionSplitBregman(7, false, false);
 
-	//SurfaceReconst<double> surface;
-	//surface.surfaceReconstructionSolver(4);
+	SurfaceReconst<double> surface;
+	surface.SurfaceReconstructionSolver(1);
 	
 	//Reinitialzation reinitial;
-	//reinitial. reinitializationSolver(4);
+	//reinitial.reinitializationSolver(4);
 	
 	//PoissonSolver testPoisson2d;
 	//testPoisson2d.solvePoissonJumpCondi(2, testGrid2d);
@@ -57,4 +56,6 @@ void main()
 	//GridInfo testGrid2d(0.0, 1.0, 101, 0.0, 1.0, 101);
 	//PoissonEquationSolver testPoisson2d = PoissonEquationSolver(testGrid2d);
 	//testPoisson2d.solvePoissonEquationJumpCondi(2);
+
+	system("pause");
 }
