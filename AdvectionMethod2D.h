@@ -274,7 +274,7 @@ inline void AdvectionMethod2D<TT>::levelSetReinitializationTVDRK3(LevelSet2D& le
 		for (int j = levelSet.grid.jStart; j <= levelSet.grid.jEnd; j++)
 		{
 			k2(i, j) = -sign(originLevelSet(i, j))*dt*reinitialGodunov(wenoXPlus(i, j), wenoXMinus(i, j), wenoYPlus(i, j), wenoYMinus(i, j), originLevelSet(i, j));
-			levelSet(i, j) = 3.0 / 4.0*levelSet(i, j) + 1.0 / 4.0*levelSet(i, j) + 1.0 / 4.0*k2(i, j);
+			levelSet(i, j) = 3.0 / 4.0*originLevelSet(i, j) + 1.0 / 4.0*levelSet(i, j) + 1.0 / 4.0*k2(i, j);
 		}
 	}
 
@@ -462,7 +462,6 @@ inline void AdvectionMethod2D<TT>::levelSetPropagatingTVDRK3(LevelSet2D & levelS
 			levelSet(i, j) = originLevelSet(i, j) + k1(i, j);
 		}
 	}
-
 	WENO5thApproxXMinus(levelSet.phi, wenoXMinus);
 	WENO5thApproxXPlus(levelSet.phi, wenoXPlus);
 	WENO5thApproxYMinus(levelSet.phi, wenoYMinus);
@@ -489,10 +488,9 @@ inline void AdvectionMethod2D<TT>::levelSetPropagatingTVDRK3(LevelSet2D & levelS
 				tempDyPhi = wenoYPlus(i, j);
 			}
 			k2(i, j) = -velocityX(i, j)*dt*tempDxPhi - velocityY(i, j)*dt*tempDyPhi;
-			levelSet(i, j) = 3.0 / 4.0*levelSet(i, j) + 1.0 / 4.0*levelSet(i, j) + 1.0 / 4.0*k2(i, j);
+			levelSet(i, j) = 3.0 / 4.0*originLevelSet(i, j) + 1.0 / 4.0*levelSet(i, j) + 1.0 / 4.0*k2(i, j);
 		}
 	}
-
 	WENO5thApproxXMinus(levelSet.phi, wenoXMinus);
 	WENO5thApproxXPlus(levelSet.phi, wenoXPlus);
 	WENO5thApproxYMinus(levelSet.phi, wenoYMinus);

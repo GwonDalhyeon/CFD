@@ -31,12 +31,12 @@ ToMATLAB::ToMATLAB()
 
 ToMATLAB::~ToMATLAB()
 {
+	system("pause");
 	engClose(ME);
 }
 
 inline void ToMATLAB::Command(const char * command)
 {
-	system("pause");
 	engEvalString(ME, command);
 }
 

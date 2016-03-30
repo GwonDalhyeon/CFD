@@ -22,6 +22,13 @@ public:
 	double dt;
 	double cflCondition;
 
+	int innerIStart;
+	int innerJStart;
+	int innerIEnd;
+	int innerJEnd;
+	int innerIRes;
+	int innerJRes;
+
 	int ghostWidth;
 
 	int maxIteration;
@@ -33,8 +40,8 @@ public:
 	inline void InitialCondition(const int& example);
 	inline void VortexSolver(const int& example, const int& timeSteppingOrder);
 
-	inline void GenerateLinearSystem(Array2D<double>& matrixA);
-	inline void GenerateLinearSystem(const Field2D<double>& u, VectorND<double>& vectorB);
+	inline void GenerateLinearSystem(Array2D<double>& matrixA, const double & scaling);
+	inline void GenerateLinearSystem(const Field2D<double>& P, VectorND<double>& vectorB, const double & scaling);
 	inline void Stream2Velocity();
 	inline double AdaptiveTimeStep(const Field2D<double>& velocity1, const Field2D<double>& velocity2);
 	inline double DeltaFt(const double& ip);
@@ -54,6 +61,9 @@ inline void VortexSheet::InitialCondition(const int & example)
 {
 	if (example==1)
 	{
+		cout << "*************************" << endl;
+		cout << "    Vortex Sheet in 2D" << endl;
+		cout << "*************************" << endl;
 		grid = Grid2D(-1, 1, 101, -1, 1, 101);
 		levelSet = LevelSet2D(grid);
 		P = Field2D<double>(grid);
@@ -61,7 +71,7 @@ inline void VortexSheet::InitialCondition(const int & example)
 		velocityX = Field2D<double>(grid);
 		velocityY = Field2D<double>(grid);
 
-		cflCondition = 0.1;
+		cflCondition = 0.8;
 
 		maxIteration = 1000;
 		writeOutputIteration = 1;
@@ -79,6 +89,9 @@ inline void VortexSheet::InitialCondition(const int & example)
 	}
 	else if (example ==2)
 	{
+		cout << "*************************" << endl;
+		cout << "    Vortex Sheet Dipole" << endl;
+		cout << "*************************" << endl;
 		grid = Grid2D(-1, 1, 101, -1, 1, 101);
 		levelSet = LevelSet2D(grid);
 		P = Field2D<double>(grid);
@@ -86,12 +99,12 @@ inline void VortexSheet::InitialCondition(const int & example)
 		velocityX = Field2D<double>(grid);
 		velocityY = Field2D<double>(grid);
 		
-		cflCondition = 0.1;
+		cflCondition = 0.8;
 		
 		maxIteration = 1000;
 		writeOutputIteration = 1;
 
-		double eps = grid.dx;
+		double eps = 8*grid.dx;
 
 #pragma omp parallel for 
 		for (int i = grid.iStart; i <= grid.iEnd; i++)
@@ -114,150 +127,312 @@ inline void VortexSheet::InitialCondition(const int & example)
 
 inline void VortexSheet::VortexSolver(const int & example, const int & timeSteppingOrder)
 {
-	string fileName;
-	InitialCondition(example);
-	fileName = "phi0";
-	levelSet.phi.WriteFile(fileName);
+	string str;
+	const char*cmd;
+	double totalT = 0;
+	
 
-	Array2D<double> poissonMatrix(1, (grid.iRes - 2)*(grid.jRes - 2), 1, (grid.iRes - 2)*(grid.jRes - 2));
-	GenerateLinearSystem(poissonMatrix);
+	InitialCondition(example);
+	grid.Variable();
+	//P.Variable("P");
+	
+	innerIStart = grid.iStart;
+	innerJStart = grid.jStart + 1;
+	innerIEnd = grid.iEnd - 1;
+	innerJEnd = grid.jEnd - 1;
+	innerIRes = innerIEnd - innerIStart + 1;
+	innerJRes = innerJEnd - innerJStart + 1;
+	
+	Array2D<double> poissonMatrix(1, innerIRes*innerJRes, 1, innerIRes*innerJRes);
+	GenerateLinearSystem(poissonMatrix, -grid.dx*grid.dy);
 	cout << "Start CSR." << endl;
 	CSR<double> poissonCSR(poissonMatrix);
 	cout << "End CSR." << endl;
 
-	VectorND<double> vectorB((grid.iRes - 2)*(grid.jRes - 2));
+	VectorND<double> vectorB(innerIRes*innerJRes);
 
 
-	VectorND<double> stream((grid.iRes - 2)*(grid.jRes - 2));
+	VectorND<double> streamV(innerIRes*innerJRes);
 
-	int idx;
-	int innerIRes = grid.iRes - 2;
+	double eps = 8*grid.dx;
+	int idx;	
 
-
-	for (int i = 1; i <= maxIteration; i++)
+	//// Write Movie 1-3
+	//MATLAB.Command("writerobj = VideoWriter('WhereIsFile.avi');writerobj.FrameRate = 10;open(writerobj); ");
+	//MATLAB.Command("fig = figure('units','normalized','outerposition',[0 0 1 1])");
+	MATLAB.Variable("eps", eps);
+	MATLAB.Command("figure('units','normalized','outerposition',[0 0 1 1])");
+	levelSet.phi.Variable("phi0");
+	MATLAB.Command("subplot(1, 3, 1)");
+	MATLAB.Command("surf(X,Y,phi0)");
+	MATLAB.Command("subplot(1, 3, 2)");
+	str = string("contour(X, Y, phi0, [") + to_string(-eps / 2) + string(",") + to_string(eps / 2) + string("],'b');");
+	cmd = str.c_str();
+	MATLAB.Command(cmd);
+	MATLAB.Command("grid on");
+	str = string("title(['iteration : ', num2str(") + to_string(0) + string(")]);");
+	cmd = str.c_str();
+	MATLAB.Command(cmd);
+	MATLAB.Command("subplot(1, 3, 3)");
+	velocityX.Variable("velocityX");
+	velocityY.Variable("velocityY");
+	MATLAB.Command("quiver(X,Y,velocityX,velocityY);");
+	//for (int i = 1; i <= maxIteration; i++)
+	for (int i = 1; i <= 100; i++)
 	{
 
-		GenerateLinearSystem(P, vectorB);
-		stream = CG<double>(poissonMatrix, vectorB);
-
+		GenerateLinearSystem(P, vectorB, -grid.dx*grid.dy);
+		streamV = CG<double>(poissonCSR, vectorB, grid.dx);
+		//streamV.Variable("streamV");
 
 #pragma omp parallel for private(idx)
-		for (int i = grid.iStart + 1; i <= grid.iEnd - 1; i++)
+		for (int i = innerIStart; i <= innerIEnd; i++)
 		{
-			for (int j = grid.jStart + 1; j <= grid.jEnd - 1; j++)
+			streamFunction(i, grid.jStart) = 0;
+			streamFunction(i, grid.jEnd) = 0;
+			for (int j = innerJStart; j <= innerJEnd; j++)
 			{
-				idx = (i - 1) + (j - 1)*innerIRes;
-				P(i, j) = stream(idx);
+				idx = (i - innerIStart) + (j - innerJStart)*innerIRes;
+				streamFunction(i, j) = streamV(idx);
+
+				if (i==innerIStart)
+				{
+					streamFunction(grid.iEnd, j) = streamFunction(grid.iStart, j);
+				}
 			}
 		}
 
+		streamFunction.Variable("stream");
+
 		Stream2Velocity();
+		velocityX.Variable("velocityX");
+		velocityY.Variable("velocityY");
+		
 		dt = AdaptiveTimeStep(velocityX, velocityY);
+		totalT += dt;
 		AdvectionMethod2D<double>::levelSetPropagatingTVDRK3(levelSet, velocityX, velocityY, dt);
-		if (i%writeOutputIteration==0)
+
+		levelSet.phi.Variable("phi");
+		MATLAB.Command("subplot(1, 3, 1)");
+		MATLAB.Command("surf(X,Y,phi)");
+		MATLAB.Command("subplot(1, 3, 2)");
+		str = string("contour(X, Y, phi0, [") + to_string(-eps / 2) + string(",") + to_string(eps / 2) + string("],'b');");
+		cmd = str.c_str();
+		MATLAB.Command(cmd);
+		MATLAB.Command("hold on");
+		str = string("contour(X, Y, phi, [") + to_string(-eps / 2) + string(",") + to_string(eps / 2) + string("],'r');");
+		cmd = str.c_str();
+		MATLAB.Command(cmd);
+		MATLAB.Command("grid on");
+		MATLAB.Command("hold off");
+		str = string("title(['iteration : ', num2str(") + to_string(i) +string(")]);");
+		cmd = str.c_str();
+		MATLAB.Command(cmd);
+		MATLAB.Command("subplot(1, 3, 3)");
+		velocityX.Variable("velocityX");
+		velocityY.Variable("velocityY");
+		MATLAB.Command("quiver(X,Y,velocityX,velocityY);");
+		//// Write Movie 2-3
+		//MATLAB.Command("f = getframe(fig);writeVideo(writerobj,f);");
+#pragma omp parallel for 
+		for (int i = grid.iStart; i <= grid.iEnd; i++)
 		{
-			fileName = "velocityX" + to_string(i);
-			velocityX.WriteFile(fileName);
-
-			fileName = "velocityY" + to_string(i);
-			velocityY.WriteFile(fileName);
-
-			fileName = "phi" + to_string(i);
-			levelSet.phi.WriteFile(fileName);
-
-			fileName = "stream" + to_string(i);
-			P.WriteFile(fileName);
+			for (int j = grid.jStart; j <= grid.jEnd; j++)
+			{
+				if (example == 1)
+				{
+					P(i, j) = DeltaFt(levelSet(i, j));
+				}
+				else if (example == 2)
+				{
+					if (abs(levelSet(i, j))<8 * grid.dx)
+					{
+						P(i, j) = -PI / (2 * eps*eps)*sin(PI*levelSet(i, j) / eps);
+					}
+					else
+					{
+						P(i, j) = 0;
+					}
+				}
+			}
 		}
+
+		P.Variable("P");
+
+		//if (i%writeOutputIteration==0)
+		//{
+		//	fileName = "velocityX" + to_string(i);
+		//	velocityX.WriteFile(fileName);
+
+		//	fileName = "velocityY" + to_string(i);
+		//	velocityY.WriteFile(fileName);
+
+		//	fileName = "phi" + to_string(i);
+		//	levelSet.phi.WriteFile(fileName);
+
+		//	fileName = "stream" + to_string(i);
+		//	P.WriteFile(fileName);
+		//}
 	}
+	//// Write Movie 3-3
+	//MATLAB.Command("close(fig);close(writerobj);");
 }
 
 
 
-inline void VortexSheet::GenerateLinearSystem(Array2D<double>& matrixA)
+inline void VortexSheet::GenerateLinearSystem(Array2D<double>& matrixA, const double & scaling)
 {
 	cout << "Start Generate Linear System : matrix A" << endl;
 	int index, leftIndex, rightIndex, bottomIndex, topIndex;
-	int innerIRes = grid.iRes - 2;
-	int innerJRes = grid.jRes - 2;
 
 #pragma omp parallel for private(index, leftIndex, rightIndex, bottomIndex, topIndex)
-	for (int i = grid.iStart + 1; i <= grid.iEnd - 1; i++)
+	for (int j = innerJStart; j <= innerJEnd; j++)
 	{
-		for (int j = grid.jStart + 1; j <= grid.jEnd - 1; j++)
+		for (int i = innerIStart; i <= innerIEnd; i++)
 		{
-			index = (i - 1)*innerIRes*innerJRes + (i - 1) + (j - 1)*innerIRes*(innerIRes*innerJRes + 1);
-			leftIndex = (i - 1)*innerIRes*innerJRes + (i - 1 - 1) + (j - 1)*innerIRes*(innerIRes*innerJRes + 1);
-			rightIndex = (i - 1)*innerIRes*innerJRes + i + (j - 1)*innerIRes*(innerIRes*innerJRes + 1);
-			bottomIndex = (i - 1)*innerIRes*innerJRes + (i - 1) + (j - 1)*innerIRes*innerIRes*innerJRes + (j - 1 - 1)*innerIRes;
-			topIndex = (i - 1)*innerIRes*innerJRes + (i - 1) + (j - 1)*innerIRes*innerIRes*innerJRes + (j)*innerIRes;
+			index = (i - innerIStart)*innerIRes*innerJRes + (i - innerIStart) + (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart)*innerIRes;
+			leftIndex = (i - innerIStart)*innerIRes*innerJRes + (i - innerIStart - 1) + (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart)*innerIRes;
+			rightIndex = (i - innerIStart)*innerIRes*innerJRes + (i - innerIStart + 1) + (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart)*innerIRes;
+			bottomIndex = (i - innerIStart)*innerIRes*innerJRes + (i - innerIStart) + (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart - 1)*innerIRes;
+			topIndex = (i - innerIStart)*innerIRes*innerJRes + (i - innerIStart) + (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart + 1)*innerIRes;
 
-			matrixA(index) = +2 / grid.dx2 + 2 / grid.dy2;
 
-			if (i>grid.iStart + 1)
+			// Boundary condition.
+			if (j==innerJStart)
 			{
-				matrixA(leftIndex) = 1 / grid.dx2;
+				if (i == innerIStart)
+				{
+					leftIndex = (i - innerIStart)*innerIRes*innerJRes + (innerIEnd - innerIStart) + (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart)*innerIRes;
+				}
+				else if (i == innerIEnd)
+				{
+					rightIndex = (i - innerIStart)*innerIRes*innerJRes + (innerIStart - innerIStart) + (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart)*innerIRes;
+				}
+				matrixA(index) = scaling*(-2 * grid.oneOverdx2 - 2 * grid.oneOverdy2);
+				//matrixA(index) = scaling*(-2 * grid.oneOverdx2);
+				matrixA(leftIndex) = scaling * 1 * grid.oneOverdx2;
+				matrixA(rightIndex) = scaling * 1 * grid.oneOverdx2;
+				matrixA(topIndex) = scaling * 1 * grid.oneOverdy2;
 			}
-			if (i<grid.iEnd - 1)
+			//else if (j == innerJStart + 1)
+			//{
+			//	if (i == innerIStart)
+			//	{
+			//		leftIndex = (i - innerIStart)*innerIRes*innerJRes + (innerIEnd - innerIStart) + (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart)*innerIRes;
+			//	}
+			//	else if (i == innerIEnd)
+			//	{
+			//		rightIndex = (i - innerIStart)*innerIRes*innerJRes + (innerIStart - innerIStart) + (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart)*innerIRes;
+			//	}
+			//	matrixA(index) = scaling*(-2 * grid.oneOverdx2 - 2 * grid.oneOverdy2);
+			//	matrixA(leftIndex) = scaling * 1 * grid.oneOverdx2;
+			//	matrixA(rightIndex) = scaling * 1 * grid.oneOverdx2;
+			//	matrixA(topIndex) = scaling * 1 * grid.oneOverdy2;
+			//}
+			else if (j>innerJStart && j<innerJEnd)
 			{
-				matrixA(rightIndex) = 1 / grid.dx2;
+				if (i == innerIStart)
+				{
+					leftIndex = (i - innerIStart)*innerIRes*innerJRes + (innerIEnd - innerIStart) + (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart)*innerIRes;
+				}
+				else if (i == innerIEnd)
+				{
+					rightIndex = (i - innerIStart)*innerIRes*innerJRes + (innerIStart - innerIStart) + (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart)*innerIRes;
+				}
+				matrixA(index) = scaling*(-2 * grid.oneOverdx2 - 2 * grid.oneOverdy2);
+				matrixA(leftIndex) = scaling * 1 * grid.oneOverdx2;
+				matrixA(rightIndex) = scaling * 1 * grid.oneOverdx2;
+				matrixA(bottomIndex) = scaling * 1 * grid.oneOverdy2;
+				matrixA(topIndex) = scaling * 1 * grid.oneOverdy2;
 			}
-			if (j>grid.jStart + 1)
+			else if (j==innerJEnd)
 			{
-				matrixA(bottomIndex) = 1 / grid.dy2;
+				if (i == innerIStart)
+				{
+					leftIndex = (i - innerIStart)*innerIRes*innerJRes + (innerIEnd - innerIStart) + (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart)*innerIRes;
+				}
+				else if (i == innerIEnd)
+				{
+					rightIndex = (i - innerIStart)*innerIRes*innerJRes + (innerIStart - innerIStart) + (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart)*innerIRes;
+				}
+				matrixA(index) = scaling*(-2 * grid.oneOverdx2 - 2 * grid.oneOverdy2);
+				matrixA(leftIndex) = scaling * 1 * grid.oneOverdx2;
+				matrixA(rightIndex) = scaling * 1 * grid.oneOverdx2;
+				matrixA(bottomIndex) = scaling * 1 * grid.oneOverdy2;
 			}
-			if (j<grid.jEnd - 1)
-			{
-				matrixA(topIndex) = 1 / grid.dy2;
-			}
+	
 		}
 	}
 	cout << "End Generate Linear System : matrix A" << endl;
+	matrixA.Variable("A");
 }
 
 
-inline void VortexSheet::GenerateLinearSystem(const Field2D<double>& u, VectorND<double>& vectorB)
+inline void VortexSheet::GenerateLinearSystem(const Field2D<double>& P, VectorND<double>& vectorB, const double & scaling)
 {
 	int index;
-	int innerIRes = grid.iRes - 2;
-
 
 #pragma omp parallel for private(index)
-	for (int i = grid.iStart + 1; i <= grid.iEnd - 1; i++)
+	for (int i = innerIStart; i <= innerIEnd; i++)
 	{
-		for (int j = grid.jStart + 1; j <= grid.jEnd - 1; j++)
+		for (int j = innerJStart; j <= innerJEnd; j++)
 		{
-			index = (i - 1) + (j - 1)*innerIRes;
+			index = (i - innerIStart) + (j - innerJStart)*innerIRes;
 
-			vectorB(index) = -P(i, j);
+			vectorB(index) = scaling*(-P(i, j));
 
-			//if (i == grid.iStart + 1)
-			//{
-			//	vectorB(index) += -lambda* u(i - 1, j) / grid.dx2;
-			//}
-			//if (i == grid.iEnd - 1)
-			//{
-			//	vectorB(index) += -lambda* u(i + 1, j) / grid.dx2;
-			//}
-			//if (j == grid.jStart + 1)
-			//{
-			//	vectorB(index) += -lambda* u(i, j - 1) / grid.dy2;
-			//}
-			//if (j == grid.jEnd - 1)
-			//{
-			//	vectorB(index) += -lambda* u(i, j + 1) / grid.dy2;
-			//}
+			if (j == innerJStart)
+			{
+				//vectorB(index) += -Phi(i, innerJStart)*  grid.oneOver2dy;
+			}
 		}
 	}
+	//vectorB.Variable("B");
 }
 
 inline void VortexSheet::Stream2Velocity()
 {
+	Field2D<double> wenoXMinus(grid);
+	Field2D<double> wenoXPlus(grid);
+	Field2D<double> wenoYMinus(grid);
+	Field2D<double> wenoYPlus(grid);
+	AdvectionMethod2D<double>::WENO5th(streamFunction, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
+
+#pragma omp parallel for
 	for (int i = grid.iStart; i <= grid.iEnd; i++)
 	{
 		for (int j = grid.jStart; j <= grid.jEnd; j++)
 		{
-			velocityX(i, j) = -streamFunction.dyPhi(i, j);
-			velocityY(i, j) = streamFunction.dxPhi(i, j);
+			if (abs(wenoYMinus(i, j))<abs(wenoYPlus(i, j)))
+			{
+				velocityX(i, j) = -wenoYMinus(i, j);
+			}
+			else
+			{
+				velocityX(i, j) = -wenoYPlus(i, j);
+			}
+
+			if (i == grid.iStart)
+			{
+				velocityY(i, j) = wenoXPlus(i, j);
+				//velocityY(i, j) = (streamFunction(grid.iEnd - 1, j) - streamFunction(grid.iStart + 1, j))*grid.oneOver2dx;
+			}
+			else if (i == grid.iEnd)
+			{
+				velocityY(i, j) = wenoXMinus(i, j);
+				//velocityY(i, j) = (streamFunction(grid.iEnd - 1, j) - streamFunction(grid.iStart + 1, j))*grid.oneOver2dx;
+			}
+			else
+			{
+				if (abs(wenoXMinus(i, j))<abs(wenoXPlus(i, j)))
+				{
+					velocityY(i, j) = wenoXMinus(i, j);
+				}
+				else
+				{
+					velocityY(i, j) = wenoXPlus(i, j);
+				}
+			}
 		}
 	}
 }
@@ -282,13 +457,20 @@ inline double VortexSheet::AdaptiveTimeStep(const Field2D<double>& velocity1, co
 			}
 		}
 	}
-	return cflCondition*(grid.dx / maxVel1 + grid.dy / maxVel2);
+	return cflCondition*(grid.dx / max(maxVel1, maxVel2) + grid.dy / max(maxVel1, maxVel2));
 }
 
 
 
 inline double VortexSheet::DeltaFt(const double & ip)
 {
-	double eps =min(grid.dx,grid.dy);
-	return (1 + cos(PI*ip / eps)) / (2 * eps);
+	double eps = 3 * min(grid.dx, grid.dy);
+	if (abs(ip)<eps)
+	{
+		return (1 + cos(PI*ip / eps)) / (2 * eps);
+	}
+	else
+	{
+		return 0.0;
+	}
 }

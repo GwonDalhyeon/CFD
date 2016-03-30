@@ -25,11 +25,11 @@ void main()
 
 	//testVN.Variable("testVN");
 	
-	//VortexSheet vortex;
-	//vortex.VortexSolver(1, 0.1);
+	VortexSheet vortex;
+	vortex.VortexSolver(2, 0.1);
 
-	LevelSetAdvection levelSet;
-	levelSet.advectionSolver(4, false, false, true, 0.1);
+	//LevelSetAdvection levelSet;
+	//levelSet.advectionSolver(4, false, false, true, 0.1);
 
 	//EulerianFluidSolver2D Euler;
 	//Euler.FluidSolver(1, 1);

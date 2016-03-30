@@ -55,7 +55,89 @@ VectorND<TT> CG(const CSR<TT>& A, const VectorND<TT>& b)
 	{
 		temp1 = 0;
 		temp2 = 0;
-#pragma omp parallel for private (j) reduction(+:temp2)
+//#pragma omp parallel for private (j) reduction(+:temp2)
+		for (int i = 0; i < num; i++)
+		{
+			//A.indPrt
+			for (int n = A.indPrt[i]; n < A.indPrt[i + 1]; n++)
+			{
+				j = int(A.columns[n]);
+				temp2 = temp2 + p[i] * A.values[n] * p[j];
+			}
+		}
+		alpha = residualOld / temp2;
+
+		for (int i = 0; i < num; i++)
+		{
+			x[i] = x[i] + alpha*p[i];
+			temp = 0;
+#pragma omp parallel for private (j) reduction(+:temp) 
+			for (int n = A.indPrt[i]; n < A.indPrt[i + 1]; n++)
+			{
+				j = int(A.columns[n]);
+				temp = temp + A.values[n] * p[j];
+			}
+			rNew[i] = rOld[i] - alpha*temp;
+		}
+
+		residual = rNew.magnitude2();
+
+		temp = sqrt(abs(residual));
+
+		cout << k << " " << temp << endl;
+		if (temp < tolerance)
+		{
+			cout << "CG iterataion : " << k << endl;
+			cout << endl;
+			return x;
+		}
+
+		beta = residual / residualOld;
+#pragma omp parallel for
+		for (int i = 0; i < p.iLength; i++)
+		{
+			p[i] = rNew[i] + beta*p[i];
+		}
+		rOld = rNew;
+
+		residualOld = residual;
+
+	}
+
+	return x;
+
+}
+
+
+template <class TT>
+VectorND<TT> CG(const CSR<TT>& A, const VectorND<TT>& b, const double & tol)
+{
+	int num = A.rowNum;
+	double tolerance = tol;
+
+	VectorND<TT> rOld(num);
+	VectorND<TT> p(num);
+	VectorND<TT> rNew(num);
+	VectorND<TT> x(num);
+
+	int j;
+
+	rOld = b;
+	p = b;
+	x = 0;
+
+	double alpha = 0;
+	double beta = 0;
+	double temp1 = 0, temp2 = 0;
+	double temp = 0;
+	double residual;
+	TT residualOld = rOld.magnitude2();
+
+	for (int k = 0; k < 2 * num; k++)
+	{
+		temp1 = 0;
+		temp2 = 0;
+		#pragma omp parallel for private (j) reduction(+:temp2)
 		for (int i = 0; i < num; i++)
 		{
 			//A.indPrt
