@@ -1,6 +1,9 @@
 #pragma once
-#include <iostream>
-
+#include "CommonDef.h"
+#include "Grid2D.h"
+#include "Field2D.h"
+#include "CombineStructure.h"
+#include "LevelSet2D.h"
 #include "AdvectionMethod2D.h"
 
 class Reinitialzation
@@ -9,6 +12,8 @@ public:
 	Grid2D grid;
 	LevelSet2D exactLevelSet;
 	LevelSet2D levelSet;
+
+	double cflCondition;
 	double dt;
 	int maxIteration;
 	int writeIter;
@@ -16,11 +21,12 @@ public:
 	Reinitialzation();
 	~Reinitialzation();
 
-	void initialCondition(const int& example);
+	inline void InitialCondition(const int & example);
+	inline void ReinitializationSolver(const int & example);
 
-	void reinitializationSolver(const int& example);
-	void outputResult(const int& iter);
-	void outputResult(const int& iter, const string& method);
+	double AdaptiveTimeStep();
+
+	inline void OutputResult(const int & iter);
 private:
 
 };
@@ -33,12 +39,12 @@ Reinitialzation::~Reinitialzation()
 {
 }
 
-inline void Reinitialzation::initialCondition(const int& example)
+inline void Reinitialzation::InitialCondition(const int & example)
 {
 	grid = Grid2D(-2, 2, 101, -2, 2, 101);
 
-	dt = grid.dx*grid.dy;
-	maxIteration = 1000;
+	//dt = grid.dx*grid.dy;
+	maxIteration = 120;
 	writeIter = 10;
 
 	exactLevelSet = LevelSet2D(grid);
@@ -47,8 +53,13 @@ inline void Reinitialzation::initialCondition(const int& example)
 	double a = 0.7;
 	double r = 1.0;
 
-	if (example == 1) //// Exmple1. A circle with center at the origen and radius 1.
+	if (example == 1) 
 	{
+		cout << "*******************************************************" << endl;
+		cout << "    A circle with center at the origen and radius 1" << endl;
+		cout << "*******************************************************" << endl;
+
+
 #pragma omp parallel for
 		for (int i = grid.iStart; i <= grid.jEnd; i++)
 		{
@@ -59,8 +70,13 @@ inline void Reinitialzation::initialCondition(const int& example)
 			}
 		}
 	}
-	else if (example == 2) //// Exmple2. Two circles of radius r are placed at (+-a,0)  and a sqruar on the plane. Let 0<a<r, sh that the two circles intersect each other.
+	else if (example == 2) 
 	{
+		cout << "*******************************************************" << endl;
+		cout << "    Two circles of radius r are placed at (+-a,0)" << endl;
+		cout << "         and a sqruar on the plane. Let 0<a<r,"<< endl;
+		cout<<"        so that the two circles intersect each other." << endl;
+		cout << "*******************************************************" << endl;
 
 		double temp1, temp2, temp3;
 #pragma omp parallel for private(temp1,temp2,temp3)
@@ -88,8 +104,15 @@ inline void Reinitialzation::initialCondition(const int& example)
 		}
 
 	}
-	else if (example == 3) ////Exmple3.Two circles of radius r are placed at(+-a, 0) on the plane.Let 0<a<r, sh that the two circles intersect each other.
+	else if (example == 3) 
 	{
+
+		cout << "*******************************************************" << endl;
+		cout << "    Two circles of radius r are placed at(+-a, 0)" << endl;
+		cout << "         on the plane.Let 0<a<r," << endl;
+		cout << "        so that the two circles intersect each other." << endl;
+		cout << "*******************************************************" << endl;
+
 		//double temp1, temp2, temp3;
 		//for (int i = grid.iStart; i <= grid.jEnd; i++)
 		//{
@@ -153,104 +176,73 @@ inline void Reinitialzation::initialCondition(const int& example)
 	}
 }
 
-inline void Reinitialzation::reinitializationSolver(const int& example)
+inline void Reinitialzation::ReinitializationSolver(const int & example)
 {
-	initialCondition(example);
+	bool writeFile = false;
+	string str;
+	const char*cmd;
 
+	cflCondition = 0.8;
+	InitialCondition(example);
 
-	outputResult(0, "TVDRK");
+	if (writeFile)
+	{
+		str = "phi0";
+		levelSet.phi.WriteFile(str);
+	}
+
+	grid.Variable();
+	levelSet.phi.Variable("phi0");
+
+	MATLAB.Command("figure('units','normalized','outerposition',[0 0 1 1])");
+	levelSet.phi.Variable("phi0");
+	MATLAB.Command("subplot(1, 2, 1)");
+	MATLAB.Command("surf(X,Y,phi0)");
+	MATLAB.Command("subplot(1, 2, 2)");
+	MATLAB.Command("contour(X, Y, phi0, [0 0],'b');");
+	MATLAB.Command("grid on");
+	str = string("title(['iteration : ', num2str(") + to_string(0) + string(")]);");
+	cmd = str.c_str();
+	MATLAB.Command(cmd);
+
+	//OutputResult(0);
+
+	/////////////////////////
+	////                /////
+	////    Iteration   /////
+	////                /////
+	/////////////////////////
 	for (int i = 1; i <= maxIteration; i++)
 	{
 
-		cout << "Reinitialization TVD R-K : " << i << endl;
-		AdvectionMethod2D<double>::levelSetReinitializationTVDRK3(levelSet, 5 * dt);
-		if (i%writeIter == 0)
+		cout << "Reinitialization : " << i << endl;
+		dt = AdaptiveTimeStep();
+		AdvectionMethod2D<double>::levelSetReinitializationTVDRK3(levelSet, dt);
+		levelSet.phi.Variable("phi");
+
+		MATLAB.Command("subplot(1, 2, 1)");
+		MATLAB.Command("surf(X,Y,phi)");
+		MATLAB.Command("subplot(1, 2, 2)");
+		MATLAB.Command("plot(0,0);");
+		MATLAB.Command("contour(X, Y, phi, [0 0],'b');");
+		MATLAB.Command("hold on");
+		MATLAB.Command("contour(X, Y, phi);");
+		MATLAB.Command("contour(X, Y, phi0,[0 0],'r');");
+		MATLAB.Command("grid on");
+		MATLAB.Command("hold off");
+		str = string("title(['iteration : ', num2str(") + to_string(i) + string(")]);");
+		cmd = str.c_str();
+		MATLAB.Command(cmd);
+
+		if (writeFile && i%writeIter == 0)
 		{
-			outputResult(i, "TVDRK");
+			str = "phi" + to_string(i);
+			levelSet.phi.WriteFile(str);
 		}
 	}
-
-	//outputResult(0, "FE");
-	//for (int i = 1; i <= maxIteration; i++)
-	//{
-	//	cout << "Reinitialization Forward Euler : " << i << endl;
-	//	AdvectionMethod2D<double>::levelSetReinitializationFE(levelSet, 5 * dt);
-	//	if (i%writeIter == 0)
-	//	{
-	//		outputResult(i);
-	//		outputResult(i,"FE");
-	//	}
-	//}
-
-	//outputResult(0, "GS");
-	//for (int i = 1; i <= maxIteration; i++)
-	//{
-	//	cout << "Reinitialization Gauss Seidel : " << i << endl;
-	//	AdvectionMethod2D<double>::levelSetReinitializationGS(levelSet, 5 * dt);
-	//	if (i%writeIter == 0)
-	//	{
-	//		outputResult(i, "GS");
-	//	}
-	//}
-
-
 }
 
-inline void Reinitialzation::outputResult(const int & iter)
+inline double Reinitialzation::AdaptiveTimeStep()
 {
-	ofstream solutionFile1;
-	solutionFile1.open("D:\\Data/phi" + to_string(iter) + ".txt", ios::binary);
-	for (int i = grid.iStart; i <= grid.iEnd; i++)
-	{
-		for (int j = grid.jStart; j <= grid.jEnd; j++)
-		{
-			solutionFile1 << i << " " << j << " " << grid(i, j) << " " << levelSet(i, j) << endl;
-		}
-	}
-	solutionFile1.close();
-
-	if (iter == 0)
-	{
-		ofstream solutionFile2;
-		solutionFile2.open("D:\\Data/phi.txt", ios::binary);
-		for (int i = grid.iStart; i <= grid.iEnd; i++)
-		{
-			for (int j = grid.jStart; j <= grid.jEnd; j++)
-			{
-				solutionFile2 << i << " " << j << " " << grid(i, j) << " " << exactLevelSet(i, j) << endl;
-			}
-		}
-		solutionFile2.close();
-
-	}
-
-}
-
-inline void Reinitialzation::outputResult(const int & iter, const string & method)
-{
-	ofstream solutionFile1;
-	solutionFile1.open("D:\\Data/phi" + method + to_string(iter) + ".txt", ios::binary);
-	for (int i = grid.iStart; i <= grid.iEnd; i++)
-	{
-		for (int j = grid.jStart; j <= grid.jEnd; j++)
-		{
-			solutionFile1 << i << " " << j << " " << grid(i, j) << " " << levelSet(i, j) << endl;
-		}
-	}
-	solutionFile1.close();
-
-	if (iter == 0)
-	{
-		ofstream solutionFile2;
-		solutionFile2.open("D:\\Data/phi.txt", ios::binary);
-		for (int i = grid.iStart; i <= grid.iEnd; i++)
-		{
-			for (int j = grid.jStart; j <= grid.jEnd; j++)
-			{
-				solutionFile2 << i << " " << j << " " << grid(i, j) << " " << exactLevelSet(i, j) << endl;
-			}
-		}
-		solutionFile2.close();
-
-	}
+	return cflCondition*max(grid.dx, grid.dy);
 }

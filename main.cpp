@@ -24,11 +24,11 @@ void main()
 
 
 	
-	//VortexSheet vortex;
-	//vortex.VortexSolver(1);
+	VortexSheet vortex;
+	vortex.VortexSolver(1);
 
 	//LevelSetAdvection levelSet;
-	//levelSet.advectionSolver(4, false, false, true, 0.1);
+	//levelSet.advectionSolver(4, 0.1);
 
 	//EulerianFluidSolver2D Euler;
 	//Euler.FluidSolver(1, 1);
@@ -36,11 +36,11 @@ void main()
 	//LevelSetAdvection levelSet;
 	//levelSet.SurfaceReconstructionSplitBregman(7, false, false);
 
-	SurfaceReconst<double> surface;
-	surface.SurfaceReconstructionSolver(1);
+	//SurfaceReconst<double> surface;
+	//surface.SurfaceReconstructionSolver(1);
 	
 	//Reinitialzation reinitial;
-	//reinitial.reinitializationSolver(4);
+	//reinitial.ReinitializationSolver(1);
 	
 	//PoissonSolver testPoisson2d;
 	//testPoisson2d.solvePoissonJumpCondi(2, testGrid2d);

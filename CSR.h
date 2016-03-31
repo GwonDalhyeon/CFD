@@ -1,9 +1,5 @@
 #pragma once
 
-
-
-//#ifndef CSR_H
-//#define CSR_H
 #include "CommonDef.h"
 #include "VectorND.h"
 #include "Array2D.h"
@@ -52,7 +48,7 @@ inline CSR<TT>::CSR(const Array2D<TT>& ipArray)
 {
 	rowNum = ipArray.iRes;
 	colNum = ipArray.jRes;
-	indPrt = VectorND<int>(rowNum + 1);
+	VectorND<int> indPrt(rowNum + 1);
 
 	TT* tempVal = new TT[int(floor(sqrt(double(rowNum*colNum)))) * 10];
 	int* tempCol = new int[int(floor(sqrt(double(rowNum*colNum)))) * 10];
@@ -85,8 +81,8 @@ inline CSR<TT>::CSR(const Array2D<TT>& ipArray)
 	valueNum = tempIndex;
 	indPrt[rowNum] = tempIndex;
 
-	values = VectorND<TT>(valueNum);
-	columns = VectorND<int>(valueNum);
+	VectorND<TT> values(valueNum);
+	VectorND<int> columns(valueNum);
 
 #pragma omp parallel for
 	for (int i = 0; i < valueNum; i++)
@@ -120,6 +116,3 @@ inline std::ostream& operator<<(std::ostream& output, const CSR<TT>& ipCSR)
 
 	return output;
 }
-
-//#endif // !CSR_H
-

@@ -166,7 +166,7 @@ VectorND<TT> CG(const CSR<TT>& A, const VectorND<TT>& b, const double & tol)
 
 		temp = sqrt(abs(residual));
 
-		cout << k << " " << temp << endl;
+		//cout << k << " " << temp << endl;
 		if (temp < tolerance)
 		{
 			cout << "CG iterataion : " << k << endl;

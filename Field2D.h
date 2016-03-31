@@ -143,7 +143,6 @@ public:
 
 	static Field2D<Vector2D<double>> Gradient(const Field2D<double>& ipField);
 	static Field2D<double> Divegence(const Field2D<Vector2D<double>>& ipField);
-
 private:
 
 };

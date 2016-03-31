@@ -127,6 +127,7 @@ inline void VortexSheet::InitialCondition(const int & example)
 
 inline void VortexSheet::VortexSolver(const int & example)
 {
+	bool writeFile = false;
 	string str;
 	const char*cmd;
 	double totalT = 0;
@@ -156,6 +157,14 @@ inline void VortexSheet::VortexSolver(const int & example)
 
 	double eps = 8*grid.dx;
 	int idx;	
+
+
+	if (writeFile)
+	{
+		str = "phi0";
+		levelSet.phi.WriteFile(str);
+
+	}
 
 	//// Write Movie 1-3
 	//MATLAB.Command("writerobj = VideoWriter('WhereIsFile.avi');writerobj.FrameRate = 10;open(writerobj); ");
@@ -196,10 +205,11 @@ inline void VortexSheet::VortexSolver(const int & example)
 	////                /////
 	/////////////////////////
 	//for (int i = 1; i <= maxIteration; i++)
-	for (int i = 1; i <= 1; i++)
+	for (int i = 1; i <= 200; i++)
 	{
 
 		GenerateLinearSystem(P, vectorB, -grid.dx*grid.dy);
+		cout << "CG Start" << endl;
 		streamV = CG<double>(poissonCSR, vectorB, grid.dx);
 		//streamV.Variable("streamV");
 
@@ -219,16 +229,31 @@ inline void VortexSheet::VortexSolver(const int & example)
 				}
 			}
 		}
-
-		streamFunction.Variable("stream");
-
+		
 		Stream2Velocity();
 
+		streamFunction.Variable("stream");
 		velocityX.Variable("velocityX");
 		velocityY.Variable("velocityY");
 		
 		dt = AdaptiveTimeStep(velocityX, velocityY);
 		totalT += dt;
+
+		// Left and Right side
+		// Level set boundary condition
+#pragma omp parallel for
+		for (int j = grid.jStart; j <= grid.jEnd; j++)
+		{
+			if (velocityX(grid.iStart,j)>0)
+			{
+				levelSet(grid.iStart, j) = levelSet(grid.iEnd, j);
+			}
+			else
+			{
+				levelSet(grid.iEnd, j) = levelSet(grid.iStart, j);
+			}
+		}
+
 
 		AdvectionMethod2D<double>::levelSetPropagatingTVDRK3(levelSet, velocityX, velocityY, dt);
 		levelSet.phi.Variable("phi");
@@ -255,12 +280,12 @@ inline void VortexSheet::VortexSolver(const int & example)
 				}
 			}
 		}
+		P.Variable("P");
 
-
+		MATLAB.Command("subplot(1, 3, 1)");
+		MATLAB.Command("surf(X,Y,phi)");
 		if (example == 1)
 		{
-			MATLAB.Command("subplot(1, 3, 1)");
-			MATLAB.Command("surf(X,Y,phi)");
 			MATLAB.Command("subplot(1, 3, 2)");
 			MATLAB.Command("contour(X, Y, phi0, [0 0],'b');");
 			MATLAB.Command("hold on");
@@ -273,8 +298,6 @@ inline void VortexSheet::VortexSolver(const int & example)
 		}
 		else if (example == 2)
 		{
-			MATLAB.Command("subplot(1, 3, 1)");
-			MATLAB.Command("surf(X,Y,phi)");
 			MATLAB.Command("subplot(1, 3, 2)");
 			str = string("contour(X, Y, phi0, [") + to_string(-eps / 2) + string(",") + to_string(eps / 2) + string("],'b');");
 			cmd = str.c_str();
@@ -290,27 +313,24 @@ inline void VortexSheet::VortexSolver(const int & example)
 			MATLAB.Command(cmd);
 		}
 		MATLAB.Command("subplot(1, 3, 3)");
-		velocityX.Variable("velocityX");
-		velocityY.Variable("velocityY");
 		MATLAB.Command("quiver(X,Y,velocityX,velocityY);");
 
-		P.Variable("P");
 
 
-		//if (i%writeOutputIteration==0)
-		//{
-		//	fileName = "velocityX" + to_string(i);
-		//	velocityX.WriteFile(fileName);
+		if (writeFile && i%writeOutputIteration==0)
+		{
+			str = "velocityX" + to_string(i);
+			velocityX.WriteFile(str);
 
-		//	fileName = "velocityY" + to_string(i);
-		//	velocityY.WriteFile(fileName);
+			str = "velocityY" + to_string(i);
+			velocityY.WriteFile(str);
 
-		//	fileName = "phi" + to_string(i);
-		//	levelSet.phi.WriteFile(fileName);
+			str = "phi" + to_string(i);
+			levelSet.phi.WriteFile(str);
 
-		//	fileName = "stream" + to_string(i);
-		//	P.WriteFile(fileName);
-		//}
+			str = "stream" + to_string(i);
+			P.WriteFile(str);
+		}
 
 		//// Write Movie 2-3
 		//MATLAB.Command("f = getframe(fig);writeVideo(writerobj,f);");
@@ -390,7 +410,7 @@ inline void VortexSheet::GenerateLinearSystem(Array2D<double>& matrixA, const do
 		}
 	}
 	cout << "End Generate Linear System : matrix A" << endl;
-	matrixA.Variable("A");
+	//matrixA.Variable("A");
 }
 
 
