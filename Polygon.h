@@ -70,7 +70,7 @@ inline Vector2D<Vector2D<double>> Polygon2D::EdgePoint(const int & edge)
 
 	Vector2D<Vector2D<double>> returnEdge;
 	returnEdge(0) = Vertices(edge);
-	returnEdge(1) = Vertices((edge + 1) % nGon);
+	returnEdge(1) = Vertices(edge % nGon + 1);
 
 	return returnEdge;
 }
@@ -78,7 +78,7 @@ inline Vector2D<Vector2D<double>> Polygon2D::EdgePoint(const int & edge)
 inline Vector2D<int> Polygon2D::EdgeIndex(const int & edge)
 {
 	assert(edge >= 1 || edge <= nGon);
-	return Vector2D<int>(VerticesIndex(edge), VerticesIndex((edge + 1) % nGon));
+	return Vector2D<int>(VerticesIndex(edge), VerticesIndex(edge% nGon + 1));
 }
 
 inline double Polygon2D::Area()

@@ -18,15 +18,40 @@ void main()
 	MATLAB.Command("clc; clear all; close all;");
 	MATLAB.Command("workspace");
 	
-	Polygon2D poly(4);
-	poly(1) = Vector2D<double>(0, 0);
-	poly(2) = Vector2D<double>(1, 0);
-	poly(3) = Vector2D<double>(1, 2);
-	poly(4) = Vector2D<double>(-1, 1);
+	int numP = 15;
+	VectorND<Vector2D<double>>pointCloud(1, numP);
+	Vector2D<double> tempVector;
+	srand(time(NULL));
+	//for (int i = 0; i <= 4; i++)
+	//{
+	//	pointCloud(3 * i + 1) = Vector2D<double>(i, 0);
+	//	pointCloud(3 * i + 2) = Vector2D<double>(i, 1);
+	//	pointCloud(3 * i + 3) = Vector2D<double>(i, 2);
 
-	cout << poly.EdgePoint(1) << endl;
-	cout << poly.Area() << endl;
+	//}
 
+	for (int i = 1; i <= numP; i++)
+	{
+		tempVector = Vector2D<double>(double(rand()) / double(RAND_MAX), double(rand()) / double(RAND_MAX)) - 0.5;
+		pointCloud(i) = (tempVector);
+		for (int j = i; j >= 2; j--)
+		{
+			if (pointCloud(j).x < pointCloud(j-1).x)
+			{
+				tempVector = pointCloud(j);
+				pointCloud(j) = pointCloud(j - 1);
+				pointCloud(j - 1) = tempVector;
+			}
+			else
+			{
+				continue;
+			}
+		}
+		
+	}
+
+	//VectorND<Polygon2D> DelTri = DelaunayTriangulate(pointCloud);
+	DelaunayTriangulate(pointCloud);
 	
 //	int omp_get_max_threads(void);
 //	void omp_set_num_threads(int);
