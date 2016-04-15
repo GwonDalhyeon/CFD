@@ -12,14 +12,15 @@ template<class TT>
 void VecND2DVariable(const char * varName, const VectorND<Vector2D<TT>>& ipVec)
 {
 	int rowNum = ipVec.iLength;
+	//double* pointxy = new double[10000];
 	double* pointxy = new double[rowNum * 2];
 	mxArray* dataArray = mxCreateDoubleMatrix(rowNum, 2, mxREAL);
 
-#pragma omp parallel for
-	for (int i = 0; i < rowNum; i++)
+//#pragma omp parallel for
+	for (int i = ipVec.iStart; i <= ipVec.iEnd; i++)
 	{
-		pointxy[i] = double(ipVec[i].x);;
-		pointxy[i + rowNum] = double(ipVec[i].y);
+		pointxy[i - ipVec.iStart] = double(ipVec(i).x);;
+		pointxy[i - ipVec.iStart + rowNum] = double(ipVec(i).y);
 	}
 
 	memcpy((void*)mxGetPr(dataArray), (void*)pointxy, sizeof(double) * rowNum * 2);
@@ -45,9 +46,9 @@ void ArrayVec2DVariable(const char * varName, const Array2D<Vector2D<TT>>& ipArr
 	
 	string strX = string(varName) + "X";
 	const char* varNameX = strX.c_str();
-	tempArray1.Variable(varNameX, tempArray1);
+	tempArray1.Variable(varNameX);
 
 	string strY = string(varName) + "Y";
 	const char* varNameY = strX.c_str();
-	tempArray2.Variable(varNameY, tempArray2);
+	tempArray2.Variable(varNameY);
 }

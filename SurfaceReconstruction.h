@@ -38,14 +38,12 @@ public:
 	SurfaceReconst();
 	~SurfaceReconst();
 
-	
+	void InitialCondition(int example);
 
 	// surface Reconstruction using Variational Level Set Method.
-	void InitialCondition(int example);
 	void SurfaceReconstructionSolver(int example);
 
 
-	void Distance2Data();
 	double Distance2Data(const int& i, const int& j);
 	void ExactDistance();
 	void SweepingDistance();
@@ -64,12 +62,24 @@ public:
 	double AdaptiveTimeStep(const Field2D<double>& velocity1);
 	double AdaptiveTimeStep(const Field2D<double>& velocity1, const Field2D<double>& velocity2);
 
+
+
 	//////////////////////////////////////////////////////////////////////////////
 	//// Surface reconstruction : Split Bregman Method
 	//// Notation : Geodesic Application of the Split Bregman Method ... Osher.
-	void SurfaceReconstructionSplitBregman(const int & example, const bool & propa, const bool & reinitial, const bool & surfReconst);
-	void GenerateLinearSystem(Array2D<double>& matrixA);
-	void GenerateLinearSystem(const Field2D<double>& u, const Field2D<double>& f, const Field2D<Vector2D<double>>& d, const Field2D<Vector2D<double>>& b, VectorND<double>& vectorB);
+
+	int innerIStart;
+	int innerJStart;
+	int innerIEnd;
+	int innerJEnd;
+	int innerIRes;
+	int innerJRes;
+
+	void SurfaceReconstructionSplitBregman(const int & example);
+
+	void InitialF(const int & example, Field2D<double>& f);
+	void GenerateLinearSystem(Array2D<double>& matrixA, const double & scaling);
+	void GenerateLinearSystem(const Field2D<double>& u, const Field2D<double>& f, const Field2D<Vector2D<double>>& d, const Field2D<Vector2D<double>>& b, VectorND<double>& vectorB, const double & scaling);
 	void OptimalU(const Field2D<double>& f, const Field2D<Vector2D<double>>& d, const Field2D<Vector2D<double>>& b, const CSR<double>& csrA, Field2D<double>& u);
 	void OptimalD(const Field2D<Vector2D<double>>& gradientU, const Field2D<Vector2D<double>>& b, Field2D<Vector2D<double>>& d);
 	void OptimalB(const Field2D<Vector2D<double>>& gradientU, const Field2D<Vector2D<double>>& d, Field2D<Vector2D<double>>& b);
@@ -102,7 +112,7 @@ inline void SurfaceReconst<TT>::InitialCondition(int example)
 		cout << "              Good Initial Level Set." << endl;
 		cout << "******************************************************" << endl;
 
-		grid = Grid2D(0, 1, 101, 0, 1, 101);
+		grid = Grid2D(0, 1, 7, 0, 1, 7);
 		levelSet = LevelSet2D(grid);
 		distance = Field2D<double>(grid);
 		//distance.dataArray = 100;
@@ -116,6 +126,9 @@ inline void SurfaceReconst<TT>::InitialCondition(int example)
 		LpNorm = 2;
 		distanceThreshold = 10 * grid.dx;
 		curvatureThreshold = (grid.xMax - grid.xMin) * 10;
+
+		lambda = 0.5;
+		mu = 10e-5;
 
 		for (int i = 0; i < givenPointNum; i++)
 		{
@@ -187,6 +200,9 @@ inline void SurfaceReconst<TT>::InitialCondition(int example)
 		distanceThreshold = 10 * grid.dx;
 		curvatureThreshold = (grid.xMax - grid.xMin) * 10;
 
+		lambda = 0.5;
+		mu = 10e-5;
+
 		for (int i = 0; i < givenPointNum; i++)
 		{
 			givenPoint(i) = 0.25*Vector2D<double>(cos(2 * PI*i / givenPointNum), sin(2 * PI*i / givenPointNum)) + 0.5 + grid.dx / 2;
@@ -246,6 +262,9 @@ inline void SurfaceReconst<TT>::InitialCondition(int example)
 		LpNorm = 2;
 		distanceThreshold = 10 * grid.dx;
 		curvatureThreshold = (grid.xMax - grid.xMin) * 10;
+
+		lambda = 0.5;
+		mu = 10e-5;
 
 		Vector2D<double> point1(0.6, 0.4);
 		Vector2D<double> point2(0.4, 0.6);
@@ -313,6 +332,9 @@ inline void SurfaceReconst<TT>::InitialCondition(int example)
 		distanceThreshold = 10 * grid.dx;
 		curvatureThreshold = (grid.xMax - grid.xMin) * 10;
 
+		lambda = 0.5;
+		mu = 10e-5;
+
 		Vector2D<double> point1(0.6, 0.4);
 		Vector2D<double> point2(0.4, 0.6);
 
@@ -371,6 +393,9 @@ inline void SurfaceReconst<TT>::InitialCondition(int example)
 		LpNorm = 2;
 		distanceThreshold = 10 * grid.dx;
 		curvatureThreshold = (grid.xMax - grid.xMin) * 10;
+
+		lambda = 0.5;
+		mu = 10e-5;
 
 		Vector2D<double> point1(0.6, 0.4);
 		Vector2D<double> point2(0.4, 0.6);
@@ -493,9 +518,9 @@ inline void SurfaceReconst<TT>::SurfaceReconstructionSolver(int example)
 	if (writeFile)
 	{
 		str = "distance";
-		distance.WriteFile(str.c_str);
+		distance.WriteFile("distance");
 		str = "pointData";
-		givenPoint.WriteFile(str.c_str);
+		givenPoint.WriteFile("pointData");
 	}
 	
 	
@@ -573,8 +598,8 @@ inline void SurfaceReconst<TT>::SurfaceReconstructionSolver(int example)
 
 		if (writeFile)
 		{
-			str = "velocity" + to_string(iter);
-			reconstructionVelocity.WriteFile(str.c_str);
+			str = "velocity" + to_string(i);
+			velocity.WriteFile(str);
 		}
 		
 		dt = AdaptiveTimeStep();
@@ -587,20 +612,14 @@ inline void SurfaceReconst<TT>::SurfaceReconstructionSolver(int example)
 		if (i%writeIter && writeFile)
 		{
 			str = "phi" + to_string(i);
-			levelSet.phi.WriteFile(str.c_str);
+			levelSet.phi.WriteFile(str);
 		}
 		
 
 		cout << endl;
 	}
-	OutputResult(i);
 }
 
-template<class TT>
-inline void SurfaceReconst<TT>::Distance2Data()
-{
-
-}
 
 template<class TT>
 inline double SurfaceReconst<TT>::Distance2Data(const int & i, const int & j)
@@ -890,93 +909,143 @@ inline double SurfaceReconst<TT>::AdaptiveTimeStep(const Field2D<double>& veloci
 }
 
 template<class TT>
-inline void SurfaceReconst<TT>::SurfaceReconstructionSplitBregman(const int & example, const bool & propa, const bool & reinitial, const bool & surfReconst)
+inline void SurfaceReconst<TT>::SurfaceReconstructionSplitBregman(const int & example)
 {
+
+	bool writeFile = false;
+	string str;
+	const char* cmd;
+
 	InitialCondition(example);
 
-	Field2D<Vector2D<double>> b = Field2D<Vector2D<double>>(grid);
-	Field2D<Vector2D<double>> d = Field2D<Vector2D<double>>(grid);
-	Field2D<Vector2D<double>> gradientU = Field2D<Vector2D<double>>(grid);;
-	Field2D<double> f = Field2D<double>(grid);
+	Field2D<Vector2D<double>> b(grid);
+	Field2D<Vector2D<double>> d(grid);
+	Field2D<Vector2D<double>> gradientU(grid);;
+	Field2D<double> f(grid);
 
-	distance = distance;
-#pragma omp parallel for
-	for (int i = distance.iStart; i <= distance.iEnd; i++)
+	InitialF(example, f);
+
+
+	f.Variable("aaaa");
+
+	if (writeFile)
 	{
-		for (int j = distance.jStart; j <= distance.jEnd; j++)
-		{
-			distance(i, j) = -distance(i, j);
-		}
+		str = "distance";
+		distance.WriteFile("distance");
+		str = "pointData";
+		givenPoint.WriteFile("pointData");
 	}
 
-	Array2D<double> matrixA = Array2D<double>(1, (grid.iRes - 2)*(grid.jRes - 2), 1, (grid.iRes - 2)*(grid.jRes - 2));
-	GenerateLinearSystem(matrixA);
+
+	grid.Variable();
+	distance.Variable("distance");
+	VecND2DVariable("pointData", givenPoint);
+	levelSet.phi.Variable("phi0");
+
+	if (writeFile)
+	{
+		givenPoint.WriteFile("pointData");
+		distance.WriteFile("distance");
+		levelSet.phi.WriteFile("phi0");
+	}
+
+	innerIStart = grid.iStart + 1;
+	innerJStart = grid.jStart + 1;
+	innerIEnd = grid.iEnd - 1;
+	innerJEnd = grid.jEnd - 1;
+	innerIRes = innerIEnd - innerIStart + 1;
+	innerJRes = innerJEnd - innerJStart + 1;;
+
+	
+
+	Array2D<double> matrixA(innerIStart, innerIRes*innerJRes, innerJStart, innerIRes*innerJRes);
+	GenerateLinearSystem(matrixA, 1);
+	matrixA.Variable("A");
+
 	cout << "Start CSR." << endl;
 	CSR<double> csrA(matrixA);
 	cout << "End CSR." << endl;
 
-	string fileName;
-
-	fileName = "pointData" + to_string(0);
-	givenPoint.WriteFile(fileName);
-	fileName = "distance" + to_string(0);
-	distance.WriteFile(fileName);
-	fileName = "phi" + to_string(0);
-	levelSet.phi.WriteFile(fileName);
-
-
-
+	
 	int maxIter = 20;
-	for (int i = 1; i < maxIter; i++)
+	for (int i = 1; i < 2; i++)
 	{
 		OptimalU(distance, d, b, csrA, levelSet.phi);
+		levelSet.phi.Variable("u");
+
 		gradientU = Field2D<Vector2D<double>>::Gradient(levelSet.phi);
+		ArrayVec2DVariable("grad", gradientU.dataArray);
+
 		OptimalD(gradientU, b, d);
+
 		OptimalB(gradientU, d, b);
 
-		fileName = "phi" + to_string(i);
-		levelSet.phi.WriteFile(fileName);
-
+		if (WriteFile)
+		{
+			str = "phi" + to_string(i);
+			levelSet.phi.WriteFile(str);
+		}
 	}
 
 }
 
 template<class TT>
-inline void SurfaceReconst<TT>::GenerateLinearSystem(Array2D<double>& matrixA)
+inline void SurfaceReconst<TT>::InitialF(const int & example, Field2D<double>& f)
+{
+	if (example == 1)
+	{
+#pragma omp parallel for
+		for (int i = f.iStart; i <= f.iEnd; i++)
+		{
+			for (int j = f.jStart; j <= f.jEnd; j++)
+			{
+				if ((f.grid(i,j)- 0.5 - grid.dx / 2).magnitude()<0.25)
+				{
+					f(i, j) = 1;
+				}
+				else
+				{
+					f(i, j) = 0;
+				}
+			}
+		}
+	}
+}
+
+template<class TT>
+inline void SurfaceReconst<TT>::GenerateLinearSystem(Array2D<double>& matrixA, const double & scaling)
 {
 	cout << "Start Generate Linear System : matrix A" << endl;
 	int index, leftIndex, rightIndex, bottomIndex, topIndex;
-	int innerIRes = grid.iRes - 2;
-	int innerJRes = grid.jRes - 2;
 
 #pragma omp parallel for private(index, leftIndex, rightIndex, bottomIndex, topIndex)
-	for (int i = grid.iStart + 1; i <= grid.iEnd - 1; i++)
+	for (int i = innerIStart; i <= innerIEnd; i++)
 	{
-		for (int j = grid.jStart + 1; j <= grid.jEnd - 1; j++)
+		for (int j = innerJStart; j <= innerJEnd; j++)
 		{
-			index = (i - 1)*innerIRes*innerJRes + (i - 1) + (j - 1)*innerIRes*(innerIRes*innerJRes + 1);
-			leftIndex = (i - 1)*innerIRes*innerJRes + (i - 1 - 1) + (j - 1)*innerIRes*(innerIRes*innerJRes + 1);
-			rightIndex = (i - 1)*innerIRes*innerJRes + i + (j - 1)*innerIRes*(innerIRes*innerJRes + 1);
-			bottomIndex = (i - 1)*innerIRes*innerJRes + (i - 1) + (j - 1)*innerIRes*innerIRes*innerJRes + (j - 1 - 1)*innerIRes;
-			topIndex = (i - 1)*innerIRes*innerJRes + (i - 1) + (j - 1)*innerIRes*innerIRes*innerJRes + (j)*innerIRes;
+			index = (i - innerIStart)*innerIRes*innerJRes + (i - innerIStart) + (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart)*innerIRes;
+			leftIndex = (i - innerIStart)*innerIRes*innerJRes + (i - innerIStart - 1) + (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart)*innerIRes;
+			rightIndex = (i - innerIStart)*innerIRes*innerJRes + (i - innerIStart + 1) + (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart)*innerIRes;
+			bottomIndex = (i - innerIStart)*innerIRes*innerJRes + (i - innerIStart) + (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart - 1)*innerIRes;
+			topIndex = (i - innerIStart)*innerIRes*innerJRes + (i - innerIStart) + (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart + 1)*innerIRes;
 
-			matrixA(index) = -(mu - 4 * lambda / grid.dx2);
+			matrixA(index) = scaling * (mu + 4 * lambda * grid.oneOverdx2);
 
-			if (i>grid.iStart + 1)
+			if (i>innerIStart)
 			{
-				matrixA(leftIndex) = lambda / grid.dx2;
+				matrixA(leftIndex) = scaling * (-lambda * grid.oneOverdx2);
 			}
-			if (i<grid.iEnd - 1)
+			if (i<innerIEnd)
 			{
-				matrixA(rightIndex) = lambda / grid.dx2;
+				matrixA(rightIndex) = scaling * (-lambda * grid.oneOverdx2);
 			}
-			if (j>grid.jStart + 1)
+			if (j>innerJStart)
 			{
-				matrixA(bottomIndex) = lambda / grid.dx2;
+				matrixA(bottomIndex) = scaling * (-lambda * grid.oneOverdy2);
 			}
-			if (j<grid.jEnd - 1)
+			if (j<innerJEnd)
 			{
-				matrixA(topIndex) = lambda / grid.dx2;
+				matrixA(topIndex) = scaling * (-lambda * grid.oneOverdy2);
 			}
 		}
 	}
@@ -984,39 +1053,38 @@ inline void SurfaceReconst<TT>::GenerateLinearSystem(Array2D<double>& matrixA)
 }
 
 template<class TT>
-inline void SurfaceReconst<TT>::GenerateLinearSystem(const Field2D<double>& u, const Field2D<double>& f, const Field2D<Vector2D<double>>& d, const Field2D<Vector2D<double>>& b, VectorND<double>& vectorB)
+inline void SurfaceReconst<TT>::GenerateLinearSystem(const Field2D<double>& u, const Field2D<double>& f, const Field2D<Vector2D<double>>& d, const Field2D<Vector2D<double>>& b, VectorND<double>& vectorB, const double & scaling)
 {
 	int index;
-	int innerIRes = grid.iRes - 2;
 
 	Field2D<Vector2D<double>> temp(grid);
 	temp.dataArray = b.dataArray - d.dataArray;
 	Field2D<double> div = Field2D<double>::Divegence(temp);
 
-#pragma omp parallel for
-	for (int i = grid.iStart + 1; i <= grid.iEnd - 1; i++)
+#pragma omp parallel for private(index)
+	for (int i = innerIStart; i <= innerIEnd; i++)
 	{
-		for (int j = grid.jStart + 1; j <= grid.jEnd - 1; j++)
+		for (int j = innerJStart; j <= innerJEnd; j++)
 		{
-			index = (i - 1) + (j - 1)*innerIRes;
+			index = (i - innerIStart) + (j - innerJStart)*innerIRes;
 
-			vectorB(index) = -(mu*f(i, j) + lambda*div(i, j));
+			vectorB(index) = scaling * (mu*f(i, j) + lambda*div(i, j));
 
-			if (i == grid.iStart + 1)
+			if (i == innerIStart)
 			{
-				vectorB(index) += -lambda* u(i - 1, j) / grid.dx2;
+				vectorB(index) += scaling * lambda* u(i - 1, j) * grid.oneOverdx2;
 			}
-			if (i == grid.iEnd - 1)
+			if (i == innerIEnd)
 			{
-				vectorB(index) += -lambda* u(i + 1, j) / grid.dx2;
+				vectorB(index) += scaling * lambda* u(i + 1, j) * grid.oneOverdx2;
 			}
-			if (j == grid.jStart + 1)
+			if (j == innerJStart)
 			{
-				vectorB(index) += -lambda* u(i, j - 1) / grid.dy2;
+				vectorB(index) += scaling * lambda* u(i, j - 1) * grid.oneOverdy2;
 			}
-			if (j == grid.jEnd - 1)
+			if (j == innerJEnd)
 			{
-				vectorB(index) += -lambda* u(i, j + 1) / grid.dy2;
+				vectorB(index) += scaling * lambda* u(i, j + 1) * grid.oneOverdy2;
 			}
 		}
 	}
@@ -1028,41 +1096,25 @@ inline void SurfaceReconst<TT>::OptimalU(const Field2D<double>& f, const Field2D
 	cout << "Start Optimal U" << endl;
 
 
-	VectorND<double> vectorB = VectorND<double>((u.iRes - 2)*(u.jRes - 2));
-	GenerateLinearSystem(u, f, d, b, vectorB);
-	ofstream solutionFile1;
-	//solutionFile1.open("D:\\Data/vectorB.txt", ios::binary);
-	//for (int i = 0; i <= vectorB.iEnd; i++)
-	//{
-	//		solutionFile1 << vectorB(i) << endl;
-	//}
-	//solutionFile1.close();
+	VectorND<double> vectorB(innerIRes*innerJRes);
+	GenerateLinearSystem(u, f, d, b, vectorB, 1);
+	vectorB.Variable("b");
 
-	VectorND<double> uStar = CG(csrA, vectorB);
+	VectorND<double> uStar(innerIRes*innerJRes);
+	uStar = CG(csrA, vectorB, grid.dx*grid.dy);
+	uStar.Variable("uStar");
 
 	int idx;
-	int innerIRes = u.iRes - 2;
 
 #pragma omp parallel for private(idx)
 	for (int i = u.iStart + 1; i <= u.iEnd - 1; i++)
 	{
 		for (int j = u.jStart + 1; j <= u.jEnd - 1; j++)
 		{
-			idx = (i - 1) + (j - 1)*innerIRes;
+			idx = (i - innerIStart) + (j - innerJStart)*innerIRes;
 			u(i, j) = uStar(idx);
 		}
 	}
-
-
-	solutionFile1.open("D:\\Data/innerU.txt", ios::binary);
-	for (int i = grid.iStart + 1; i <= grid.iEnd - 1; i++)
-	{
-		for (int j = grid.jStart + 1; j <= grid.jEnd - 1; j++)
-		{
-			solutionFile1 << i << " " << j << " " << grid(i, j) << " " << u(i, j) << endl;
-		}
-	}
-	solutionFile1.close();
 
 	cout << "End Optimal U" << endl;
 	cout << endl;

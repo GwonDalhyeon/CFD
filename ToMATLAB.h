@@ -18,8 +18,7 @@ public:
 	template<class TT>
 	void Variable(const char * varName, const TT & values);
 	template<class TT>
-	void Variable(const char * varName, const int & rowNum, const int &colNum, const TT * values);
-	//void Variable(const char * varName, const int & rowNum, const int &colNum, const int * values);
+	void Variable(const char * varName, const int & rowNum, const int & colNum, const TT * values);
 private:
 
 };

@@ -591,9 +591,9 @@ inline TT dotProduct(const VectorND<TT>& ipVector1, const VectorND<TT>& ipVector
 template<class TT>
 inline std::ostream & operator<<(std::ostream & output, const VectorND<TT>& ipVector)
 {
-	for (int i = 0; i < iLength; i++)
+	for (int i = ipVector.iStart; i <= ipVector.iEnd; i++)
 	{
-		output << ipVector.index(i) << " " << ipVector.values[i] << endl;;
+		output << ipVector.index(i) << " " << ipVector(i) << endl;;
 	}
 	return output;
 }

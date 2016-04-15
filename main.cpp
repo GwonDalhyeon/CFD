@@ -4,16 +4,30 @@
 #include "SurfaceReconstruction.h"
 #include "LevelSetReinitializationProblem.h"
 
+#include "PointIntegralMethod.h"
+
 #include "LevelSetAdvectionProblem.h"
 #include "EulerianFluidSolver.h"
 
 #include "VortexSheet.h"
 #include "ToMATLAB.h"
+
+
 void main()
 {
-	MATLAB.Command("clear all;close all;");
+	MATLAB.Command("clc; clear all; close all;");
 	MATLAB.Command("workspace");
+	
+	Polygon2D poly(4);
+	poly(1) = Vector2D<double>(0, 0);
+	poly(2) = Vector2D<double>(1, 0);
+	poly(3) = Vector2D<double>(1, 2);
+	poly(4) = Vector2D<double>(-1, 1);
 
+	cout << poly.EdgePoint(1) << endl;
+	cout << poly.Area() << endl;
+
+	
 //	int omp_get_max_threads(void);
 //	void omp_set_num_threads(int);
 //	cout << omp_get_max_threads() << endl;
@@ -22,10 +36,11 @@ void main()
 //
 //	cout << omp_get_thread_num() << endl;
 
+	//PointIntegralMethod<double> PIM;
+	//PIM.PointIntegralMethodnSolver(1);
 
-	
-	VortexSheet vortex;
-	vortex.VortexSolver(1);
+	//VortexSheet vortex;
+	//vortex.VortexSolver(1);
 
 	//LevelSetAdvection levelSet;
 	//levelSet.advectionSolver(4, 0.1);
@@ -33,8 +48,10 @@ void main()
 	//EulerianFluidSolver2D Euler;
 	//Euler.FluidSolver(1, 1);
 
-	//LevelSetAdvection levelSet;
-	//levelSet.SurfaceReconstructionSplitBregman(7, false, false);
+
+	//SurfaceReconst<double> surface;
+	//surface.SurfaceReconstructionSplitBregman(1);
+
 
 	//SurfaceReconst<double> surface;
 	//surface.SurfaceReconstructionSolver(1);
