@@ -17,42 +17,7 @@ void main()
 {
 	MATLAB.Command("clc; clear all; close all;");
 	MATLAB.Command("workspace");
-	
-	int numP = 15;
-	VectorND<Vector2D<double>>pointCloud(1, numP);
-	Vector2D<double> tempVector;
-	srand(time(NULL));
-	//for (int i = 0; i <= 4; i++)
-	//{
-	//	pointCloud(3 * i + 1) = Vector2D<double>(i, 0);
-	//	pointCloud(3 * i + 2) = Vector2D<double>(i, 1);
-	//	pointCloud(3 * i + 3) = Vector2D<double>(i, 2);
 
-	//}
-
-	for (int i = 1; i <= numP; i++)
-	{
-		tempVector = Vector2D<double>(double(rand()) / double(RAND_MAX), double(rand()) / double(RAND_MAX)) - 0.5;
-		pointCloud(i) = (tempVector);
-		for (int j = i; j >= 2; j--)
-		{
-			if (pointCloud(j).x < pointCloud(j-1).x)
-			{
-				tempVector = pointCloud(j);
-				pointCloud(j) = pointCloud(j - 1);
-				pointCloud(j - 1) = tempVector;
-			}
-			else
-			{
-				continue;
-			}
-		}
-		
-	}
-
-	//VectorND<Polygon2D> DelTri = DelaunayTriangulate(pointCloud);
-	DelaunayTriangulate(pointCloud);
-	
 //	int omp_get_max_threads(void);
 //	void omp_set_num_threads(int);
 //	cout << omp_get_max_threads() << endl;
@@ -61,8 +26,8 @@ void main()
 //
 //	cout << omp_get_thread_num() << endl;
 
-	//PointIntegralMethod<double> PIM;
-	//PIM.PointIntegralMethodnSolver(1);
+	PointIntegralMethod<double> PIM;
+	PIM.PointIntegralMethodnSolver(1);
 
 	//VortexSheet vortex;
 	//vortex.VortexSolver(1);

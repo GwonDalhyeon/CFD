@@ -77,27 +77,66 @@ inline void PointIntegralMethod<TT>::InitialCondition(const int & example)
 		nNearstNbhdIndex = Array2D<int>(1, pointNum, 1, nbhdNum);
 		nNearstNbhdDist = Array2D<double>(1, pointNum, 1, nbhdNum);
 
-#pragma omp parallel for
+		Vector2D<double> tempVector;
+		int temp;
 		for (int i = 1; i <= bdryPointNum; i++)
 		{
 			pointCloud(i) = 0.5*Vector2D<double>(cos(2 * PI*i / bdryPointNum), sin(2 * PI*i / bdryPointNum));
 			bdryPointIndex(i) = i;
+
+			for (int j = i; j >= 2; j--)
+			{
+				if (pointCloud(j).x < pointCloud(j - 1).x)
+				{
+					tempVector = pointCloud(j);
+					pointCloud(j) = pointCloud(j - 1);
+					pointCloud(j - 1) = tempVector;
+
+					temp = bdryPointIndex(j);
+					bdryPointIndex(j) = bdryPointIndex(j - 1);
+					bdryPointIndex(j - 1) = temp;
+				}
+				else
+				{
+					break;
+				}
+			}
 		}
 
-		Vector2D<double> tempVector;
 		srand(time(NULL));
 		for (int i = 1; i <= innerPointNum; i++)
 		{
-			tempVector= Vector2D<double>(double(rand()) / double(RAND_MAX), double(rand()) / double(RAND_MAX));
+			tempVector = Vector2D<double>(double(rand()) / double(RAND_MAX), double(rand()) / double(RAND_MAX));
 			if (((tempVector - 0.5)).magnitude()<0.5-grid.dx/2)
 			{
-				pointCloud(i + bdryPointNum) = (tempVector - 0.5);
+				pointCloud(i + bdryPointNum) = tempVector - 0.5;
 				innerPointIndex(i) = i + bdryPointNum;
+
+				for (int j = i + bdryPointNum; j >= 2; j--)
+				{
+					if (pointCloud(j).x < pointCloud(j - 1).x)
+					{
+						tempVector = pointCloud(j);
+						pointCloud(j) = pointCloud(j - 1);
+						pointCloud(j - 1) = tempVector;
+
+						if (true)
+						{
+
+						}
+					}
+					else
+					{
+						break;
+					}
+				}
 			}
 			else
 			{
 				i--;
 			}
+
+
 		}
 
 		t;
@@ -119,9 +158,8 @@ inline void PointIntegralMethod<TT>::PointIntegralMethodnSolver(int example)
 	MATLAB.Command("figure('units','normalized','outerposition',[0 0 1 1])");
 	MATLAB.Command("plot(pointData(:,1), pointData(:,2),'ro');axis([-1 1 -1 1]);grid on");
 	
-	Field2D<double> section(grid);
+	VectorND<Polygon2D> voronoi(pointCloud.iStart, pointCloud.iLength);
 
-	Voronoi<double> tempVoronoi;// (grid, pointCloud);
-	tempVoronoi.Make(grid, pointCloud, section);
+	VoronoiDiagram<double>::Make(grid, pointCloud, voronoi);
 
 }

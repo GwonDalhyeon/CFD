@@ -1,117 +1,69 @@
 #pragma once
-#include "Bitmap.h"
+#include "DelaunayTriangle.h"
 
 template<class TT>
-class Voronoi
+class VoronoiDiagram
 {
 public:
-	Voronoi();
-	~Voronoi();
+	VoronoiDiagram();
+	~VoronoiDiagram();
 
 
-	inline void Make(const Grid2D & grid, const VectorND<Vector2D<TT>> & ipPoints, Field2D<double> & ipSection);
+	static void Make(const Grid2D & grid, const VectorND<Vector2D<TT>> & ipPoints, VectorND<Polygon2D> & rVoronoi);
 
-	Field2D<double> R;
-	Field2D<double> G;
-	Field2D<double> B;
-
-	VectorND<double> colorMapR;
-	VectorND<double> colorMapG;
-	VectorND<double> colorMapB;
-	VectorND<Vector2D<TT>> points;
-
-	inline void CreateColors();
-
-	inline void CreateSites(const Grid2D & grid, Field2D<double> & ipSection);
-
+	static void FindNbhdPolygon(const VectorND<Polygon2D> & polygon, VectorND<int> nbhdNum, VectorND<VectorND<int>> & nbhdPoly);
 private:
 
 };
 
 template<class TT>
-inline Voronoi<TT>::Voronoi()
+inline VoronoiDiagram<TT>::VoronoiDiagram()
 {
 }
 
 template<class TT>
-inline Voronoi<TT>::~Voronoi()
+inline VoronoiDiagram<TT>::~VoronoiDiagram()
 {
 }
 
 template<class TT>
-inline void Voronoi<TT>::Make(const Grid2D & grid, const VectorND<Vector2D<TT>> & ipPoints, Field2D<double> & ipSection)
+inline void VoronoiDiagram<TT>::Make(const Grid2D & grid, const VectorND<Vector2D<TT>> & ipPoints, VectorND<Polygon2D> & rVoronoi)
 {
-	R = Field2D<double>(grid);
-	G = Field2D<double>(grid);
-	B = Field2D<double>(grid);
-
-	colorMapR = VectorND<double>(ipPoints.iStart, ipPoints.iLength);
-	colorMapG = VectorND<double>(ipPoints.iStart, ipPoints.iLength);
-	colorMapB = VectorND<double>(ipPoints.iStart, ipPoints.iLength);
-	points = ipPoints;
-
-	CreateColors();
-	CreateSites(grid, ipSection);
-	//SetSitesPoints();
-}
+	VectorND<Polygon2D> Triangles;
+	VectorND<Vector2D<double>> center;
+	VectorND<double> radius;
+	DelaunayTriangulization::DelaunayTriangulate(ipPoints, Triangles, center, radius);
 
 
-template<class TT>
-inline void Voronoi<TT>::CreateColors()
-{
-	int tempRand;
-
-	for (int i = points.iStart; i <= points.iEnd; i++)
+	int maxNbhdTri = 20;
+	VectorND<VectorND<int>> nbhdTri(ipPoints.iStart, ipPoints.iLength);
+#pragma omp parallel for
+	for (int i = ipPoints.iStart; i <= ipPoints.iEnd; i++)
 	{
-		tempRand = rand();
-		colorMapR(i) = (double)(tempRand) / RAND_MAX;
-		tempRand = rand();
-		colorMapG(i) = (double)(tempRand) / RAND_MAX;
-		tempRand = rand();
-		colorMapB(i) = (double)(tempRand) / RAND_MAX;
+		nbhdTri(i) = VectorND<int>(1, maxNbhdTri);
 	}
+
+	VectorND<int> nbhdNum(ipPoints.iStart, ipPoints.iLength);
+	FindNbhdPolygon(Triangles, nbhdNum, nbhdTri);
+
+
 }
 
 template<class TT>
-inline void Voronoi<TT>::CreateSites(const Grid2D & grid, Field2D<double> & ipSection)
+inline void VoronoiDiagram<TT>::FindNbhdPolygon(const VectorND<Polygon2D>& polygon, VectorND<int> nbhdNum, VectorND<VectorND<int>>& nbhdPoly)
 {
-	int ind = -1;
-	TT dist = 1000000;
-	TT d;
-	Vector2D<TT> p;
-
-#pragma omp parallel for private(ind, dist, p, d)
-	for (int i = R.iStart; i <= R.iEnd; i++)
+	int vIdx;
+#pragma omp parallel for private(vIdx)
+	for (int i = polygon.iStart; i <= polygon.iEnd; i++)
 	{
-		for (int j = R.jStart; j <= R.jEnd; j++)
+		for (int j = 1; j <= polygon(i).nGon; j++)
 		{
-			ind = -1;
-			dist = INT_MAX;
-			for (int it = points.iStart; it <= points.iEnd; it++)
-			{
-				p = points[it];
-				d = (p - grid(i, j)).magnitude();
-				//d = DistanceSqrd(p, ww, hh);
-				if (d < dist)
-				{
-					dist = d;
-					ind = it;
-				}
-			}
-
-			if (ind > -1)
-			{
-				R(i, j) = colorMapR(ind);
-				G(i, j) = colorMapG(ind);
-				B(i, j) = colorMapB(ind);
-				ipSection(i, j) = ind;
-			}
+			vIdx = polygon(i).Index(j);
+			nbhdNum(vIdx)++;
+			nbhdPoly(vIdx, nGon(vIdx)) = i;
 		}
 	}
-	R.Variable("R");
-	G.Variable("G");
-	B.Variable("B");
-	MATLAB.Command("Section(:,:,1)=R;Section(:,:,2)=G;Section(:,:,3)=B;");
-	MATLAB.Command("figure, imshow(Section);");
 }
+
+
 

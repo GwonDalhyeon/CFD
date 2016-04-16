@@ -16,7 +16,7 @@ void VecND2DVariable(const char * varName, const VectorND<Vector2D<TT>>& ipVec)
 	double* pointxy = new double[rowNum * 2];
 	mxArray* dataArray = mxCreateDoubleMatrix(rowNum, 2, mxREAL);
 
-//#pragma omp parallel for
+#pragma omp parallel for
 	for (int i = ipVec.iStart; i <= ipVec.iEnd; i++)
 	{
 		pointxy[i - ipVec.iStart] = double(ipVec(i).x);;

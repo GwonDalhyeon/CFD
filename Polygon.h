@@ -10,8 +10,8 @@ class Polygon2D
 {
 public:
 	int nGon;
-	VectorND<Vector2D<double>> Vertices;
-	VectorND<int> VerticesIndex;
+	VectorND<Vector2D<double>> Points;
+	VectorND<int> Index;
 
 	Polygon2D();
 	~Polygon2D();
@@ -27,6 +27,7 @@ public:
 	inline Vector2D<Vector2D<double>> EdgePoint(const int & edge);
 	inline Vector2D<int> EdgeIndex(const int & edge);
 
+	inline void Plot();
 	inline double Area();
 private:
 
@@ -43,25 +44,25 @@ Polygon2D::~Polygon2D()
 inline Polygon2D::Polygon2D(const int & ipNGon)
 {
 	nGon = ipNGon;
-	Vertices = VectorND<Vector2D<double>>(1, nGon);
-	VerticesIndex = VectorND<int>(1, nGon);
+	Points = VectorND<Vector2D<double>>(1, nGon);
+	Index = VectorND<int>(1, nGon);
 }
 
 inline Vector2D<double> & Polygon2D::operator[](const int & i) const
 {
-	return Vertices(i);
+	return Points(i);
 }
 
 inline Vector2D<double> & Polygon2D::operator()(const int & i) const
 {
-	return Vertices(i);
+	return Points(i);
 }
 
 inline void Polygon2D::operator=(const Polygon2D & ipPoly)
 {
 	nGon = ipPoly.nGon;
-	Vertices = ipPoly.Vertices;
-	VerticesIndex = ipPoly.VerticesIndex;
+	Points = ipPoly.Points;
+	Index = ipPoly.Index;
 }
 
 inline Vector2D<Vector2D<double>> Polygon2D::EdgePoint(const int & edge)
@@ -69,8 +70,8 @@ inline Vector2D<Vector2D<double>> Polygon2D::EdgePoint(const int & edge)
 	assert(edge >= 1 || edge <= nGon);
 
 	Vector2D<Vector2D<double>> returnEdge;
-	returnEdge(0) = Vertices(edge);
-	returnEdge(1) = Vertices(edge % nGon + 1);
+	returnEdge(0) = Points(edge);
+	returnEdge(1) = Points(edge % nGon + 1);
 
 	return returnEdge;
 }
@@ -78,7 +79,13 @@ inline Vector2D<Vector2D<double>> Polygon2D::EdgePoint(const int & edge)
 inline Vector2D<int> Polygon2D::EdgeIndex(const int & edge)
 {
 	assert(edge >= 1 || edge <= nGon);
-	return Vector2D<int>(VerticesIndex(edge), VerticesIndex(edge% nGon + 1));
+	return Vector2D<int>(Index(edge), Index(edge% nGon + 1));
+}
+
+inline void Polygon2D::Plot()
+{
+	VecND2DVariable("polygon", Points);
+	MATLAB.Command("plot([polygon(:, 1); polygon(1, 1)], [polygon(:, 2); polygon(1, 2)])");
 }
 
 inline double Polygon2D::Area()
@@ -89,7 +96,7 @@ inline double Polygon2D::Area()
 #pragma omp parallel for reduction(+:area)
 	for (int i = 1; i <= nGon; i++)
 	{
-		area += (Vertices(i%nGon + 1).x - Vertices(i).x)*(Vertices(i%nGon + 1).y + Vertices(i).y) / 2;
+		area += (Points(i%nGon + 1).x - Points(i).x)*(Points(i%nGon + 1).y + Points(i).y) / 2;
 	}
 
 	return abs(area);
