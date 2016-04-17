@@ -354,6 +354,7 @@ inline void DelaunayTriangulization::DelaunayTriangulate(const VectorND<Vector2D
 			triangle(numTri)(1) = Edge(j).i;
 			triangle(numTri)(2) = Edge(j).j;
 			triangle(numTri)(3) = i;
+			triangle(numTri);
 			CircumCircle(newPoints(triangle(numTri)(1)), newPoints(triangle(numTri)(2)), newPoints(triangle(numTri)(3)), center(numTri), radius(numTri));
 			complete(numTri) = false;
 			//newPoints(triangle(numTri)(1)).Variable("P1");
@@ -395,9 +396,9 @@ inline void DelaunayTriangulization::DelaunayTriangulate(const VectorND<Vector2D
 		/*
 		triangle is clock-wise
 		*/
-		Triangles(i).Index(1) = triangle(i).index(1);
-		Triangles(i).Index(2) = triangle(i).index(3);
-		Triangles(i).Index(3) = triangle(i).index(2);
+		Triangles(i).Index(1) = triangle(i)(1);
+		Triangles(i).Index(2) = triangle(i)(3);
+		Triangles(i).Index(3) = triangle(i)(2);
 		Triangles(i)(1) = points(triangle(i)(1));
 		Triangles(i)(2) = points(triangle(i)(3));
 		Triangles(i)(3) = points(triangle(i)(2));
@@ -407,7 +408,7 @@ inline void DelaunayTriangulization::DelaunayTriangulate(const VectorND<Vector2D
 
 
 
-	bool show = false;
+	bool show = true;
 	if (show)
 	{
 		string str;
@@ -418,18 +419,18 @@ inline void DelaunayTriangulization::DelaunayTriangulate(const VectorND<Vector2D
 		MATLAB.Command("plot(points(:,1),points(:,2),'ro'),hold on");
 		for (int i = 1; i <= numTri; i++)
 		{
-			Triangles(i).Plot();
+			Triangles(i).Plot("r");
 			MATLAB.Command("axis equal");
 			str = string("title(['triangle : ', num2str(") + to_string(i) + string("),'/', num2str(") + to_string(numTri) + string(")]);");
 			cmd = str.c_str();
 			MATLAB.Command(cmd);
 			MATLAB.Variable("i", i);
 			center(i).Variable("center");
-			radius.Variable("radius");
-			MATLAB.Command("plot(radius(i)*cos(theta)+center(1),radius(i)*sin(theta)+center(2)), axis equal");
-			str = string("text(sum(tri(:,1))/3,sum(tri(:,2))/3,num2str(i))");
-			cmd = str.c_str();
-			MATLAB.Command(cmd);
+			//radius.Variable("radius");
+			//MATLAB.Command("plot(radius(i)*cos(theta)+center(1),radius(i)*sin(theta)+center(2)), axis equal");
+			//str = string("text(sum(tri(:,1))/3,sum(tri(:,2))/3,num2str(i))");
+			//cmd = str.c_str();
+			//MATLAB.Command(cmd);
 		}
 	}
 

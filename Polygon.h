@@ -28,6 +28,7 @@ public:
 	inline Vector2D<int> EdgeIndex(const int & edge);
 
 	inline void Plot();
+	inline void Plot(const char * color );
 	inline double Area();
 private:
 
@@ -86,6 +87,13 @@ inline void Polygon2D::Plot()
 {
 	VecND2DVariable("polygon", Points);
 	MATLAB.Command("plot([polygon(:, 1); polygon(1, 1)], [polygon(:, 2); polygon(1, 2)])");
+}
+
+inline void Polygon2D::Plot(const char * color)
+{
+	string str = "plot([polygon(:, 1); polygon(1, 1)], [polygon(:, 2); polygon(1, 2)],'"+string(color)+"')";
+	VecND2DVariable("polygon", Points);
+	MATLAB.Command(str.c_str());
 }
 
 inline double Polygon2D::Area()

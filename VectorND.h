@@ -593,7 +593,7 @@ inline std::ostream & operator<<(std::ostream & output, const VectorND<TT>& ipVe
 {
 	for (int i = ipVector.iStart; i <= ipVector.iEnd; i++)
 	{
-		output << ipVector.index(i) << " " << ipVector(i) << endl;;
+		output << i << " " << ipVector(i) << endl;;
 	}
 	return output;
 }

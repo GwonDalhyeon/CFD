@@ -65,12 +65,11 @@ inline void PointIntegralMethod<TT>::InitialCondition(const int & example)
 		grid = Grid2D(-1, 1, 2001, -1, 1, 2001);
 
 		innerPointNum = 1200;
-		innerPointIndex = VectorND<int>(1, innerPointNum);
-
-		bdryPointNum = 100;
-		bdryPointIndex = VectorND<int>(1, bdryPointNum);
+		bdryPointNum = 300;
 
 		pointNum = innerPointNum + bdryPointNum;
+		innerPointIndex = VectorND<int>(1, pointNum);
+		bdryPointIndex = VectorND<int>(1, pointNum);
 		pointCloud = VectorND<Vector2D<double>>(1, pointNum);
 
 		nbhdNum = 20;
@@ -78,11 +77,10 @@ inline void PointIntegralMethod<TT>::InitialCondition(const int & example)
 		nNearstNbhdDist = Array2D<double>(1, pointNum, 1, nbhdNum);
 
 		Vector2D<double> tempVector;
-		int temp;
 		for (int i = 1; i <= bdryPointNum; i++)
 		{
 			pointCloud(i) = 0.5*Vector2D<double>(cos(2 * PI*i / bdryPointNum), sin(2 * PI*i / bdryPointNum));
-			bdryPointIndex(i) = i;
+			bdryPointIndex(i) = 1;
 
 			for (int j = i; j >= 2; j--)
 			{
@@ -91,10 +89,6 @@ inline void PointIntegralMethod<TT>::InitialCondition(const int & example)
 					tempVector = pointCloud(j);
 					pointCloud(j) = pointCloud(j - 1);
 					pointCloud(j - 1) = tempVector;
-
-					temp = bdryPointIndex(j);
-					bdryPointIndex(j) = bdryPointIndex(j - 1);
-					bdryPointIndex(j - 1) = temp;
 				}
 				else
 				{
@@ -103,14 +97,16 @@ inline void PointIntegralMethod<TT>::InitialCondition(const int & example)
 			}
 		}
 
+		double bdryBand = 2 * PI / double(bdryPointNum);
+		int temp;
 		srand(time(NULL));
 		for (int i = 1; i <= innerPointNum; i++)
 		{
 			tempVector = Vector2D<double>(double(rand()) / double(RAND_MAX), double(rand()) / double(RAND_MAX));
-			if (((tempVector - 0.5)).magnitude()<0.5-grid.dx/2)
+			if (((tempVector - 0.5)).magnitude()<0.5-grid.dx/2- bdryBand)
 			{
 				pointCloud(i + bdryPointNum) = tempVector - 0.5;
-				innerPointIndex(i) = i + bdryPointNum;
+				innerPointIndex(i + bdryPointNum) = 1;
 
 				for (int j = i + bdryPointNum; j >= 2; j--)
 				{
@@ -120,10 +116,13 @@ inline void PointIntegralMethod<TT>::InitialCondition(const int & example)
 						pointCloud(j) = pointCloud(j - 1);
 						pointCloud(j - 1) = tempVector;
 
-						if (true)
-						{
-
-						}
+						temp = bdryPointIndex(j);
+						bdryPointIndex(j) = bdryPointIndex(j - 1);
+						bdryPointIndex(j - 1) = temp;
+						
+						temp = innerPointIndex(j);
+						innerPointIndex(j) = innerPointIndex(j - 1);
+						innerPointIndex(j - 1) = temp;
 					}
 					else
 					{
@@ -153,6 +152,9 @@ inline void PointIntegralMethod<TT>::PointIntegralMethodnSolver(int example)
 {
 	InitialCondition(example);
 
+	innerPointIndex.Variable("inner");
+	bdryPointIndex.Variable("bdry");
+
 	grid.Variable();
 	VecND2DVariable("pointData", pointCloud);
 	MATLAB.Command("figure('units','normalized','outerposition',[0 0 1 1])");
@@ -160,6 +162,6 @@ inline void PointIntegralMethod<TT>::PointIntegralMethodnSolver(int example)
 	
 	VectorND<Polygon2D> voronoi(pointCloud.iStart, pointCloud.iLength);
 
-	VoronoiDiagram<double>::Make(grid, pointCloud, voronoi);
+	VoronoiDiagram<double>::Make(grid, pointCloud, innerPointIndex, bdryPointIndex, voronoi);
 
 }
