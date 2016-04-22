@@ -97,7 +97,7 @@ inline void PointIntegralMethod<TT>::InitialCondition(const int & example)
 			}
 		}
 
-		double bdryBand = 2 * PI / double(bdryPointNum);
+		double bdryBand = 2 * PI / double(bdryPointNum) / 2;
 		int temp;
 		srand(time(NULL));
 		for (int i = 1; i <= innerPointNum; i++)
@@ -134,8 +134,6 @@ inline void PointIntegralMethod<TT>::InitialCondition(const int & example)
 			{
 				i--;
 			}
-
-
 		}
 
 		t;
@@ -158,10 +156,23 @@ inline void PointIntegralMethod<TT>::PointIntegralMethodnSolver(int example)
 	grid.Variable();
 	VecND2DVariable("pointData", pointCloud);
 	MATLAB.Command("figure('units','normalized','outerposition',[0 0 1 1])");
-	MATLAB.Command("plot(pointData(:,1), pointData(:,2),'ro');axis([-1 1 -1 1]);grid on");
+	MATLAB.Command("plot(pointData(:,1), pointData(:,2),'ro');axis([-1 1 -1 1]);grid on;axis equal");
 	
 	VectorND<Polygon2D> voronoi(pointCloud.iStart, pointCloud.iLength);
 
 	VoronoiDiagram<double>::Make(grid, pointCloud, innerPointIndex, bdryPointIndex, voronoi);
+
+	VectorND<double> area(pointCloud.iStart, pointCloud.iLength);
+
+	double totalArea = 0;
+#pragma omp parallel for reduction(+:totalArea)
+	for (int i = pointCloud.iStart; i <= pointCloud.iLength; i++)
+	{
+		area(i) = voronoi(i).Area();
+		totalArea += area(i);
+	}
+
+	MATLAB.Variable("area", totalArea);
+
 
 }

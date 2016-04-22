@@ -15,7 +15,7 @@ public:
 
 	static void RearrangeNbhdPolygonClockwise(const VectorND<Vector2D<double>>& ipPoints, const VectorND<int> & innerIndex, const VectorND<int> & bdryIndex, VectorND<VectorND<int>>& nbhdPoly, VectorND<Vector2D<double>> & center);
 
-	static void BdryAddedVoronoi(const VectorND<Vector2D<double>>& ipPoints, const VectorND<int> & bdryIndex, VectorND<Polygon2D> & ipPolygon, VectorND<VectorND<int>>& nbhdPoly, VectorND<Vector2D<double>>& polyCenter, VectorND<Polygon2D> & rVoronoi);
+	static void BdryAddedVoronoi(const VectorND<Vector2D<double>>& ipPoints, const VectorND<int> & bdryIndex, const VectorND<Polygon2D> & ipPolygon, const VectorND<VectorND<int>>& nbhdPoly, const VectorND<Vector2D<double>>& polyCenter, VectorND<Polygon2D> & rVoronoi);
 
 	static double Angle(const Vector2D<double> & P1, const Vector2D<double> & P2);
 private:
@@ -78,8 +78,6 @@ inline void VoronoiDiagram<TT>::FindNbhdPolygon(const VectorND<Polygon2D>& polyg
 			vIdx = polygon(i).Index(j);
 			nbhdNum(vIdx)++;
 			nbhdPoly(vIdx)(nbhdNum(vIdx)) = i;
-
-			//cout << vIdx << " " << nbhdNum(vIdx) << " " << nbhdPoly(vIdx)(nbhdNum(vIdx)) << endl;
 		}
 	}
 
@@ -102,8 +100,6 @@ inline void VoronoiDiagram<TT>::RearrangeNbhdPolygonClockwise(const VectorND<Vec
 	int maxNbhdTri = 20;
 	Vector2D<double> currentPoint;
 	Vector2D<double> P1, P2;
-	double tempD;
-	int tempI;
 	VectorND<VectorND<int>> angleRank(ipPoints.iStart, ipPoints.iLength);
 	VectorND<VectorND<double>> angle(ipPoints.iStart, ipPoints.iLength);
 	VectorND<int> tempV;
@@ -148,13 +144,12 @@ inline void VoronoiDiagram<TT>::RearrangeNbhdPolygonClockwise(const VectorND<Vec
 }
 
 template<class TT>
-inline void VoronoiDiagram<TT>::BdryAddedVoronoi(const VectorND<Vector2D<double>>& ipPoints, const VectorND<int>& bdryIndex, VectorND<Polygon2D>& ipPolygon, VectorND<VectorND<int>>& nbhdPoly, VectorND<Vector2D<double>>& polyCenter, VectorND<Polygon2D> & rVoronoi)
+inline void VoronoiDiagram<TT>::BdryAddedVoronoi(const VectorND<Vector2D<double>>& ipPoints, const VectorND<int>& bdryIndex, const VectorND<Polygon2D>& ipPolygon, const VectorND<VectorND<int>>& nbhdPoly, const VectorND<Vector2D<double>>& polyCenter, VectorND<Polygon2D> & rVoronoi)
 {
 
 	int maxNbhdTri = 20;
 	Vector2D<double> currentPoint;
 	Vector2D<double> P1, P2;
-	double tempD;
 	int tempI;
 	VectorND<VectorND<int>> angleRank(ipPoints.iStart, ipPoints.iLength);
 	VectorND<VectorND<double>> angle(ipPoints.iStart, ipPoints.iLength);
@@ -173,7 +168,7 @@ inline void VoronoiDiagram<TT>::BdryAddedVoronoi(const VectorND<Vector2D<double>
 
 	int temp2;
 	int tempPolyNum = ipPolygon.iEnd;
-//#pragma omp parallel for private(currentPoint, P1, P2, tempV)
+	//#pragma omp parallel for private(currentPoint, P1, P2, tempV)
 	for (int i = ipPoints.iStart; i <= ipPoints.iEnd; i++)
 	{
 		if (bdryIndex(i))
@@ -184,7 +179,7 @@ inline void VoronoiDiagram<TT>::BdryAddedVoronoi(const VectorND<Vector2D<double>
 			angleRank(i) = VectorND<int>(nbhdPoly(i).iStart, nbhdPoly(i).iLength + addedPointNum);
 
 			tempNbhdPoly(i) = VectorND<int>(1, nbhdPoly(i).iLength + addedPointNum);
-			
+
 			//tempPolyNum++;
 			//temp2++;
 			//tempNbhdPoly(i)(nbhdPoly(i).iLength + temp2) = tempPolyNum;
@@ -196,7 +191,7 @@ inline void VoronoiDiagram<TT>::BdryAddedVoronoi(const VectorND<Vector2D<double>
 				for (int k = 1; k <= ipPolygon(nbhdPoly(i)(j)).nGon; k++)
 				{
 					tempI = ipPolygon(nbhdPoly(i)(j)).Index(k);
-					if (bdryIndex(tempI) && tempI!=i)
+					if (bdryIndex(tempI) && tempI != i)
 					{
 						tempPolyNum++;
 						temp2++;
@@ -205,7 +200,7 @@ inline void VoronoiDiagram<TT>::BdryAddedVoronoi(const VectorND<Vector2D<double>
 					}
 				}
 			}
-			
+
 			currentPoint = ipPoints(i);
 			P1 = tempCenter(nbhdPoly(i)(1));
 			for (int j = nbhdPoly(i).iStart; j <= nbhdPoly(i).iEnd; j++)
@@ -213,13 +208,13 @@ inline void VoronoiDiagram<TT>::BdryAddedVoronoi(const VectorND<Vector2D<double>
 				P2 = tempCenter(tempNbhdPoly(i)(j));
 				angle(i)(j) = Angle(P2 - currentPoint, P1 - currentPoint);
 			}
-			
+
 			for (int j = nbhdPoly(i).iEnd + 1; j <= nbhdPoly(i).iEnd + 2; j++)
 			{
 				P2 = tempCenter(tempNbhdPoly(i)(j));
 				angle(i)(j) = Angle(P2 - currentPoint, P1 - currentPoint);
 			}
-			
+
 			for (int j = 1; j <= tempNbhdPoly(i).iLength; j++)
 			{
 				for (int k = 1; k <= tempNbhdPoly(i).iLength; k++)
@@ -231,6 +226,7 @@ inline void VoronoiDiagram<TT>::BdryAddedVoronoi(const VectorND<Vector2D<double>
 				}
 			}
 			tempV = tempNbhdPoly(i);
+#pragma omp parallel for
 			for (int j = tempNbhdPoly(i).iStart; j <= tempNbhdPoly(i).iEnd; j++)
 			{
 				tempNbhdPoly(i)(angleRank(i)(j)) = tempV(j);
@@ -244,38 +240,39 @@ inline void VoronoiDiagram<TT>::BdryAddedVoronoi(const VectorND<Vector2D<double>
 		}
 	}
 
-	//MATLAB.Command("figure");
-	for (int i = rVoronoi.iStart; i < rVoronoi.iEnd; i++)
+#pragma omp parallel for
+	for (int i = rVoronoi.iStart; i <= rVoronoi.iEnd; i++)
 	{
-		MATLAB.Variable("i", i);
-		//MATLAB.Command("plot(pointData(i,1), pointData(i,2),'ro');;grid on");
-		//if (bdryIndex(i))
-		//{
-			rVoronoi(i) = Polygon2D(tempNbhdPoly(i).iLength);
+		rVoronoi(i) = Polygon2D(tempNbhdPoly(i).iLength);
+		for (int j = tempNbhdPoly(i).iStart; j <= tempNbhdPoly(i).iEnd; j++)
+		{
+			rVoronoi(i)(j) = tempCenter(tempNbhdPoly(i)(j));
+		}
+	}
 
-			for (int j = tempNbhdPoly(i).iStart; j <= tempNbhdPoly(i).iEnd; j++)
-			{
-				rVoronoi(i)(j) = tempCenter(tempNbhdPoly(i)(j));
-			}
 
-			MATLAB.Command("hold on, axis equal");
-			rVoronoi(i).Plot("b");
-		//}
-		//else
-		//{
-		//	cout << polyCenter(i) << endl;
-		//	cout << nbhdPoly(i) << endl;
-		//	rVoronoi(i) = Polygon2D(nbhdPoly(i).iLength);
+	bool isShow = true;
+	if (isShow)
+	{
+		string str;
+		const char* cmd;
 
-		//	for (int j = nbhdPoly(i).iStart; j <= nbhdPoly(i).iEnd; j++)
-		//	{
-		//		rVoronoi(i)(j) = polyCenter(nbhdPoly(i)(j));
-		//	}
+		MATLAB.Command("figure('units','normalized','outerposition',[0 0 1/2 1])");
+		MATLAB.Command("plot(pointData(:,1), pointData(:,2),'ro');axis([-1/2 1/2 -1/2 1/2]);grid on;axis equal");
+		MATLAB.Command("hold on");
+		for (int i = rVoronoi.iStart; i <= rVoronoi.iEnd; i++)
+		{
+			//MATLAB.Variable("i", i);
+			//MATLAB.Command("plot(pointData(i,1), pointData(i,2),'ro');;grid on");
+			MATLAB.Command("axis equal");
 
-		//	MATLAB.Command("hold on, axis equal");
-		//	rVoronoi(i).Plot("b");
-		//}
-		
+			//rVoronoi(i).Plot("b");
+			rVoronoi(i).Plot();
+
+			str = string("title(['Voronoi : ', num2str(") + to_string(i) + string("),'/', num2str(") + to_string(rVoronoi.iLength) + string(")]);");
+			cmd = str.c_str();
+			MATLAB.Command(cmd);
+		}
 	}
 }
 

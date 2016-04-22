@@ -408,24 +408,28 @@ inline void DelaunayTriangulization::DelaunayTriangulate(const VectorND<Vector2D
 
 
 
-	bool show = true;
-	if (show)
+	bool isShow = true;
+	if (isShow)
 	{
 		string str;
 		const char* cmd;
 
+		MATLAB.Command("figure('units','normalized','outerposition',[0 0 1/2 1])");
 		VecND2DVariable("points", points);
 		MATLAB.Command("theta = 0:2*pi/100:2*pi+2*pi/100;");
-		MATLAB.Command("plot(points(:,1),points(:,2),'ro'),hold on");
+		MATLAB.Command("plot(pointData(:,1), pointData(:,2),'ro');axis([-1/2 1/2 -1/2 1/2]);grid on;axis equal");
+		MATLAB.Command("hold on");
+
 		for (int i = 1; i <= numTri; i++)
 		{
-			Triangles(i).Plot("r");
+			//Triangles(i).Plot("r");
+			Triangles(i).Plot();
 			MATLAB.Command("axis equal");
 			str = string("title(['triangle : ', num2str(") + to_string(i) + string("),'/', num2str(") + to_string(numTri) + string(")]);");
 			cmd = str.c_str();
 			MATLAB.Command(cmd);
-			MATLAB.Variable("i", i);
-			center(i).Variable("center");
+			//MATLAB.Variable("i", i);
+			//center(i).Variable("center");
 			//radius.Variable("radius");
 			//MATLAB.Command("plot(radius(i)*cos(theta)+center(1),radius(i)*sin(theta)+center(2)), axis equal");
 			//str = string("text(sum(tri(:,1))/3,sum(tri(:,2))/3,num2str(i))");

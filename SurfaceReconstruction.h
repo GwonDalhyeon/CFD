@@ -112,7 +112,7 @@ inline void SurfaceReconst<TT>::InitialCondition(int example)
 		cout << "              Good Initial Level Set." << endl;
 		cout << "******************************************************" << endl;
 
-		grid = Grid2D(0, 1, 7, 0, 1, 7);
+		grid = Grid2D(0, 1, 101, 0, 1, 101);
 		levelSet = LevelSet2D(grid);
 		distance = Field2D<double>(grid);
 		//distance.dataArray = 100;
@@ -165,10 +165,8 @@ inline void SurfaceReconst<TT>::InitialCondition(int example)
 				{
 					levelSet.phi(i, j) = distance(i, j) - grid.dx * 3;
 				}
-
 			}
 		}
-
 		//for (int i = grid.iStart; i <= grid.iEnd; i++)
 		//{
 		//	for (int j = grid.jStart; j <= grid.jEnd; j++)
@@ -202,7 +200,7 @@ inline void SurfaceReconst<TT>::InitialCondition(int example)
 
 		lambda = 0.5;
 		mu = 10e-5;
-
+#pragma omp parallel for
 		for (int i = 0; i < givenPointNum; i++)
 		{
 			givenPoint(i) = 0.25*Vector2D<double>(cos(2 * PI*i / givenPointNum), sin(2 * PI*i / givenPointNum)) + 0.5 + grid.dx / 2;
@@ -224,7 +222,7 @@ inline void SurfaceReconst<TT>::InitialCondition(int example)
 
 		//distance2Data(); // distance initialization
 		ExactDistance();
-
+#pragma omp parallel for
 		for (int i = grid.iStart; i <= grid.iEnd; i++)
 		{
 			for (int j = grid.jStart; j <= grid.jEnd; j++)
@@ -523,46 +521,40 @@ inline void SurfaceReconst<TT>::SurfaceReconstructionSolver(int example)
 		givenPoint.WriteFile("pointData");
 	}
 	
-	
 	grid.Variable();
 	distance.Variable("distance");
 	VecND2DVariable("pointData", givenPoint);
 	levelSet.phi.Variable("phi0");
 
-
-	MATLAB.Command("figure('units','normalized','outerposition',[0 0 1 1])");
+	MATLAB.Command("figure('units','normalized','outerposition',[0 0 1/2 1])");
 
 	// MATLAB command : start
 	velocity.Variable("velocity");
-	MATLAB.Command("subplot(1, 2, 1)");
-	MATLAB.Command("plot(pointData(:,1), pointData(:,2),'ro');axis([0 1 0 1]);grid on");
+	//MATLAB.Command("subplot(1, 2, 1)");
+	MATLAB.Command("plot(pointData(:,1), pointData(:,2),'ro');axis([0 1 0 1]);grid on, axis equal");
 	MATLAB.Command("hold on");
 	MATLAB.Command("contour(X,Y,phi0,[0 0],'color','r');");
 	MATLAB.Command("contour(X,Y,phi,[0 0]);");
 	MATLAB.Command("axis([0 1 0 1]);");
 	MATLAB.Command("hold off");
-	str = string("title(['velocity : ', num2str(") + to_string(0) + string(")]);");
+	str = string("title(['iteration : ', num2str(") + to_string(0) + string(")]);");
 	cmd = str.c_str();
 	MATLAB.Command(cmd);
 	MATLAB.Command("drawnow;");
 	// MATLAB command : end
 
-	dt = AdaptiveTimeStep(velocity);
-	LevelSetPropagatingTVDRK3();
-
-	// MATLAB command : start
-	levelSet.phi.Variable("phi");
-	MATLAB.Command("subplot(1, 2, 2)");
-	MATLAB.Command("surf(X,Y,phi)");
-	str = string("title(['velocity : ', num2str(") + to_string(0) + string(")]);");
-	cmd = str.c_str();
-	MATLAB.Command(cmd);
-	// MATLAB command : end
-
+	//// MATLAB command : start
+	//levelSet.phi.Variable("phi");
+	//MATLAB.Command("subplot(1, 2, 2)");
+	//MATLAB.Command("surf(X,Y,phi), axis equal");
+	//str = string("title(['velocity : ', num2str(") + to_string(0) + string(")]);");
+	//cmd = str.c_str();
+	//MATLAB.Command(cmd);
+	//// MATLAB command : end
 
 	int i = 0;
-	//while (i < reconstMaxIteration)
-	while (!StoppingCriterion() && i < reconstMaxIteration)
+	//while (!StoppingCriterion() && i < reconstMaxIteration)
+	while (i < reconstMaxIteration)
 	{
 		i++;
 		cout << "Surface reconstruction : " << i << endl;
@@ -571,14 +563,15 @@ inline void SurfaceReconst<TT>::SurfaceReconstructionSolver(int example)
 		velocity.Variable("velocity");
 
 		// MATLAB command : start
-		MATLAB.Command("subplot(1, 2, 1)");
-		MATLAB.Command("plot(pointData(:,1), pointData(:,2),'ro');axis([0 1 0 1]);grid on");
+		//MATLAB.Command("subplot(1, 2, 1)");
+		levelSet.phi.Variable("phi");
+		MATLAB.Command("plot(pointData(:,1), pointData(:,2),'ro');axis([0 1 0 1]);grid on, axis equal");
 		MATLAB.Command("hold on");
 		MATLAB.Command("contour(X,Y,phi0,[0 0],'color','r');");
 		MATLAB.Command("contour(X,Y,phi,[0 0]);");
 		MATLAB.Command("axis([0 1 0 1]);");
 		MATLAB.Command("hold off");
-		str = string("title(['velocity : ', num2str(") + to_string(i) + string(")]);");
+		str = string("title(['iteration : ', num2str(") + to_string(i) + string(")]);");
 		cmd = str.c_str();
 		MATLAB.Command(cmd);
 		MATLAB.Command("drawnow;");
@@ -587,14 +580,13 @@ inline void SurfaceReconst<TT>::SurfaceReconstructionSolver(int example)
 		dt = AdaptiveTimeStep(velocity);
 		LevelSetPropagatingTVDRK3();
 
-		// MATLAB command : start
-		levelSet.phi.Variable("phi");
-		MATLAB.Command("subplot(1, 2, 2)");
-		MATLAB.Command("surf(X,Y,phi)");
-		str = string("title(['velocity : ', num2str(") + to_string(i) + string(")]);");
-		cmd = str.c_str();
-		MATLAB.Command(cmd);
-		// MATLAB command : end
+		//// MATLAB command : start
+		//MATLAB.Command("subplot(1, 2, 2)");
+		//MATLAB.Command("surf(X,Y,phi), axis equal");
+		//str = string("title(['velocity : ', num2str(") + to_string(i) + string(")]);");
+		//cmd = str.c_str();
+		//MATLAB.Command(cmd);
+		//// MATLAB command : end
 
 		if (writeFile)
 		{
@@ -614,9 +606,6 @@ inline void SurfaceReconst<TT>::SurfaceReconstructionSolver(int example)
 			str = "phi" + to_string(i);
 			levelSet.phi.WriteFile(str);
 		}
-		
-
-		cout << endl;
 	}
 }
 
@@ -795,7 +784,6 @@ template<class TT>
 inline void SurfaceReconst<TT>::LevelSetPropagatingTVDRK3()
 {
 	LevelSet2D originLevelSet = levelSet;
-	LevelSet2D tempLevelSet(originLevelSet.grid);
 
 	Field2D<double> k1(levelSet.grid);
 	Field2D<double> k2(levelSet.grid);
@@ -816,7 +804,6 @@ inline void SurfaceReconst<TT>::LevelSetPropagatingTVDRK3()
 			levelSet(i, j) = originLevelSet(i, j) + k1(i, j);
 		}
 	}
-
 	AdvectionMethod2D<double>::WENO5th(levelSet.phi, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
 #pragma omp parallel for
 	for (int i = levelSet.grid.iStart; i <= levelSet.grid.iEnd; i++)
@@ -827,7 +814,6 @@ inline void SurfaceReconst<TT>::LevelSetPropagatingTVDRK3()
 			levelSet(i, j) = 3.0 / 4.0*originLevelSet(i, j) + 1.0 / 4.0*levelSet(i, j) + 1.0 / 4.0*k2(i, j);
 		}
 	}
-
 	AdvectionMethod2D<double>::WENO5th(levelSet.phi, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
 #pragma omp parallel for
 	for (int i = levelSet.grid.iStart; i <= levelSet.grid.iEnd; i++)

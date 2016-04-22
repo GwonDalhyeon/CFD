@@ -13,6 +13,9 @@
 #include <string>
 #include <omp.h>
 #include <stdlib.h>  
+#include <cstdlib>
+#include <ctime>
+#include <iomanip>
 
 // MATLAB Engine
 #include <engine.h>
