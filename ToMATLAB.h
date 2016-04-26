@@ -58,7 +58,7 @@ inline void ToMATLAB::Variable(const char * varName, const int & rowNum, const i
 		mxArray* dataArray = mxCreateNumericMatrix(rowNum, colNum, mxINT32_CLASS, mxREAL);
 		memcpy((int*)mxGetPr(dataArray), (int*)values, sizeof(int) * rowNum*colNum);
 		engPutVariable(ME, varName, dataArray);
-		string str = string(varName)+ "=transpose("+ (varName)+ ");";
+		string str = string(varName)+ "=double(transpose("+ (varName)+ "));";
 		const char* cmd = str.c_str();
 		
 		// Tranaspose array.

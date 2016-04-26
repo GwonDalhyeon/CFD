@@ -145,13 +145,18 @@ inline void VortexSheet::VortexSolver(const int & example)
 	innerJRes = innerJEnd - innerJStart + 1;
 	
 	Array2D<double> poissonMatrix(1, innerIRes*innerJRes, 1, innerIRes*innerJRes);
+
 	GenerateLinearSystem(poissonMatrix, -grid.dx*grid.dy);
-	cout << "Start CSR." << endl;
+
 	CSR<double> poissonCSR(poissonMatrix);
-	cout << "End CSR." << endl;
+
+	VectorND<double> a;
+	VectorND<int> row;
+	VectorND<int> col;
+	int nonzeroNum;
+	CGSolver::SparseA(poissonMatrix, a, row, col, nonzeroNum);
 
 	VectorND<double> vectorB(innerIRes*innerJRes);
-
 
 	VectorND<double> streamV(innerIRes*innerJRes);
 
@@ -207,11 +212,21 @@ inline void VortexSheet::VortexSolver(const int & example)
 	//for (int i = 1; i <= maxIteration; i++)
 	for (int i = 1; i <= 200; i++)
 	{
+		cout << endl;
+		cout << "*************************************************" << endl;
+		cout << "iteration : " << i << endl;
 
 		GenerateLinearSystem(P, vectorB, -grid.dx*grid.dy);
-		cout << "CG Start" << endl;
-		streamV = CG<double>(poissonCSR, vectorB, grid.dx);
-		//streamV.Variable("streamV");
+		int solver = 1;
+		if (solver == 1)
+		{
+			streamV = CGSolver::SolverCSR(poissonCSR, vectorB, grid.dx*grid.dy);
+		}
+		else if (solver == 2)
+		{
+			CGSolver::SolverSparse(poissonMatrix.iRes, a, row, col, vectorB, streamV);
+		}
+		streamV.Variable("streamV");
 
 #pragma omp parallel for private(idx)
 		for (int i = innerIStart; i <= innerIEnd; i++)
@@ -237,6 +252,12 @@ inline void VortexSheet::VortexSolver(const int & example)
 		velocityY.Variable("velocityY");
 		
 		dt = AdaptiveTimeStep(velocityX, velocityY);
+		if (dt==INFINITE || dt==INFINITY ||dt==NAN)
+		{
+			cout << "************************************" << endl;
+			cout << "             dt error!!"<<endl;
+			cout << "************************************" << endl;
+		}
 		totalT += dt;
 
 		// Left and Right side

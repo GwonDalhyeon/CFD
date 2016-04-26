@@ -46,9 +46,14 @@ CSR<TT>::~CSR()
 template<class TT>
 inline CSR<TT>::CSR(const Array2D<TT>& ipArray)
 {
+	clock_t before;
+	double  result;
+	before = clock();
+	cout << "Start : CSR" << endl;
+
 	rowNum = ipArray.iRes;
 	colNum = ipArray.jRes;
-	VectorND<int> indPrt(rowNum + 1);
+	indPrt = VectorND<int>(rowNum + 1);
 
 	TT* tempVal = new TT[int(floor(sqrt(double(rowNum*colNum)))) * 10];
 	int* tempCol = new int[int(floor(sqrt(double(rowNum*colNum)))) * 10];
@@ -81,8 +86,8 @@ inline CSR<TT>::CSR(const Array2D<TT>& ipArray)
 	valueNum = tempIndex;
 	indPrt[rowNum] = tempIndex;
 
-	VectorND<TT> values(valueNum);
-	VectorND<int> columns(valueNum);
+	values = VectorND<TT>(valueNum);
+	columns = VectorND<int>(valueNum);
 
 #pragma omp parallel for
 	for (int i = 0; i < valueNum; i++)
@@ -91,6 +96,11 @@ inline CSR<TT>::CSR(const Array2D<TT>& ipArray)
 		columns[i] = tempCol[i];
 	}
 	delete[] tempVal, tempCol;
+
+	result = (double)(clock() - before) / CLOCKS_PER_SEC;
+	cout << "time : " << result << "\n";
+	cout << "End : Make sparse matrix." << endl;
+	cout << endl;
 }
 
 

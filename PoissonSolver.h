@@ -41,7 +41,7 @@ public:
 	void GenerateJumpCondi(int example, Field2D<double>& beta, Field2D<double>& f, Field2D<double>& jCondition1, Field2D<double>& jCondition2);
 	void GeneratePoissonMatrixJumpCondi(const Field2D<double>& ipBeta, const Field2D<double>& ipF, const Field2D<double>& ipjCondition1, const Field2D<double>& ipjCondition2);
 	void GeneratePoissonVectorJumpCondi(const Field2D<double>& ipBeta, const Field2D<double>& ipF, const Field2D<double>& ipjCondition1, const Field2D<double>& ipjCondition2);
-	void SolvePoissonJumpCondi(int example, const Grid2D& ipGrid);
+	void SolvePoissonJumpCondi(int example);
 	void OutputResult();
 
 
@@ -685,12 +685,13 @@ inline void PoissonSolver::GeneratePoissonVectorJumpCondi(const Field2D<double>&
 	//fff.close();	
 }
 
-inline void PoissonSolver::SolvePoissonJumpCondi(int example, const Grid2D& ipGrid)
+inline void PoissonSolver::SolvePoissonJumpCondi(int example)
 {
-	grid = ipGrid;
+	grid = Grid2D(0, 1, 101, 0, 1, 101);
+	grid.Variable();
 	solution = Field2D<double>(grid);
 
-	innerGrid = Grid2D(ipGrid.xMin + ipGrid.dx, ipGrid.xMax - ipGrid.dx, 1, ipGrid.iRes - 2, ipGrid.yMin + ipGrid.dy, ipGrid.yMax - ipGrid.dy, 1, ipGrid.jRes - 2);
+	innerGrid = Grid2D(grid.xMin + grid.dx, grid.xMax - grid.dx, 1, grid.iRes - 2, grid.yMin + grid.dy, grid.yMax - grid.dy, 1, grid.jRes - 2);
 	VectorND<double> innerSolution(innerGrid.iRes*innerGrid.jRes);
 	Field2D<double> beta(grid);
 	Field2D<double> f(innerGrid);
@@ -707,32 +708,30 @@ inline void PoissonSolver::SolvePoissonJumpCondi(int example, const Grid2D& ipGr
 
 	GeneratePoissonVectorJumpCondi(beta, f, jCondition1, jCondition2);
 
+	//poissonVector.Variable("poissonVector");
+	//poissonMatrix.Variable("poissonMatrix");
 
-	//ofstream qwer;
-	//qwer.open("D:\Data/b1.txt", ios::binary);
-	//for (int i = 0; i < grid.numMatX*grid.numMatY; i++)
-	//{
-	//	qwer << poissonVector[i] << endl;
-	//}
-	//qwer.close();
+	int solver = 2;
+	if (solver == 1)
+	{
+		CGSolver::SolverSparse(poissonMatrix, poissonVector, innerSolution);
+	}
+	else if (solver == 2)
+	{
+		VectorND<double> a;
+		VectorND<int> row;
+		VectorND<int> col;
+		int nonzeroNum;
+		CGSolver::SparseA(poissonMatrix, a, row, col, nonzeroNum);
+		CGSolver::SolverSparse(poissonMatrix.iRes, a, row, col, poissonVector, innerSolution);
+	}
+	else
+	{
+		poissonCSR = CSR<double>(poissonMatrix);
+		innerSolution = CGSolver::SolverCSR(poissonCSR, poissonVector);
+	}
 
-
-	//ofstream asdf;
-	//asdf.open("D:\Data/A1.txt", ios::binary);
-	//for (int i = innerGrid.iStart; i <= innerGrid.iEnd; i++)
-	//{
-	//	for (int j = innerGrid.jStart; j < innerGrid.jEnd; j++)
-	//	{
-	//		asdf << poissonMatrix[i*grid.numMatX*grid.numMatY + j] << " ";
-	//	}
-	//	asdf << endl;
-	//}
-	//asdf.close();
-
-
-	poissonCSR = CSR<double>(poissonMatrix);
-	innerSolution = CG<double>(poissonCSR, poissonVector);
-
+	#pragma omp parallel for
 	for (int i = innerGrid.iStart; i <= innerGrid.iEnd; i++)
 	{
 		for (int j = innerGrid.jStart; j < innerGrid.jEnd; j++)
@@ -740,9 +739,15 @@ inline void PoissonSolver::SolvePoissonJumpCondi(int example, const Grid2D& ipGr
 			solution(i, j) = innerSolution[indexInner(i, j)];
 		}
 	}
-
-
-	OutputResult();
+	
+	solution.Variable("poisson");
+	MATLAB.Command("figure('units','normalized','outerposition',[0 0 1/2 1])");
+	MATLAB.Command("x = reshape(X,1,size(X,1)*size(X,2))");
+	MATLAB.Command("y = reshape(Y,1,size(X,1)*size(X,2))");
+	MATLAB.Command("P = reshape(poisson,1,size(X,1)*size(X,2))");
+	MATLAB.Command("plot3(x,y,P,'bo');");
+	MATLAB.Command("grid on");
+	//OutputResult();
 
 }
 
