@@ -1087,7 +1087,7 @@ inline void SurfaceReconst<TT>::OptimalU(const Field2D<double>& f, const Field2D
 	vectorB.Variable("b");
 
 	VectorND<double> uStar(innerIRes*innerJRes);
-	uStar = CG(csrA, vectorB, grid.dx*grid.dy);
+	uStar = CGSolver::SolverCSR(csrA, vectorB, grid.dx*grid.dy);
 	uStar.Variable("uStar");
 
 	int idx;

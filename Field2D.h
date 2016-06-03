@@ -610,7 +610,7 @@ inline void Field2D<TT>::WriteFile(const string & fileName)
 	{
 		for (int j = grid.jStart; j <= grid.jEnd; j++)
 		{
-			solutionFile << i << " " << j << " " << grid(i, j) << " " << dataArray(i, j) << endl;
+			solutionFile << setprecision(16) << i << " " << j << " " << grid(i, j) << " " << dataArray(i, j) << endl;
 		}
 	}
 	solutionFile.close();

@@ -7,14 +7,16 @@
 class EulerianFluidSolver2D
 {
 public:
-	Grid2D grid;
-	Grid2D cellGrid;
+	Grid2D gridU;
+	Grid2D gridV;
+	Grid2D gridP;
+
+	Field2D<double> U; // x velocity
+	Field2D<double> V; // y velocity
+	Field2D<double> P; // Pressure
 
 	LevelSet2D levelSet;
 
-	Field2D<double> pressure;
-
-	Field2D<Vector2D<double>> velocity;
 
 	double reynoldNum;
 	double dt;
@@ -29,7 +31,7 @@ public:
 	~EulerianFluidSolver2D();
 
 	void InitialCondition(const int& example);
-	void FluidSolver(const int& example, const int& timeSteppingOrder);
+	void FluidSolver(const int& example);
 
 	void TimeAdvanceForwardEuler(Field2D<Vector2D<double>>& ipVelocity);
 private:
@@ -51,20 +53,25 @@ inline void EulerianFluidSolver2D::InitialCondition(const int & example)
 {
 	if (example==1)
 	{
-		cout << "Cavity Flow" << endl;
+		cout << "*************************" << endl;
+		cout << "    Cavity Flow" << endl;
+		cout << "*************************" << endl;
 
-		grid = Grid2D(0, 1.0, 101, 0, 1, 101);
-		cellGrid = Grid2D(grid.xMin + grid.dx/2, grid.xMax - grid.dx/2, grid.iRes - 1, grid.yMin + grid.dy/2, grid.yMax - grid.dy/2, grid.jRes - 1);
+		gridP = Grid2D(0, 1.0, 101, 0, 1, 101);
+		gridU = Grid2D(gridP.xMin - gridP.dx/2, gridP.xMax + gridP.dx/2, gridP.iRes + 1,
+			gridP.yMin, gridP.yMax, gridP.jRes);
+		gridV = Grid2D(gridP.xMin, gridP.xMax, gridP.iRes, 
+			gridP.yMin - gridP.dy / 2, gridP.yMax + gridP.dy / 2, gridP.jRes + 1);
 
-		levelSet = LevelSet2D(grid);
-		pressure = Field2D<double>(cellGrid);
-		velocity = Field2D<Vector2D<double>>(grid);
+		P = Field2D<double>(gridP);
+		U = Field2D<double>(gridU);
+		V = Field2D<double>(gridV);
 
 		reynoldNum = 500;
-		cflCondition = 0.1;
+		cflCondition = 0.5;
 		
 		maxIteration = 1000;
-		writeOutputIteration = 1;
+		writeOutputIteration = 10;
 	}
 
 	if (example==2)
@@ -73,25 +80,30 @@ inline void EulerianFluidSolver2D::InitialCondition(const int & example)
 	}
 }
 
-inline void EulerianFluidSolver2D::FluidSolver(const int & example, const int& timeSteppingOrder)
+inline void EulerianFluidSolver2D::FluidSolver(const int & example)
 {
+	bool writeFile = false;
+	string fileName;
+	string str;
+	const char*cmd;
+
 	InitialCondition(example);
+	gridP.Variable("Xp", "Yp");
+	gridU.Variable("Xu", "Yu");
+	gridV.Variable("Xv", "Yv");
 
 	//OutputResult(0);
-	string fileName;
-	for (int i = 0; i < maxIteration; i++)
+	for (int i = 0; i < 0; i++)
 	{
-		if (timeSteppingOrder==1)
-		{
-			TimeAdvanceForwardEuler(velocity);
-		}
 
-		if (i%writeOutputIteration == 0)
+		if (writeFile && i%writeOutputIteration == 0)
 		{
 			fileName = "pressure" + to_string(i);
-			velocity.WriteFile(fileName);
-			fileName = "velocity" + to_string(i);
-			velocity.WriteFile(fileName);
+			P.WriteFile(fileName);
+			fileName = "xVelocity" + to_string(i);
+			U.WriteFile(fileName);
+			fileName = "yVelocity" + to_string(i);
+			V.WriteFile(fileName);
 		}
 	}
 }

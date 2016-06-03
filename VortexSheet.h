@@ -497,6 +497,39 @@ inline void VortexSheet::Stream2Velocity()
 			}
 		}
 	}
+
+//#pragma omp parallel for
+//	for (int i = grid.iStart; i <= grid.iEnd; i++)
+//	{
+//		for (int j = grid.jStart; j <= grid.jEnd; j++)
+//		{
+//			if (j == grid.jStart)
+//			{
+//				velocityX(i, j) = -(streamFunction(i, j + 1) - streamFunction(i, j))*grid.oneOverdx;
+//			}
+//			else if (j == grid.jEnd)
+//			{
+//				velocityX(i, j) = -(streamFunction(i, j) - streamFunction(i, j - 1))*grid.oneOverdx;
+//			}
+//			else
+//			{
+//				velocityX(i, j) = -(streamFunction(i, j + 1) - streamFunction(i, j - 1))*grid.oneOver2dx;
+//			}
+//
+//			if (i == grid.iStart)
+//			{
+//				velocityY(i, j) = (streamFunction(i + 1, j) - streamFunction(i, j))*grid.oneOverdy;
+//			}
+//			else if (i == grid.iEnd)
+//			{
+//				velocityY(i, j) = (streamFunction(i, j) - streamFunction(i - 1, j))*grid.oneOverdx;
+//			}
+//			else
+//			{
+//				velocityY(i, j) = (streamFunction(i + 1, j) - streamFunction(i - 1, j))*grid.oneOver2dx;
+//			}
+//		}
+//	}
 }
 
 

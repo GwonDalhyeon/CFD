@@ -39,6 +39,9 @@ public:
 	void InitialCondition(const int & example);
 	void AdvectionSolver(const int & example);
 
+	double Distance2Data(const int& i, const int& j);
+	void ExactDistance();
+
 	// Adaptive time step functions.
 	double AdaptiveTimeStep();
 	double AdaptiveTimeStep(const Field2D<double>& velocity1);
@@ -94,6 +97,7 @@ inline void LevelSetAdvection::InitialCondition(const int & example)
 		}
 
 		isVelocity = true;
+		cflCondition = 0.5;
 
 		//dt = grid.dx*grid.dy;
 		maxIteration = 1000;
@@ -119,6 +123,7 @@ inline void LevelSetAdvection::InitialCondition(const int & example)
 			}
 		}
 
+		cflCondition = 0.5;
 
 		//dt = grid.dx*grid.dy;
 		maxIteration = 1000;
@@ -155,6 +160,148 @@ inline void LevelSetAdvection::InitialCondition(const int & example)
 			}
 		}
 
+		cflCondition = 0.5;
+
+		//dt = grid.dx*grid.dy;
+		maxIteration = 1000;
+		writeIter = 10;
+	}
+	else if (example ==4)
+	{
+		cout << "Level set advection Test - Unit square" << endl;
+
+		isVelocity = false;
+		needReinitial = false;
+
+		grid = Grid2D(-1, 1, 201, -1, 1, 201);
+
+
+		levelSet = LevelSet2D(grid);
+//#pragma omp parallel for
+		for (int i = grid.iStart; i <= grid.iEnd; i++)
+		{
+			for (int j = grid.jStart; j <= grid.jEnd; j++)
+			{
+				levelSet(i, j) = max(abs(grid(i,j).x), abs(grid(i, j).y)) - 0.5;
+			}
+		}
+
+		cflCondition = 0.05;
+
+		//dt = grid.dx*grid.dy;
+		maxIteration = 1000;
+		writeIter = 10;
+	}
+	else if (example == 5)
+	{
+		cout << "Level set advection Test - Unit sircle" << endl;
+
+		isVelocity = false;
+		needReinitial = false;
+
+		grid = Grid2D(-1, 1, 201, -1, 1, 201);
+
+
+		levelSet = LevelSet2D(grid);
+		//#pragma omp parallel for
+		for (int i = grid.iStart; i <= grid.iEnd; i++)
+		{
+			for (int j = grid.jStart; j <= grid.jEnd; j++)
+			{
+				levelSet(i, j) = sqrt(grid(i,j).x*grid(i, j).x + grid(i, j).y*grid(i, j).y) - 0.5;
+			}
+		}
+
+		cflCondition = 0.05;
+
+		//dt = grid.dx*grid.dy;
+		maxIteration = 1000;
+		writeIter = 10;
+	}
+	else if (example == 6)
+	{
+		cout << "Level set advection Test - Diamond" << endl;
+
+		isVelocity = false;
+		needReinitial = false;
+
+		grid = Grid2D(-1.5, 1.5, 301, -1.5, 1.5, 301);
+
+
+		levelSet = LevelSet2D(grid);
+		//#pragma omp parallel for
+		for (int i = grid.iStart; i <= grid.iEnd; i++)
+		{
+			for (int j = grid.jStart; j <= grid.jEnd; j++)
+			{
+				levelSet(i, j) = (4 * abs(grid(i, j).x) + abs(grid(i, j).y)) - 1;
+			}
+		}
+
+		cflCondition = 0.05;
+
+		//dt = grid.dx*grid.dy;
+		maxIteration = 1000;
+		writeIter = 10;
+	}
+	else if (example == 7)
+	{
+		cout << "Level set advection Test - Concave" << endl;
+
+		isVelocity = false;
+		needReinitial = false;
+
+		grid = Grid2D(-1.5, 1.5, 301, -1.5, 1.5, 301);
+
+		int edgePointNum = 200;
+		givenPointNum = edgePointNum * 5;
+		givenPoint = VectorND<Vector2D<double>>(1, givenPointNum);
+
+		for (int i = givenPoint.iStart; i <= edgePointNum; i++)
+		{
+			givenPoint(i).x = 0.25 / edgePointNum * i;
+			givenPoint(i).y = (1 - 4 * abs(givenPoint(i).x));
+			givenPoint(i + edgePointNum).x = 0.25 / edgePointNum * i;
+			givenPoint(i + edgePointNum).y = -(1 - 4 * abs(givenPoint(i + edgePointNum).x));
+			givenPoint(i + edgePointNum * 2).x = 0.25 / edgePointNum * i - 0.25;
+			givenPoint(i + edgePointNum * 2).y = (1 - 4 * abs(givenPoint(i + edgePointNum * 2).x));
+		}
+		for (int i = 1; i <= edgePointNum; i++)
+		{
+			givenPoint(i + edgePointNum * 3).x = 0.25 / edgePointNum * i - 0.25;
+			givenPoint(i + edgePointNum * 3).y = 0;
+		}
+		for (int i = 1; i <= edgePointNum; i++)
+		{
+			givenPoint(i + edgePointNum * 4).x = 0;
+			givenPoint(i + edgePointNum * 4).y = -1 / double(edgePointNum) * i;
+
+		}
+
+		distance = Field2D<double>(grid);
+		ExactDistance();
+		levelSet = LevelSet2D(grid);
+		//#pragma omp parallel for
+		for (int i = grid.iStart; i <= grid.iEnd; i++)
+		{
+			for (int j = grid.jStart; j <= grid.jEnd; j++)
+			{
+				if ((4 * abs(grid(i, j).x) + abs(grid(i, j).y)) - 1 >= 0)
+				{
+					levelSet(i, j) = distance(i, j);
+				}
+				else if (grid(i,j).x<=0 && grid(i,j).y<=0)
+				{
+					levelSet(i, j) = distance(i, j);
+				}
+				else
+				{
+					levelSet(i, j) = -distance(i, j);
+				}
+			}
+		}
+
+		cflCondition = 0.05;
 
 		//dt = grid.dx*grid.dy;
 		maxIteration = 1000;
@@ -165,11 +312,10 @@ inline void LevelSetAdvection::InitialCondition(const int & example)
 
 inline void LevelSetAdvection::AdvectionSolver(const int & example)
 {
-	bool writeFile = false;
+	bool writeFile = true;
 	string str;
 	const char*cmd;
 
-	cflCondition;
 	InitialCondition(example);
 
 	grid.Variable();
@@ -180,14 +326,20 @@ inline void LevelSetAdvection::AdvectionSolver(const int & example)
 	{
 		str = "phi0";
 		levelSet.phi.WriteFile(str);
-		str = "velocityX";
-		velocityX.WriteFile(str);
-		str = "velocityY";
-		velocityY.WriteFile(str);
+		
+		if (isVelocity)
+		{
+			str = "velocityX";
+			velocityX.WriteFile(str);
+			str = "velocityY";
+			velocityY.WriteFile(str);
+		}
 	}
 	
 	
-
+	//MATLAB.Command("figure('units','normalized','outerposition',[0 0 1/2 1])");
+	//MATLAB.Command("v = VideoWriter('newfile.avi');");
+	//MATLAB.Command("open(v)");
 	for (int i = 1; i <= maxIteration; i++)
 	{
 		cout << "Level set advection : " << i << endl;
@@ -196,11 +348,31 @@ inline void LevelSetAdvection::AdvectionSolver(const int & example)
 		{
 			dt = AdaptiveTimeStep(velocityX, velocityY);
 			AdvectionMethod2D<double>::levelSetPropagatingTVDRK3(levelSet, velocityX, velocityY, dt);
+			levelSet.phi.Variable("phi");
+
+			MATLAB.Command("contour(X, Y, phi0, [0 0],'b');");
+			MATLAB.Command("hold on");
+			MATLAB.Command("grid on");
+			MATLAB.Command("axis([-1 1 -1 1]);axis equal;");
+			MATLAB.Command("contour(X, Y, phi, [0 0],'r');");
+			MATLAB.Command("hold off");
 		}
 		else
 		{
 			dt = AdaptiveTimeStep();
 			AdvectionMethod2D<double>::levelSetPropagatingTVDRK3(levelSet, dt);
+			//MATLAB.Variable("i", i);
+			//levelSet.phi.Variable("phi");
+			//MATLAB.Command("axis([-1 1 -1 1]);axis equal;");
+			//MATLAB.Command("contour(X, Y, phi0, [0 0],'b');");
+			//MATLAB.Command("hold on");
+			//MATLAB.Command("grid on");
+			//MATLAB.Command("axis([-1 1 -1 1]);axis equal;");
+			////MATLAB.Command("hold on");
+			//MATLAB.Command("contour(X, Y, phi, [0 0],'r');");
+			//MATLAB.Command("hold off");
+			////MATLAB.Command("F=getframe;");
+			////MATLAB.Command("writeVideo(v,F)");
 		}
 
 
@@ -220,7 +392,37 @@ inline void LevelSetAdvection::AdvectionSolver(const int & example)
 			levelSet.phi.WriteFile(str);
 		}
 	}
+	//MATLAB.Command("close(v)");
 	
+}
+
+inline double LevelSetAdvection::Distance2Data(const int & i, const int & j)
+{
+	double distance = 100;
+	double tempDist;
+
+	for (int k = 0; k < givenPointNum; k++)
+	{
+		tempDist = (givenPoint(k) - grid(i, j)).magnitude();
+		if (distance > tempDist)
+		{
+			distance = tempDist;
+		}
+	}
+
+	return distance;
+}
+
+inline void LevelSetAdvection::ExactDistance()
+{
+#pragma omp parallel for
+	for (int i = grid.iStart; i <= grid.iEnd; i++)
+	{
+		for (int j = grid.jStart; j <= grid.jEnd; j++)
+		{
+			distance(i, j) = Distance2Data(i, j);
+		}
+	}
 }
 
 

@@ -38,6 +38,7 @@ public:
 	static void levelSetPropagatingTVDRK3(LevelSet2D& levelSet, const Field2D<double>& velocity, const double& dt);
 	//static void levelSetPropagatingTVDRK3(LevelSet2D& levelSet, const Field2D<Vector2D<double>>& velocity, const double& dt);
 	static void levelSetPropagatingTVDRK3(LevelSet2D& levelSet, const Field2D<double>& velocityX, const Field2D<double>& velocityY, const double& dt);
+	static void levelSetPropagatingTVDRK3PeriodicX(LevelSet2D& levelSet, const Field2D<double>& velocityX, const Field2D<double>& velocityY, const double& dt);
 
 	static void levelSetPropagatingEuler(LevelSet2D& levelSet, const Field2D<double>& velocity, const double& dt);
 
@@ -519,6 +520,132 @@ inline void AdvectionMethod2D<TT>::levelSetPropagatingTVDRK3(LevelSet2D & levelS
 			k3(i, j) = -velocityX(i, j)*dt*tempDxPhi - velocityY(i, j)*dt*tempDyPhi;
 			levelSet(i, j) = 1.0 / 3.0*originLevelSet(i, j) + 2.0 / 3.0*levelSet(i, j) + 2.0 / 3.0*k3(i, j);
 		}
+	}
+}
+
+template<class TT>
+inline void AdvectionMethod2D<TT>::levelSetPropagatingTVDRK3PeriodicX(LevelSet2D & levelSet, const Field2D<double>& velocityX, const Field2D<double>& velocityY, const double & dt)
+{
+	LevelSet2D originLevelSet = levelSet;
+	LevelSet2D tempLevelSet(originLevelSet.grid);
+
+	Field2D<TT> k1(levelSet.grid);
+	Field2D<TT> k2(levelSet.grid);
+	Field2D<TT> k3(levelSet.grid);
+
+	Field2D<TT> wenoXMinus(levelSet.grid);
+	Field2D<TT> wenoXPlus(levelSet.grid);
+	Field2D<TT> wenoYMinus(levelSet.grid);
+	Field2D<TT> wenoYPlus(levelSet.grid);
+
+
+
+	WENO5thApproxXMinus(levelSet.phi, wenoXMinus);
+	WENO5thApproxXPlus(levelSet.phi, wenoXPlus);
+	WENO5thApproxYMinus(levelSet.phi, wenoYMinus);
+	WENO5thApproxYPlus(levelSet.phi, wenoYPlus);
+
+	double tempDxPhi, tempDyPhi;
+#pragma omp parallel for private(tempDxPhi, tempDyPhi)
+	for (int i = levelSet.grid.iStart; i <= levelSet.grid.iEnd-1; i++)
+	{
+		for (int j = levelSet.grid.jStart; j <= levelSet.grid.jEnd; j++)
+		{
+			if (velocityX(i, j) >= 0)
+			{
+				tempDxPhi = wenoXMinus(i, j);
+			}
+			else
+			{
+				tempDxPhi = wenoXPlus(i, j);
+			}
+			if (velocityY(i, j) >= 0)
+			{
+				tempDyPhi = wenoYMinus(i, j);
+			}
+			else
+			{
+				tempDyPhi = wenoYPlus(i, j);
+			}
+
+			k1(i, j) = -velocityX(i, j)*dt*tempDxPhi - velocityY(i, j)*dt*tempDyPhi;
+			levelSet(i, j) = originLevelSet(i, j) + k1(i, j);
+		}
+	}
+#pragma omp parallel for
+	for (int j = levelSet.grid.jStart; j <= levelSet.grid.jEnd; j++)
+	{
+		levelSet(levelSet.grid.iEnd, j) = levelSet(levelSet.grid.iStart, j);
+	}
+
+	WENO5thApproxXMinus(levelSet.phi, wenoXMinus);
+	WENO5thApproxXPlus(levelSet.phi, wenoXPlus);
+	WENO5thApproxYMinus(levelSet.phi, wenoYMinus);
+	WENO5thApproxYPlus(levelSet.phi, wenoYPlus);
+#pragma omp parallel for private(tempDxPhi, tempDyPhi)
+	for (int i = levelSet.grid.iStart; i <= levelSet.grid.iEnd-1; i++)
+	{
+		for (int j = levelSet.grid.jStart; j <= levelSet.grid.jEnd; j++)
+		{
+			if (velocityX(i, j) >= 0)
+			{
+				tempDxPhi = wenoXMinus(i, j);
+			}
+			else
+			{
+				tempDxPhi = wenoXPlus(i, j);
+			}
+			if (velocityY(i, j) >= 0)
+			{
+				tempDyPhi = wenoYMinus(i, j);
+			}
+			else
+			{
+				tempDyPhi = wenoYPlus(i, j);
+			}
+			k2(i, j) = -velocityX(i, j)*dt*tempDxPhi - velocityY(i, j)*dt*tempDyPhi;
+			levelSet(i, j) = 3.0 / 4.0*originLevelSet(i, j) + 1.0 / 4.0*levelSet(i, j) + 1.0 / 4.0*k2(i, j);
+		}
+	}
+#pragma omp parallel for
+	for (int j = levelSet.grid.jStart; j <= levelSet.grid.jEnd; j++)
+	{
+		levelSet(levelSet.grid.iEnd, j) = levelSet(levelSet.grid.iStart, j);
+	}
+
+	WENO5thApproxXMinus(levelSet.phi, wenoXMinus);
+	WENO5thApproxXPlus(levelSet.phi, wenoXPlus);
+	WENO5thApproxYMinus(levelSet.phi, wenoYMinus);
+	WENO5thApproxYPlus(levelSet.phi, wenoYPlus);
+#pragma omp parallel for private(tempDxPhi, tempDyPhi)
+	for (int i = levelSet.grid.iStart; i <= levelSet.grid.iEnd-1; i++)
+	{
+		for (int j = levelSet.grid.jStart; j <= levelSet.grid.jEnd; j++)
+		{
+			if (velocityX(i, j) >= 0)
+			{
+				tempDxPhi = wenoXMinus(i, j);
+			}
+			else
+			{
+				tempDxPhi = wenoXPlus(i, j);
+			}
+			if (velocityY(i, j) >= 0)
+			{
+				tempDyPhi = wenoYMinus(i, j);
+			}
+			else
+			{
+				tempDyPhi = wenoYPlus(i, j);
+			}
+			k3(i, j) = -velocityX(i, j)*dt*tempDxPhi - velocityY(i, j)*dt*tempDyPhi;
+			levelSet(i, j) = 1.0 / 3.0*originLevelSet(i, j) + 2.0 / 3.0*levelSet(i, j) + 2.0 / 3.0*k3(i, j);
+		}
+	}
+#pragma omp parallel for
+	for (int j = levelSet.grid.jStart; j <= levelSet.grid.jEnd; j++)
+	{
+		levelSet(levelSet.grid.iEnd, j) = levelSet(levelSet.grid.iStart, j);
 	}
 }
 
