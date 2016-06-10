@@ -48,15 +48,15 @@ public:
 
 	inline TT& operator ()(const Vector2D<int>& ipVector) const;
 
-	inline void operator =(const double& constant);
+	inline void operator =(const TT& constant);
 
-	inline void operator *=(const double& constant);
+	inline void operator *=(const TT& constant);
 
-	inline void operator +=(const double& constant);
+	inline void operator +=(const TT& constant);
 
-	inline void operator -=(const double& constant);
+	inline void operator -=(const TT& constant);
 
-	inline void operator /=(const double& constant);
+	inline void operator /=(const TT& constant);
 
 	inline void operator =(const Array2D<TT>& ipArray);
 
@@ -205,12 +205,12 @@ inline Array2D<TT>::Array2D(const Grid2D & ipGrid)
 	initialize(ipGrid.iStart, ipGrid.iEnd, ipGrid.iRes, ipGrid.jStart, ipGrid.jEnd, ipGrid.jRes, ipGrid.iRes*ipGrid.jRes);
 
 	values = new TT[ijRes];
-
-#pragma omp parallel for
-	for (int i = 0; i < ijRes; i++)
-	{
-		values[i] = 0;
-	}
+	memset(values, 0, ijRes * sizeof(TT));
+//#pragma omp parallel for
+//	for (int i = 0; i < ijRes; i++)
+//	{
+//		values[i] = 0;
+//	}
 }
 
 template<class TT>
@@ -228,11 +228,12 @@ inline void Array2D<TT>::initialize(const int & iS, const int & iE, const int & 
 template<class TT>
 inline void Array2D<TT>::initialValues()
 {
-#pragma omp parallel for
-	for (int i = 0; i < ijRes; i++)
-	{
-		values[i] = 0;
-	}
+	memset(values, 0, ijRes * sizeof(TT));
+//#pragma omp parallel for
+//	for (int i = 0; i < ijRes; i++)
+//	{
+//		values[i] = 0;
+//	}
 }
 
 template<class TT>
@@ -284,7 +285,7 @@ inline TT & Array2D<TT>::operator()(const Vector2D<int>& ipVector) const
 }
 
 template<class TT>
-inline void Array2D<TT>::operator=(const double & constant)
+inline void Array2D<TT>::operator=(const TT & constant)
 {
 #pragma omp parallel for
 	for (int i = 0; i < ijRes; i++)
@@ -294,7 +295,7 @@ inline void Array2D<TT>::operator=(const double & constant)
 }
 
 template<class TT>
-inline void Array2D<TT>::operator*=(const double & constant)
+inline void Array2D<TT>::operator*=(const TT & constant)
 {
 #pragma omp parallel for
 	for (int i = 0; i < ijRes; i++)
@@ -304,7 +305,7 @@ inline void Array2D<TT>::operator*=(const double & constant)
 }
 
 template<class TT>
-inline void Array2D<TT>::operator+=(const double & constant)
+inline void Array2D<TT>::operator+=(const TT & constant)
 {
 #pragma omp parallel for
 	for (int i = 0; i < ijRes; i++)
@@ -314,7 +315,7 @@ inline void Array2D<TT>::operator+=(const double & constant)
 }
 
 template<class TT>
-inline void Array2D<TT>::operator-=(const double & constant)
+inline void Array2D<TT>::operator-=(const TT & constant)
 {
 #pragma omp parallel for
 	for (int i = 0; i < ijRes; i++)
@@ -324,7 +325,7 @@ inline void Array2D<TT>::operator-=(const double & constant)
 }
 
 template<class TT>
-inline void Array2D<TT>::operator/=(const double & constant)
+inline void Array2D<TT>::operator/=(const TT & constant)
 {
 	assert(constant != 0);
 
@@ -347,11 +348,12 @@ inline void Array2D<TT>::operator=(const Array2D<TT>& ipArray)
 	assert(ijRes > 0);
 
 	values = new TT[ijRes];
-#pragma omp parallel for
-	for (int i = 0; i < ijRes; i++)
-	{
-		values[i] = ipArray.values[i];
-	}
+	memcpy(values, ipArray.values, ijRes * sizeof(TT));
+//#pragma omp parallel for
+//	for (int i = 0; i < ijRes; i++)
+//	{
+//		values[i] = ipArray.values[i];
+//	}
 }
 
 template<class TT>

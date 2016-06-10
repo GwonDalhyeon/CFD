@@ -28,7 +28,7 @@ void main()
 	MATLAB.Command("workspace");
 
 	int problem = 4;
-	int example = 2;
+	int example = 1;
 	if (problem==0) //// GMRES test :: example 1,2,3,4
 	{
 		switch (example)
@@ -62,7 +62,7 @@ void main()
 		LevelSetAdvection levelSet;
 		levelSet.AdvectionSolver(example);
 	}
-	else if (problem == 4) // EULER SOLVER : EXAMPLE 1 ??
+	else if (problem == 4) // NAVIER STOKES EQUATION SOLVER : EXAMPLE 1 ??
 	{
 		EulerianFluidSolver2D Euler;
 		Euler.FluidSolver(example);

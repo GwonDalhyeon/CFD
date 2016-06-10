@@ -34,6 +34,8 @@ public:
 	void FluidSolver(const int& example);
 
 	void TimeAdvanceForwardEuler(Field2D<Vector2D<double>>& ipVelocity);
+	void AdvectionTerm(const Field2D<double>& U, const Field2D<double>& V, Field2D<double>& TermU, Field2D<double>& TermV);
+	
 private:
 
 };
@@ -67,11 +69,20 @@ inline void EulerianFluidSolver2D::InitialCondition(const int & example)
 		U = Field2D<double>(gridU);
 		V = Field2D<double>(gridV);
 
+		// initial condition
+#pragma omp parallel for
+		for (int i = gridU.iStart; i <= gridU.iEnd; i++)
+		{
+			U(i, gridU.jEnd) = 1;
+		}
+
 		reynoldNum = 500;
 		cflCondition = 0.5;
 		
 		maxIteration = 1000;
 		writeOutputIteration = 10;
+
+
 	}
 
 	if (example==2)
@@ -85,14 +96,15 @@ inline void EulerianFluidSolver2D::FluidSolver(const int & example)
 	bool writeFile = false;
 	string fileName;
 	string str;
-	const char*cmd;
+	const char* cmd;
 
 	InitialCondition(example);
 	gridP.Variable("Xp", "Yp");
 	gridU.Variable("Xu", "Yu");
 	gridV.Variable("Xv", "Yv");
 
-	//OutputResult(0);
+
+	
 	for (int i = 0; i < 0; i++)
 	{
 
@@ -132,5 +144,36 @@ inline void EulerianFluidSolver2D::TimeAdvanceForwardEuler(Field2D<Vector2D<doub
 		}
 	}
 
+}
+
+inline void EulerianFluidSolver2D::AdvectionTerm(const Field2D<double>& U, const Field2D<double>& V, Field2D<double>& TermU, Field2D<double>& TermV)
+{
+	Field2D<double> dUdxM(U.grid);
+	Field2D<double> dUdxP(U.grid);
+	Field2D<double> dUdyM(U.grid);
+	Field2D<double> dUdyP(U.grid);
+	AdvectionMethod2D<double>::ENO3rdDerivation(U, dUdxM, dUdxP, dUdyM, dUdyP);
+	Field2D<double> dVdxM(V.grid);
+	Field2D<double> dVdxP(V.grid);
+	Field2D<double> dVdyM(V.grid);
+	Field2D<double> dVdyP(V.grid);
+	AdvectionMethod2D<double>::ENO3rdDerivation(V, dVdxM, dVdxP, dVdyM, dVdyP);
+
+	int Uistart = U.iStart + 1;
+	int Uiend = U.iEnd - 1;
+	int Ujstart = U.jStart + 1;
+	int Ujend = U.jEnd - 1;
+	int Vistart = V.iStart + 1;
+	int Viend = V.iEnd - 1;
+	int Vjstart = V.jStart + 1;
+	int Vjend = V.jEnd - 1;
+
+	for (int i = Uistart; i <= Uiend; i++)
+	{
+		for (int j = Ujstart; j <= Ujend; j++)
+		{
+
+		}
+	}
 }
 

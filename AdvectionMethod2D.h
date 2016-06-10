@@ -22,6 +22,18 @@ public:
 	static TT sign(const TT& constant);
 
 
+	static void ENO3rdDerivation(const Field2D<TT>& ipField, Field2D<TT>& enoDxMinus, Field2D<TT>& enoDxPlus, Field2D<TT>& enoDyMinus, Field2D<TT>& enoDyPlus);
+	static void ENO3rdDxMinus(const Field2D<TT>& ipField, Field2D<TT>& enoDxMinus);
+	static void ENO3rdDxPlus(const Field2D<TT>& ipField, Field2D<TT>& enoDxPlus);
+	static void ENO3rdDyMinus(const Field2D<TT>& ipField, Field2D<TT>& enoDyMinus);
+	static void ENO3rdDyPlus(const Field2D<TT>& ipField, Field2D<TT>& enoDyPlus);
+	static TT ENOD1x(const Field2D<TT>& ipField, const int& i, const int& j);
+	static TT ENOD2x(const Field2D<TT>& ipField, const int& i, const int& j);
+	static TT ENOD3x(const Field2D<TT>& ipField, const int& i, const int& j);
+	static TT ENOD1y(const Field2D<TT>& ipField, const int& i, const int& j);
+	static TT ENOD2y(const Field2D<TT>& ipField, const int& i, const int& j);
+	static TT ENOD3y(const Field2D<TT>& ipField, const int& i, const int& j);
+
 	static void WENO5th(const Field2D<TT>& ipField, Field2D<TT>& wenoXMinus, Field2D<TT>& wenoXPlus, Field2D<TT>& wenoYMinus, Field2D<TT>& wenoYPlus);
 	static void WENO5th(const TT& v1, const TT& v2, const TT& v3, const TT& v4, const TT& v5, TT& constant);
 	static void WENO5thApproxXMinus(const Field2D<TT>& ipField, Field2D<TT>& wenoXMinus);
@@ -82,7 +94,7 @@ inline TT AdvectionMethod2D<TT>::heaviside(const double & constant)
 template<class TT>
 inline TT AdvectionMethod2D<TT>::deltaFt(const double & constant)
 {
-	if (abs(constant)>alpha)
+	if (abs(constant) > alpha)
 	{
 		return 0.0;
 	}
@@ -99,6 +111,261 @@ inline TT AdvectionMethod2D<TT>::sign(const TT & constant)
 	return TT(constant / sqrt(constant*constant + DBL_EPSILON));
 }
 
+template<class TT>
+inline void AdvectionMethod2D<TT>::ENO3rdDerivation(const Field2D<TT>& ipField, Field2D<TT>& enoDxMinus, Field2D<TT>& enoDxPlus, Field2D<TT>& enoDyMinus, Field2D<TT>& enoDyPlus)
+{
+	ENO3rdDxMinus(ipField, enoDxMinus);
+	ENO3rdDxPlus(ipField, enoDxPlus);
+	ENO3rdDyMinus(ipField, enoDyMinus);
+	ENO3rdDyPlus(ipField, enoDyPlus);
+}
+
+template<class TT>
+inline void AdvectionMethod2D<TT>::ENO3rdDxMinus(const Field2D<TT>& ipField, Field2D<TT>& enoDxMinus)
+{
+	double Q1, Q2, Q3, c1, c2;
+	int k;
+	double D2L, D2R;
+	double D3L, D3R;
+	double dx = ipField.dx;
+#pragma omp parallel for private(Q1, Q2, Q3, c1, c2, k, D2L, D2R, D3L, D3R)
+	for (int i = ipField.iStart; i <= ipField.iEnd; i++)
+	{
+		for (int j = ipField.jStart; j <= ipField.jEnd; j++)
+		{
+			if (i < ipField.iStart + 3 || i > ipField.iEnd - 2)
+			{
+				enoDxMinus(i, j) = ipField.dxMinusPhi(i, j);
+			}
+			else
+			{
+				Q1 = ENOD1x(ipField, i - 1, j);
+				D2L = ENOD2x(ipField, i - 1, j);
+				D2R = ENOD2x(ipField, i, j);
+				if (abs(D2L) <= abs(D2R))
+				{
+					c1 = D2L;
+					k = i - 2;
+				}
+				else
+				{
+					c1 = D2R;
+					k = i - 1;
+				}
+				Q2 = -c1*dx;
+
+				D3L = ENOD3x(ipField, k, j);
+				D3R = ENOD3x(ipField, k + 1, j);
+				if (abs(D3L) <= abs(D3R))
+				{
+					c2 = D3L;
+				}
+				else
+				{
+					c2 = D3R;
+				}
+				Q3 = (double)c2*(3 * (i - k)*(i - k) - 6 * (i - k) + 2)*dx*dx;
+
+				enoDxMinus(i, j) = Q1 + Q2 + Q3;
+			}
+		}
+	}
+}
+
+template<class TT>
+inline void AdvectionMethod2D<TT>::ENO3rdDxPlus(const Field2D<TT>& ipField, Field2D<TT>& enoDxPlus)
+{
+	double Q1, Q2, Q3, c1, c2;
+	int k;
+	double D2L, D2R;
+	double D3L, D3R;
+	double dx = ipField.dx;
+#pragma omp parallel for private(Q1, Q2, Q3, c1, c2, k, D2L, D2R, D3L, D3R)
+	for (int i = ipField.iStart; i <= ipField.iEnd; i++)
+	{
+		for (int j = ipField.jStart; j <= ipField.jEnd; j++)
+		{
+
+			if (i < ipField.iStart + 2 || i > ipField.iEnd - 3)
+			{
+				enoDxPlus(i, j) = ipField.dxPlusPhi(i, j);
+			}
+			else
+			{
+				Q1 = ENOD1x(ipField, i, j);
+				D2L = ENOD2x(ipField, i, j);
+				D2R = ENOD2x(ipField, i + 1, j);
+				if (abs(D2L) <= abs(D2R))
+				{
+					c1 = D2L;
+					k = i - 1;
+				}
+				else
+				{
+					c1 = D2R;
+					k = i;
+				}
+				Q2 = -c1*dx;
+
+				D3L = ENOD3x(ipField, k, j);
+				D3R = ENOD3x(ipField, k + 1, j);
+				if (abs(D3L) <= abs(D3R))
+				{
+					c2 = D3L;
+				}
+				else
+				{
+					c2 = D3R;
+				}
+				Q3 = (double)c2*(3 * (i - k)*(i - k) - 6 * (i - k) + 2)*dx*dx;
+
+				enoDxPlus(i, j) = Q1 + Q2 + Q3;
+			}
+
+		}
+	}
+}
+
+template<class TT>
+inline void AdvectionMethod2D<TT>::ENO3rdDyMinus(const Field2D<TT>& ipField, Field2D<TT>& enoDyMinus)
+{
+	double Q1, Q2, Q3, c1, c2;
+	int k;
+	double D2L, D2R;
+	double D3L, D3R;
+	double dy = ipField.dy;
+#pragma omp parallel for private(Q1, Q2, Q3, c1, c2, k, D2L, D2R, D3L, D3R)
+	for (int i = ipField.iStart; i <= ipField.iEnd; i++)
+	{
+		for (int j = ipField.jStart; j <= ipField.jEnd; j++)
+		{
+			if (j < ipField.jStart + 3 || j > ipField.jEnd - 2)
+			{
+				enoDyMinus(i, j) = ipField.dyMinusPhi(i, j);
+			}
+			else
+			{
+				Q1 = ENOD1y(ipField, i, j - 1);
+				D2L = ENOD2y(ipField, i, j - 1);
+				D2R = ENOD2y(ipField, i, j);
+				if (abs(D2L) <= abs(D2R))
+				{
+					c1 = D2L;
+					k = j - 2;
+				}
+				else
+				{
+					c1 = D2R;
+					k = j - 1;
+				}
+				Q2 = -c1*dy;
+
+				D3L = ENOD3y(ipField, i, k);
+				D3R = ENOD3y(ipField, i, k + 1);
+				if (abs(D3L) <= abs(D3R))
+				{
+					c2 = D3L;
+				}
+				else
+				{
+					c2 = D3R;
+				}
+				Q3 = (double)c2*(3 * (j - k)*(j - k) - 6 * (j - k) + 2)*dy*dy;
+
+				enoDyMinus(i, j) = Q1 + Q2 + Q3;
+			}
+		}
+	}
+}
+
+template<class TT>
+inline void AdvectionMethod2D<TT>::ENO3rdDyPlus(const Field2D<TT>& ipField, Field2D<TT>& enoDyPlus)
+{
+	double Q1, Q2, Q3, c1, c2;
+	int k;
+	double D2L, D2R;
+	double D3L, D3R;
+	double dy = ipField.dy;
+#pragma omp parallel for private(Q1, Q2, Q3, c1, c2, k, D2L, D2R, D3L, D3R)
+	for (int i = ipField.iStart; i <= ipField.iEnd; i++)
+	{
+		for (int j = ipField.jStart; j <= ipField.jEnd; j++)
+		{
+
+			if (j < ipField.jStart + 2 || j > ipField.jEnd - 3)
+			{
+				enoDyPlus(i, j) = ipField.dyPlusPhi(i, j);
+			}
+			else
+			{
+				Q1 = ENOD1y(ipField, i, j);
+				D2L = ENOD2y(ipField, i, j);
+				D2R = ENOD2y(ipField, i, j + 1);
+				if (abs(D2L) <= abs(D2R))
+				{
+					c1 = D2L;
+					k = j - 1;
+				}
+				else
+				{
+					c1 = D2R;
+					k = j;
+				}
+				Q2 = -c1*dy;
+
+				D3L = ENOD3y(ipField, i, k);
+				D3R = ENOD3y(ipField, i, k + 1);
+				if (abs(D3L) <= abs(D3R))
+				{
+					c2 = D3L;
+				}
+				else
+				{
+					c2 = D3R;
+				}
+				Q3 = (double)c2*(3 * (j - k)*(j - k) - 6 * (j - k) + 2)*dy*dy;
+
+				enoDyPlus(i, j) = Q1 + Q2 + Q3;
+			}
+		}
+	}
+}
+
+template<class TT>
+inline TT AdvectionMethod2D<TT>::ENOD1x(const Field2D<TT>& ipField, const int& i, const int& j)
+{
+	return (ipField(i + 1, j) - ipField(i, j)) / ipField.dx;
+}
+
+template<class TT>
+inline TT AdvectionMethod2D<TT>::ENOD2x(const Field2D<TT>& ipField, const int& i, const int& j)
+{
+	return (ENOD1x(ipField, i, j) - ENOD1x(ipField, i - 1, j)) / (2 * ipField.dx);
+}
+
+template<class TT>
+inline TT AdvectionMethod2D<TT>::ENOD3x(const Field2D<TT>& ipField, const int& i, const int& j)
+{
+	return (ENOD2x(ipField, i + 1, j) - ENOD2x(ipField, i, j)) / (3 * ipField.dx);
+}
+
+template<class TT>
+inline TT AdvectionMethod2D<TT>::ENOD1y(const Field2D<TT>& ipField, const int& i, const int& j)
+{
+	return (ipField(i, j + 1) - ipField(i, j)) / ipField.dy;
+}
+
+template<class TT>
+inline TT AdvectionMethod2D<TT>::ENOD2y(const Field2D<TT>& ipField, const int& i, const int& j)
+{
+	return (ENOD1y(ipField, i, j) - ENOD1y(ipField, i, j - 1)) / (2 * ipField.dy);
+}
+
+template<class TT>
+inline TT AdvectionMethod2D<TT>::ENOD3y(const Field2D<TT>& ipField, const int& i, const int& j)
+{
+	return (ENOD2y(ipField, i, j + 1) - ENOD2y(ipField, i, j)) / (3 * ipField.dy);
+}
 
 template<class TT>
 inline void AdvectionMethod2D<TT>::WENO5th(const Field2D<TT>& ipField, Field2D<TT>& wenoXMinus, Field2D<TT>& wenoXPlus, Field2D<TT>& wenoYMinus, Field2D<TT>& wenoYPlus)
@@ -547,7 +814,7 @@ inline void AdvectionMethod2D<TT>::levelSetPropagatingTVDRK3PeriodicX(LevelSet2D
 
 	double tempDxPhi, tempDyPhi;
 #pragma omp parallel for private(tempDxPhi, tempDyPhi)
-	for (int i = levelSet.grid.iStart; i <= levelSet.grid.iEnd-1; i++)
+	for (int i = levelSet.grid.iStart; i <= levelSet.grid.iEnd - 1; i++)
 	{
 		for (int j = levelSet.grid.jStart; j <= levelSet.grid.jEnd; j++)
 		{
@@ -583,7 +850,7 @@ inline void AdvectionMethod2D<TT>::levelSetPropagatingTVDRK3PeriodicX(LevelSet2D
 	WENO5thApproxYMinus(levelSet.phi, wenoYMinus);
 	WENO5thApproxYPlus(levelSet.phi, wenoYPlus);
 #pragma omp parallel for private(tempDxPhi, tempDyPhi)
-	for (int i = levelSet.grid.iStart; i <= levelSet.grid.iEnd-1; i++)
+	for (int i = levelSet.grid.iStart; i <= levelSet.grid.iEnd - 1; i++)
 	{
 		for (int j = levelSet.grid.jStart; j <= levelSet.grid.jEnd; j++)
 		{
@@ -618,7 +885,7 @@ inline void AdvectionMethod2D<TT>::levelSetPropagatingTVDRK3PeriodicX(LevelSet2D
 	WENO5thApproxYMinus(levelSet.phi, wenoYMinus);
 	WENO5thApproxYPlus(levelSet.phi, wenoYPlus);
 #pragma omp parallel for private(tempDxPhi, tempDyPhi)
-	for (int i = levelSet.grid.iStart; i <= levelSet.grid.iEnd-1; i++)
+	for (int i = levelSet.grid.iStart; i <= levelSet.grid.iEnd - 1; i++)
 	{
 		for (int j = levelSet.grid.jStart; j <= levelSet.grid.jEnd; j++)
 		{

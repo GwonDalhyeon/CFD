@@ -126,11 +126,12 @@ inline VectorND<TT>::VectorND(const int & ipLength)
 	values = new TT[ipLength];
 	iStart = 0;
 	iLength = ipLength;
-#pragma omp parallel for
-	for (int i = 0; i < iLength; i++)
-	{
-		values[i] = 0;
-	}
+	memset(values, 0, iLength * sizeof(TT));
+//#pragma omp parallel for
+//	for (int i = 0; i < iLength; i++)
+//	{
+//		values[i] = 0;
+//	}
 	iEnd = iStart + ipLength - 1;
 }
 
@@ -140,11 +141,12 @@ inline VectorND<TT>::VectorND(const int & ipStart, const int & ipLength)
 	values = new TT[ipLength];
 	iStart = ipStart;
 	iLength = ipLength;
-#pragma omp parallel for
-	for (int i = 0; i < iLength; i++)
-	{
-		values[i] = 0;
-	}
+	memset(values, 0, iLength * sizeof(TT));
+//#pragma omp parallel for
+//	for (int i = 0; i < iLength; i++)
+//	{
+//		values[i] = 0;
+//	}
 	iEnd = iStart + ipLength - 1;
 }
 
@@ -160,12 +162,12 @@ inline VectorND<TT>::VectorND(const VectorND<TT>& ipVector)
 	iLength = ipVector.iLength;
 	iEnd = ipVector.iEnd;
 	values = new TT[iLength];
-
-#pragma omp parallel for
-	for (int i = 0; i < iLength; i++)
-	{
-		values[i] = ipVector.values[i];
-	}
+	memcpy(values, ipVector.values, iLength * sizeof(TT));
+//#pragma omp parallel for
+//	for (int i = 0; i < iLength; i++)
+//	{
+//		values[i] = ipVector.values[i];
+//	}
 }
 
 template<class TT>
@@ -179,11 +181,12 @@ inline VectorND<TT>::VectorND(const int & ipLength, const TT * ipValues)
 	values = new TT[ipLength];
 	iStart = 0;
 	iLength = ipLength;
-#pragma omp parallel for
-	for (int i = 0; i < iLength; i++)
-	{
-		values[i] = ipValues[i];
-	}
+	memcpy(values, ipValues, iLength * sizeof(TT));
+//#pragma omp parallel for
+//	for (int i = 0; i < iLength; i++)
+//	{
+//		values[i] = ipValues[i];
+//	}
 	iEnd = iStart + ipLength - 1;
 }
 
@@ -198,11 +201,12 @@ inline VectorND<TT>::VectorND(const int & ipStart, const int & ipLength, const T
 	values = new TT[ipLength];
 	iStart = ipStart;
 	iLength = ipLength;
-#pragma omp parallel for
-	for (int i = 0; i < iLength; i++)
-	{
-		values[i] = ipValues[i];
-	}
+	memcpy(values, ipValues, iLength * sizeof(TT));
+//#pragma omp parallel for
+//	for (int i = 0; i < iLength; i++)
+//	{
+//		values[i] = ipValues[i];
+//	}
 	iEnd = iStart + ipLength - 1;
 }
 
@@ -230,6 +234,7 @@ inline TT & VectorND<TT>::operator()(const int & i) const
 template<class TT>
 inline void VectorND<TT>::operator=(const TT & constant)
 {
+	//memcpy(values, constant, iLength * sizeof(TT));
 #pragma omp parallel for
 	for (int i = 0; i < iLength; i++)
 	{
@@ -251,13 +256,13 @@ inline void VectorND<TT>::operator=(const VectorND<TT>& ipVector)
 	}
 
 	values = new TT[iLength];
-
-#pragma omp parallel for
-	for (int i = 0; i < iLength; i++)
-	{
-		values[i] = ipVector.values[i];
-		//values[i] = ipVector(i);
-	}
+	memcpy(values, ipVector.values, iLength * sizeof(TT));
+//#pragma omp parallel for
+//	for (int i = 0; i < iLength; i++)
+//	{
+//		values[i] = ipVector.values[i];
+//		//values[i] = ipVector(i);
+//	}
 }
 
 template<class TT>
