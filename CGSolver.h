@@ -301,7 +301,11 @@ inline VectorND<double> CGSolver::SolverCSR(const CSR<double>& A, const VectorND
 	}
 
 
-
+	cout << "CG iterataion : " << 2 * num << " " << temp << endl;
+	result = (double)(clock() - before) / CLOCKS_PER_SEC;
+	cout << "time : " << result << "\n";
+	cout << "End : CG " << endl;
+	cout << endl;
 	return x;
 }
 
