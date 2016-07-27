@@ -82,7 +82,7 @@ inline void EulerianFluidSolver2D::InitialCondition(const int & example)
 		cout << "    Cavity Flow" << endl;
 		cout << "*************************" << endl;
 
-		int numP = 11;
+		int numP = 51;
 		double ddx = 0.01;
 		gridP = Grid2D(0, ddx*double(numP-1), numP, 0, ddx*double(numP - 1), numP);
 		gridPinner = Grid2D(gridP.xMin + gridP.dx, gridP.xMax - gridP.dx, 1, gridP.iRes - 2,
@@ -168,19 +168,22 @@ inline void EulerianFluidSolver2D::FluidSolver(const int & example)
 	str = string("title(['iteration : ', num2str(") + to_string(0) + string(")]);");
 	cmd = str.c_str();
 	MATLAB.Command(cmd);
-	for (int i = 1; i < 5; i++)
+	dt = 0.0;
+	double totalT = 0.0;
+	for (int i = 1; i <= 10000; i++)
 	{
 		cout << endl;
 		cout << "********************************" << endl;
 		cout << "       Iteration " << to_string(i) << " : Start" << endl;
 		TVDRK3TimeAdvection();
+		totalT += dt;
 		cout << "       Iteration " << to_string(i) << " : End" << endl;
 		cout << "********************************" << endl;
 		P.Variable("P");
 		U.Variable("U");
 		V.Variable("V");
 		MATLAB.Command("quiver(Xp,Yp,U(:,1:end-1),V(1:end-1,:))");
-		str = string("title(['iteration : ', num2str(") + to_string(i) + string(")]);");
+		str = string("title(['iteration : ', num2str(") + to_string(i) + string("),', time : ', num2str(") + to_string(totalT) + string(")]);");
 		cmd = str.c_str();
 		MATLAB.Command(cmd);
 		if (writeFile && i%writeOutputIteration == 0)
@@ -227,7 +230,7 @@ inline void EulerianFluidSolver2D::GenerateLinearSystem(Array2D<double>& matrixA
 				if (i == innerIStart)
 				{
 					//leftIndex = (i - innerIStart)*innerIRes*innerJRes + (innerIEnd - innerIStart) + (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart)*innerIRes;
-					matrixA(index) = scaling*(-2 * gridP.oneOverdx2 - 2 * gridP.oneOverdy2)+0.5;
+					matrixA(index) = scaling*(-2 * gridP.oneOverdx2 - 1 * gridP.oneOverdy2);
 					//matrixA(leftIndex) = scaling * 1 * gridP.oneOverdx2;
 					matrixA(rightIndex) = scaling * 1 * gridP.oneOverdx2;
 					matrixA(topIndex) = scaling * 1 * gridP.oneOverdy2;
@@ -235,14 +238,14 @@ inline void EulerianFluidSolver2D::GenerateLinearSystem(Array2D<double>& matrixA
 				else if (i == innerIEnd)
 				{
 					//rightIndex = (i - innerIStart)*innerIRes*innerJRes + (innerIStart - innerIStart) + (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart)*innerIRes;
-					matrixA(index) = scaling*(-2 * gridP.oneOverdx2 - 2 * gridP.oneOverdy2);
+					matrixA(index) = scaling*(-1 * gridP.oneOverdx2 - 1 * gridP.oneOverdy2);
 					matrixA(leftIndex) = scaling * 1 * gridP.oneOverdx2;
 					//matrixA(rightIndex) = scaling * 1 * gridP.oneOverdx2;
 					matrixA(topIndex) = scaling * 1 * gridP.oneOverdy2;
 				}
 				else
 				{
-					matrixA(index) = scaling*(-2 * gridP.oneOverdx2 - 2 * gridP.oneOverdy2);
+					matrixA(index) = scaling*(-2 * gridP.oneOverdx2 - 1 * gridP.oneOverdy2);
 					matrixA(leftIndex) = scaling * 1 * gridP.oneOverdx2;
 					matrixA(rightIndex) = scaling * 1 * gridP.oneOverdx2;
 					matrixA(topIndex) = scaling * 1 * gridP.oneOverdy2;
@@ -254,7 +257,7 @@ inline void EulerianFluidSolver2D::GenerateLinearSystem(Array2D<double>& matrixA
 				if (i == innerIStart)
 				{
 					//leftIndex = (i - innerIStart)*innerIRes*innerJRes + (innerIEnd - innerIStart) + (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart)*innerIRes;
-					matrixA(index) = scaling*(-2 * gridP.oneOverdx2 - 2 * gridP.oneOverdy2);
+					matrixA(index) = scaling*(-1 * gridP.oneOverdx2 - 2 * gridP.oneOverdy2);
 					//matrixA(leftIndex) = scaling * 1 * gridP.oneOverdx2;
 					matrixA(rightIndex) = scaling * 1 * gridP.oneOverdx2;
 					matrixA(bottomIndex) = scaling * 1 * gridP.oneOverdy2;
@@ -264,7 +267,7 @@ inline void EulerianFluidSolver2D::GenerateLinearSystem(Array2D<double>& matrixA
 				else if (i == innerIEnd)
 				{
 					//rightIndex = (i - innerIStart)*innerIRes*innerJRes + (innerIStart - innerIStart) + (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart)*innerIRes;
-					matrixA(index) = scaling*(-2 * gridP.oneOverdx2 - 2 * gridP.oneOverdy2);
+					matrixA(index) = scaling*(-1 * gridP.oneOverdx2 - 2 * gridP.oneOverdy2);
 					matrixA(leftIndex) = scaling * 1 * gridP.oneOverdx2;
 					//matrixA(rightIndex) = scaling * 1 * gridP.oneOverdx2;
 					matrixA(bottomIndex) = scaling * 1 * gridP.oneOverdy2;
@@ -286,7 +289,7 @@ inline void EulerianFluidSolver2D::GenerateLinearSystem(Array2D<double>& matrixA
 				if (i == innerIStart)
 				{
 					//leftIndex = (i - innerIStart)*innerIRes*innerJRes + (innerIEnd - innerIStart) + (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart)*innerIRes;
-					matrixA(index) = scaling*(-2 * gridP.oneOverdx2 - 2 * gridP.oneOverdy2);
+					matrixA(index) = scaling*(-1 * gridP.oneOverdx2 - 1 * gridP.oneOverdy2);
 					//matrixA(leftIndex) = scaling * 1 * gridP.oneOverdx2;
 					matrixA(rightIndex) = scaling * 1 * gridP.oneOverdx2;
 					matrixA(bottomIndex) = scaling * 1 * gridP.oneOverdy2;
@@ -294,14 +297,14 @@ inline void EulerianFluidSolver2D::GenerateLinearSystem(Array2D<double>& matrixA
 				else if (i == innerIEnd)
 				{
 					//rightIndex = (i - innerIStart)*innerIRes*innerJRes + (innerIStart - innerIStart) + (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart)*innerIRes;
-					matrixA(index) = scaling*(-2 * gridP.oneOverdx2 - 2 * gridP.oneOverdy2);
+					matrixA(index) = scaling*(-1 * gridP.oneOverdx2 - 1 * gridP.oneOverdy2);
 					matrixA(leftIndex) = scaling * 1 * gridP.oneOverdx2;
 					//matrixA(rightIndex) = scaling * 1 * gridP.oneOverdx2;
 					matrixA(bottomIndex) = scaling * 1 * gridP.oneOverdy2;
 				}
 				else
 				{
-					matrixA(index) = scaling*(-2 * gridP.oneOverdx2 - 2 * gridP.oneOverdy2);
+					matrixA(index) = scaling*(-2 * gridP.oneOverdx2 - 1 * gridP.oneOverdy2);
 					matrixA(leftIndex) = scaling * 1 * gridP.oneOverdx2;
 					matrixA(rightIndex) = scaling * 1 * gridP.oneOverdx2;
 					matrixA(bottomIndex) = scaling * 1 * gridP.oneOverdy2;
@@ -322,7 +325,8 @@ inline void EulerianFluidSolver2D::GenerateLinearSystem(VectorND<double>& vector
 	int innerJRes = gridPinner.jRes;
 
 	int index;
-//#pragma omp parallel for private(index)
+	P(gridP.iStart, gridP.jStart + 1) = 1;
+#pragma omp parallel for private(index)
 	for (int i = innerIStart; i <= innerIEnd; i++)
 	{
 		for (int j = innerJStart; j <= innerJEnd; j++)
@@ -337,26 +341,26 @@ inline void EulerianFluidSolver2D::GenerateLinearSystem(VectorND<double>& vector
 			//cout << "U " << U(i + 1, j) << " " << U(i, j) << endl;
 			//cout << "V " << V(i, j + 1) << " " << V(i, j) << endl;
 			//cout << "B" << vectorB(index) << endl;
-			if (i == innerIStart)
-			{
-				vectorB(index) += -P(i - 1, j)*P.oneOverdx2;
-			}
-			if (i == innerIEnd)
-			{
-				vectorB(index) += -P(i + 1, j)*P.oneOverdx2;
-			}
-			if (j == innerJStart)
-			{
-				vectorB(index) += -P(i, j - 1)*P.oneOverdy2;
 
-			}
-			if (j == innerJEnd)
-			{
-				vectorB(index) += -P(i, j + 1)*P.oneOverdy2;
+			//if (i == innerIStart)
+			//{
+			//	vectorB(index) += -P(i - 1, j)*P.oneOverdx2;
+			//}
+			//if (i == innerIEnd)
+			//{
+			//	vectorB(index) += -P(i + 1, j)*P.oneOverdx2;
+			//}
+			//if (j == innerJStart)
+			//{
+			//	vectorB(index) += -P(i, j - 1)*P.oneOverdy2;
 
-			}
-			vectorB.Variable("vecB");
-			//vectorB(index) *= scaling;
+			//}
+			//if (j == innerJEnd)
+			//{
+			//	vectorB(index) += -P(i, j + 1)*P.oneOverdy2;
+			//}
+			//vectorB.Variable("vecB");
+			vectorB(index) *= scaling;
 			//if (abs(vectorB(index))>0)
 			//{
 			//	cout << i << " " << j << " " << index << " " << vectorB(index) << endl;
@@ -371,30 +375,34 @@ inline void EulerianFluidSolver2D::TVDRK3TimeAdvection()
 	Field2D<double> originV = V;
 
 	dt = AdaptiveTimeStep(U, V);
-
-	//// Step 1
+	
+	/////////////////
+	//// Step 1  ////
+	/////////////////
 	EulerMethod();
 	//U.Variable("U1");
 	//V.Variable("V1");
 	//MATLAB.Command("quiver(Xp,Yp,U1(:,1:end-1),V1(1:end-1,:))");
 
-	//// Step 2
+	/////////////////
+	//// Step 2  ////
+	/////////////////
 	EulerMethod();
 	//U.Variable("U21");
 	//V.Variable("V21");
 	//MATLAB.Command("quiver(Xp,Yp,U21(:,1:end-1),V21(1:end-1,:))");
 #pragma omp parallel for
-	for (int i = gridUinner.iStart; i <= gridUinner.iEnd; i++)
+	for (int i = gridU.iStart; i <= gridU.iEnd; i++)
 	{
-		for (int j = gridUinner.jStart; j <= gridUinner.jEnd; j++)
+		for (int j = gridU.jStart; j <= gridU.jEnd; j++)
 		{
 			U(i, j) = 3. / 4. * originU(i, j) + 1. / 4. * U(i, j);
 		}
 	}
 #pragma omp parallel for
-	for (int i = gridVinner.iStart; i <= gridVinner.iEnd; i++)
+	for (int i = gridV.iStart; i <= gridV.iEnd; i++)
 	{
-		for (int j = gridVinner.jStart; j <= gridVinner.jEnd; j++)
+		for (int j = gridV.jStart; j <= gridV.jEnd; j++)
 		{
 			V(i, j) = 3. / 4. * originV(i, j) + 1. / 4. * V(i, j);
 		}
@@ -403,23 +411,25 @@ inline void EulerianFluidSolver2D::TVDRK3TimeAdvection()
 	//V.Variable("V22");
 	//MATLAB.Command("quiver(Xp,Yp,U22(:,1:end-1),V22(1:end-1,:))");
 	
-	//// Step 3
+	/////////////////
+	//// Step 3  ////
+	/////////////////
 	EulerMethod();
 	//U.Variable("U31");
 	//V.Variable("V31");
 	//MATLAB.Command("quiver(Xp,Yp,U31(:,1:end-1),V31(1:end-1,:))");
 #pragma omp parallel for
-	for (int i = gridUinner.iStart; i <= gridUinner.iEnd; i++)
+	for (int i = gridU.iStart; i <= gridU.iEnd; i++)
 	{
-		for (int j = gridUinner.jStart; j <= gridUinner.jEnd; j++)
+		for (int j = gridU.jStart; j <= gridU.jEnd; j++)
 		{
 			U(i, j) = 1. / 3. * originU(i, j) + 2. / 3. * U(i, j);
 		}
 	}
 #pragma omp parallel for
-	for (int i = gridVinner.iStart; i <= gridVinner.iEnd; i++)
+	for (int i = gridV.iStart; i <= gridV.iEnd; i++)
 	{
-		for (int j = gridVinner.jStart; j <= gridVinner.jEnd; j++)
+		for (int j = gridV.jStart; j <= gridV.jEnd; j++)
 		{
 			V(i, j) = 1. / 3. * originV(i, j) + 2. / 3. * V(i, j);
 		}
@@ -432,9 +442,9 @@ inline void EulerianFluidSolver2D::TVDRK3TimeAdvection()
 
 inline void EulerianFluidSolver2D::EulerMethod()
 {
-	////////////////////////////////////////////
-	//     Projection Method 1 : advection    //
-	////////////////////////////////////////////
+	////////////////////////////////////////////////
+	////     Projection Method 1 : advection    ////
+	////////////////////////////////////////////////
 
 	Field2D<double> K1U(gridUinner);
 	Field2D<double> K1V(gridVinner);
@@ -461,7 +471,6 @@ inline void EulerianFluidSolver2D::EulerMethod()
 			U(i, j) = U(i, j) + K1U(i, j);
 		}
 	}
-
 #pragma omp parallel for
 	for (int i = K1V.iStart; i <= K1V.iEnd; i++)
 	{
@@ -471,22 +480,34 @@ inline void EulerianFluidSolver2D::EulerMethod()
 			V(i, j) = V(i, j) + K1V(i, j);
 		}
 	}
+	// Boundary : Linear extension.
+#pragma omp parallel for
+	for (int j = gridUinner.jStart; j <= gridUinner.jEnd - 1; j++)
+	{
+		U(gridU.iStart, j) = -U(gridU.iStart + 1, j);
+		U(gridU.iEnd, j) = -U(gridU.iEnd - 1, j);
+	}
+#pragma omp parallel for
+	for (int i = gridVinner.iStart; i <= gridVinner.iEnd; i++)
+	{
+		V(i, gridV.jStart) = -V(i, gridV.jStart + 1);
+		V(i, gridV.jEnd) = -V(i, gridV.jEnd - 1);
+	}
 
 
-
-	U.Variable("Ustar");
-	V.Variable("Vstar");
+	//U.Variable("Ustar");
+	//V.Variable("Vstar");
 	//MATLAB.Command("quiver(Xp,Yp,Ustar(1:end-1,:),Vstar(:,1:end-1)");
 
 
-	////////////////////////////////////////////
-	//     Projection Method 2 : Poisson Eq   //
-	////////////////////////////////////////////
+	////////////////////////////////////////////////
+	////     Projection Method 2 : Poisson Eq   ////
+	////////////////////////////////////////////////
 	VectorND<double> vectorB(gridPinner.iRes*gridPinner.jRes);
 	VectorND<double> tempP(gridPinner.iRes*gridPinner.jRes);
 
 	GenerateLinearSystem(vectorB, -gridP.dx*gridP.dx);
-	vectorB.Variable("vectorB");
+	//vectorB.Variable("vectorB");
 	int solver = 2;
 	if (solver == 1)
 	{
@@ -496,7 +517,7 @@ inline void EulerianFluidSolver2D::EulerMethod()
 	{
 		CGSolver::SolverSparse(poissonMatrix.iRes, a, row, col, vectorB, tempP);
 	}
-	tempP.Variable("tempP");
+	//tempP.Variable("tempP");
 
 	int index;
 #pragma omp parallel for private(index)
@@ -508,6 +529,7 @@ inline void EulerianFluidSolver2D::EulerMethod()
 			P(i, j) = tempP(index);
 		}
 	}
+	//P.Variable("P1");
 #pragma omp parallel for
 	for (int i = gridP.iStart; i <= gridP.iEnd; i++)
 	{
@@ -520,21 +542,20 @@ inline void EulerianFluidSolver2D::EulerMethod()
 		P(P.iStart, j) = P(P.iStart + 1, j);
 		P(P.iEnd, j) = P(P.iEnd - 1, j);
 	}
-	P.Variable("P");
+	//P.Variable("P");
 
 
-	//////////////////////////////////////////
-	//     Projection Method 3 : New U,V    //
-	//////////////////////////////////////////
+	//////////////////////////////////////////////
+	////     Projection Method 3 : New U,V    ////
+	//////////////////////////////////////////////
 #pragma omp parallel for
 	for (int i = gridUinner.iStart; i <= gridUinner.iEnd; i++)
 	{
 		for (int j = gridUinner.jStart; j <= gridUinner.jEnd; j++)
 		{
-			U(i, j) = U(i, j) - dt * 1. / Rho(i,j)*(P(i, j) - P(i - 1, j))*P.oneOverdx;
+			U(i, j) = U(i, j) - dt * 1. / Rho(i, j)*(P(i, j) - P(i - 1, j))*P.oneOverdx;
 		}
 	}
-
 #pragma omp parallel for
 	for (int i = gridVinner.iStart; i <= gridVinner.iEnd; i++)
 	{
@@ -543,8 +564,22 @@ inline void EulerianFluidSolver2D::EulerMethod()
 			V(i, j) = V(i, j) - dt * 1. / Rho(i, j)*(P(i, j) - P(i, j - 1))*P.oneOverdy;
 		}
 	}
-	U.Variable("Unew");
-	V.Variable("Vnew");
+	// Boundary : Linear extension.
+#pragma omp parallel for
+	for (int j = gridUinner.jStart; j <= gridUinner.jEnd-1; j++)
+	{
+		U(gridU.iStart, j) = -U(gridU.iStart + 1, j);
+		U(gridU.iEnd, j) = -U(gridU.iEnd - 1, j);
+	}
+#pragma omp parallel for
+	for (int i = gridVinner.iStart; i <= gridVinner.iEnd; i++)
+	{
+		V(i, gridV.jStart) = -V(i, gridV.jStart + 1);
+		V(i, gridV.jEnd) = -V(i, gridV.jEnd - 1);
+	}
+
+	//U.Variable("Unew");
+	//V.Variable("Vnew");
 	//MATLAB.Command("quiver(Xp,Yp,U(1:end-1,:),V(:,1:end-1)");
 }
 
@@ -630,8 +665,8 @@ inline void EulerianFluidSolver2D::DiffusionTerm(const Field2D<double>& U, const
 	{
 		for (int j = TermU.jStart; j <= TermU.jEnd; j++)
 		{
-			TermU(i, j) = (U(i - 1, j) - 2 * U(i, j) + U(i + 1, j))*U.oneOver2dx
-				+ (U(i, j - 1) - 2 * U(i, j) + U(i, j + 1))*U.oneOver2dy;
+			TermU(i, j) = (U(i - 1, j) - 2 * U(i, j) + U(i + 1, j))*U.oneOverdx2
+				+ (U(i, j - 1) - 2 * U(i, j) + U(i, j + 1))*U.oneOverdy2;
 		}
 	}
 
@@ -640,9 +675,8 @@ inline void EulerianFluidSolver2D::DiffusionTerm(const Field2D<double>& U, const
 	{
 		for (int j = TermV.jStart; j <= TermV.jEnd; j++)
 		{
-			TermV(i, j) += (V(i, j - 1) - 2 * V(i, j) + V(i, j + 1))*V.oneOver2dy
-				+(V(i, j - 1) - 2 * V(i, j) + V(i, j + 1))*V.oneOver2dy;;
-			;
+			TermV(i, j) += (V(i - 1, j) - 2 * V(i, j) + V(i + 1, j))*V.oneOverdx2
+				+(V(i, j - 1) - 2 * V(i, j) + V(i, j + 1))*V.oneOverdy2;
 		}
 	}
 }

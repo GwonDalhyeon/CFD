@@ -53,7 +53,7 @@ inline void ToMATLAB::Variable(const char * varName, const TT & values)
 template<class TT>
 inline void ToMATLAB::Variable(const char * varName, const int & rowNum, const int & colNum, const TT * values)
 {
-	if (sizeof(TT)==4)
+	if (sizeof(TT) == 4)
 	{
 		mxArray* dataArray = mxCreateNumericMatrix(rowNum, colNum, mxINT32_CLASS, mxREAL);
 		memcpy((int*)mxGetPr(dataArray), (int*)values, sizeof(int) * rowNum*colNum);
@@ -64,9 +64,9 @@ inline void ToMATLAB::Variable(const char * varName, const int & rowNum, const i
 		// Tranaspose array.
 		engEvalString(ME, cmd);
 	}
-	else if (sizeof(TT)==8)
+	else if (sizeof(TT) == 8)
 	{
-		mxArray* dataArray = mxCreateDoubleMatrix(rowNum,colNum, mxREAL);
+		mxArray* dataArray = mxCreateDoubleMatrix(rowNum, colNum, mxREAL);
 		memcpy((void*)mxGetPr(dataArray), (void*)values, sizeof(double) * rowNum*colNum);
 		engPutVariable(ME, varName, dataArray);
 		string str = string(varName) + "=transpose(" + (varName)+");";
