@@ -82,8 +82,8 @@ inline void EulerianFluidSolver2D::InitialCondition(const int & example)
 		cout << "    Cavity Flow" << endl;
 		cout << "*************************" << endl;
 
-		int numP = 51;
-		double ddx = 0.01;
+		int numP = 41;
+		double ddx = 0.025;
 		gridP = Grid2D(0, ddx*double(numP-1), numP, 0, ddx*double(numP - 1), numP);
 		gridPinner = Grid2D(gridP.xMin + gridP.dx, gridP.xMax - gridP.dx, 1, gridP.iRes - 2,
 			gridP.yMin + gridP.dy, gridP.yMax - gridP.dy, 1, gridP.jRes - 2);
@@ -119,10 +119,10 @@ inline void EulerianFluidSolver2D::InitialCondition(const int & example)
 			}
 		}
 		
-		reynoldNum = 500;
+		reynoldNum = 300;
 		cflCondition = 0.5;
 		
-		maxIteration = 1000;
+		maxIteration = 100;
 		writeOutputIteration = 10;
 
 
@@ -164,13 +164,14 @@ inline void EulerianFluidSolver2D::FluidSolver(const int & example)
 	P.Variable("P");
 	U.Variable("U");
 	V.Variable("V");
-	MATLAB.Command("quiver(Xp,Yp,U(:,1:end-1),V(1:end-1,:))");
+	MATLAB.Command("quiver(Xp,Yp,U(:,1:end-1)/2+U(:,2:end)/2,V(1:end-1,:)/2+V(2:end,:)/2,2)");
 	str = string("title(['iteration : ', num2str(") + to_string(0) + string(")]);");
 	cmd = str.c_str();
 	MATLAB.Command(cmd);
+	MATLAB.Command("axis([Xp(1)-(Xp(end)-Xp(1))/10 Xp(end)+(Xp(end)-Xp(1))/10 Yp(1)-(Yp(end)-Yp(1))/10 Yp(end)+(Yp(end)-Yp(1))/10])");
 	dt = 0.0;
 	double totalT = 0.0;
-	for (int i = 1; i <= 10000; i++)
+	for (int i = 1; i <= 1000; i++)
 	{
 		cout << endl;
 		cout << "********************************" << endl;
@@ -182,10 +183,14 @@ inline void EulerianFluidSolver2D::FluidSolver(const int & example)
 		P.Variable("P");
 		U.Variable("U");
 		V.Variable("V");
-		MATLAB.Command("quiver(Xp,Yp,U(:,1:end-1),V(1:end-1,:))");
+		MATLAB.Command("axis([Xp(1)-(Xp(end)-Xp(1))/10 Xp(end)+(Xp(end)-Xp(1))/10 Yp(1)-(Yp(end)-Yp(1))/10 Yp(end)+(Yp(end)-Yp(1))/10])");
+
+		MATLAB.Command("quiver(Xp,Yp,U(:,1:end-1)/2+U(:,2:end)/2,V(1:end-1,:)/2+V(2:end,:)/2,2),axis([Xp(1)-(Xp(end)-Xp(1))/10 Xp(end)+(Xp(end)-Xp(1))/10 Yp(1)-(Yp(end)-Yp(1))/10 Yp(end)+(Yp(end)-Yp(1))/10])");
 		str = string("title(['iteration : ', num2str(") + to_string(i) + string("),', time : ', num2str(") + to_string(totalT) + string(")]);");
 		cmd = str.c_str();
 		MATLAB.Command(cmd);
+		MATLAB.Command("divU =U(:,2:end)-U(:,1:end-1),divV =V(2:end,:)-V(1:end-1,:);div=divU+divV;");
+
 		if (writeFile && i%writeOutputIteration == 0)
 		{
 			fileName = "pressure" + to_string(i);
@@ -230,7 +235,7 @@ inline void EulerianFluidSolver2D::GenerateLinearSystem(Array2D<double>& matrixA
 				if (i == innerIStart)
 				{
 					//leftIndex = (i - innerIStart)*innerIRes*innerJRes + (innerIEnd - innerIStart) + (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart)*innerIRes;
-					matrixA(index) = scaling*(-2 * gridP.oneOverdx2 - 1 * gridP.oneOverdy2);
+					matrixA(index) = scaling*(-1 * gridP.oneOverdx2 - 1 * gridP.oneOverdy2);
 					//matrixA(leftIndex) = scaling * 1 * gridP.oneOverdx2;
 					matrixA(rightIndex) = scaling * 1 * gridP.oneOverdx2;
 					matrixA(topIndex) = scaling * 1 * gridP.oneOverdy2;
@@ -289,7 +294,7 @@ inline void EulerianFluidSolver2D::GenerateLinearSystem(Array2D<double>& matrixA
 				if (i == innerIStart)
 				{
 					//leftIndex = (i - innerIStart)*innerIRes*innerJRes + (innerIEnd - innerIStart) + (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart)*innerIRes;
-					matrixA(index) = scaling*(-1 * gridP.oneOverdx2 - 1 * gridP.oneOverdy2);
+					matrixA(index) = scaling*(-2 * gridP.oneOverdx2 - 1 * gridP.oneOverdy2);
 					//matrixA(leftIndex) = scaling * 1 * gridP.oneOverdx2;
 					matrixA(rightIndex) = scaling * 1 * gridP.oneOverdx2;
 					matrixA(bottomIndex) = scaling * 1 * gridP.oneOverdy2;
@@ -325,7 +330,7 @@ inline void EulerianFluidSolver2D::GenerateLinearSystem(VectorND<double>& vector
 	int innerJRes = gridPinner.jRes;
 
 	int index;
-	P(gridP.iStart, gridP.jStart + 1) = 1;
+	P(gridP.iStart, gridP.jEnd - 1) = 1;
 #pragma omp parallel for private(index)
 	for (int i = innerIStart; i <= innerIEnd; i++)
 	{
@@ -335,6 +340,10 @@ inline void EulerianFluidSolver2D::GenerateLinearSystem(VectorND<double>& vector
 
 			vectorB(index) = Rho(i, j) / dt*((U(i + 1, j) - U(i, j))*gridU.oneOverdx 
 				+ (V(i, j + 1) - V(i, j))*gridV.oneOverdy);
+			if (i == innerIStart && j==innerJEnd)
+			{
+				vectorB(index) += -P(i - 1, j)*P.oneOverdx2;
+			}
 			//cout << endl;
 			//cout << "(i,j) = (" << i << "," << j << ")" << endl;
 			//cout << "index = " << index << endl;
@@ -367,6 +376,7 @@ inline void EulerianFluidSolver2D::GenerateLinearSystem(VectorND<double>& vector
 			//}
 		}
 	}
+
 }
 
 inline void EulerianFluidSolver2D::TVDRK3TimeAdvection()
@@ -442,6 +452,20 @@ inline void EulerianFluidSolver2D::TVDRK3TimeAdvection()
 
 inline void EulerianFluidSolver2D::EulerMethod()
 {
+	//// Boundary : Linear extension.
+#pragma omp parallel for
+	for (int j = gridUinner.jStart; j <= gridUinner.jEnd; j++)
+	{
+		U(gridU.iStart, j) = -U(gridU.iStart + 1, j);
+		U(gridU.iEnd, j) = -U(gridU.iEnd - 1, j);
+	}
+#pragma omp parallel for
+	for (int i = gridVinner.iStart; i <= gridVinner.iEnd; i++)
+	{
+		V(i, gridV.jStart) = -V(i, gridV.jStart + 1);
+		V(i, gridV.jEnd) = -V(i, gridV.jEnd - 1);
+	}
+
 	////////////////////////////////////////////////
 	////     Projection Method 1 : advection    ////
 	////////////////////////////////////////////////
@@ -480,9 +504,9 @@ inline void EulerianFluidSolver2D::EulerMethod()
 			V(i, j) = V(i, j) + K1V(i, j);
 		}
 	}
-	// Boundary : Linear extension.
+	//// Boundary : Linear extension.
 #pragma omp parallel for
-	for (int j = gridUinner.jStart; j <= gridUinner.jEnd - 1; j++)
+	for (int j = gridUinner.jStart; j <= gridUinner.jEnd; j++)
 	{
 		U(gridU.iStart, j) = -U(gridU.iStart + 1, j);
 		U(gridU.iEnd, j) = -U(gridU.iEnd - 1, j);
@@ -497,6 +521,7 @@ inline void EulerianFluidSolver2D::EulerMethod()
 
 	//U.Variable("Ustar");
 	//V.Variable("Vstar");
+	//MATLAB.Command("divUstar =Ustar(:,2:end)-Ustar(:,1:end-1),divVstar =Vstar(2:end,:)-Vstar(1:end-1,:);divstar=divUstar+divVstar;");
 	//MATLAB.Command("quiver(Xp,Yp,Ustar(1:end-1,:),Vstar(:,1:end-1)");
 
 
@@ -529,7 +554,6 @@ inline void EulerianFluidSolver2D::EulerMethod()
 			P(i, j) = tempP(index);
 		}
 	}
-	//P.Variable("P1");
 #pragma omp parallel for
 	for (int i = gridP.iStart; i <= gridP.iEnd; i++)
 	{
@@ -564,9 +588,9 @@ inline void EulerianFluidSolver2D::EulerMethod()
 			V(i, j) = V(i, j) - dt * 1. / Rho(i, j)*(P(i, j) - P(i, j - 1))*P.oneOverdy;
 		}
 	}
-	// Boundary : Linear extension.
+	//// Boundary : Linear extension.
 #pragma omp parallel for
-	for (int j = gridUinner.jStart; j <= gridUinner.jEnd-1; j++)
+	for (int j = gridUinner.jStart; j <= gridUinner.jEnd; j++)
 	{
 		U(gridU.iStart, j) = -U(gridU.iStart + 1, j);
 		U(gridU.iEnd, j) = -U(gridU.iEnd - 1, j);
@@ -580,6 +604,7 @@ inline void EulerianFluidSolver2D::EulerMethod()
 
 	//U.Variable("Unew");
 	//V.Variable("Vnew");
+	//MATLAB.Command("divUnew =Unew(:,2:end)-Unew(:,1:end-1),divVnew =Vnew(2:end,:)-Vnew(1:end-1,:);divnew=divUnew+divVnew;");
 	//MATLAB.Command("quiver(Xp,Yp,U(1:end-1,:),V(:,1:end-1)");
 }
 
