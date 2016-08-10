@@ -5,6 +5,7 @@
 
 #include "EulerianFluidSolver.h"
 #include "VortexSheet.h"
+#include "EulerianMovingInterface.h"
 
 #include "SurfaceReconstruction.h"
 #include "BregmaMethodSolver.h"
@@ -27,7 +28,7 @@ void main()
 	MATLAB.Command("clc; clear all; close all;");
 	MATLAB.Command("workspace");
 
-	int problem = 4;
+	int problem = 12;
 	int example = 1;
 	if (problem==0) //// GMRES test :: example 1,2,3,4
 	{
@@ -105,9 +106,10 @@ void main()
 		//PoissonEquationSolver testPoisson2d = PoissonEquationSolver(testGrid2d);
 		//testPoisson2d.solvePoissonEquationJumpCondi(example);
 	}
-	else if (problem == 12)
+	else if (problem == 12)  // Eulerian Moving Interface.(JJ Xu, HK Zhao) : Example 1
 	{
-
+		MovingInterface Eulerian;
+		Eulerian.MovingInterfaceSolver(example);
 	}
 
 	system("pause");

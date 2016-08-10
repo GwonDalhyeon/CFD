@@ -82,8 +82,8 @@ inline void EulerianFluidSolver2D::InitialCondition(const int & example)
 		cout << "    Cavity Flow" << endl;
 		cout << "*************************" << endl;
 
-		int numP = 41;
-		double ddx = 0.025;
+		int numP = 51;
+		double ddx = 0.01;
 		gridP = Grid2D(0, ddx*double(numP-1), numP, 0, ddx*double(numP - 1), numP);
 		gridPinner = Grid2D(gridP.xMin + gridP.dx, gridP.xMax - gridP.dx, 1, gridP.iRes - 2,
 			gridP.yMin + gridP.dy, gridP.yMax - gridP.dy, 1, gridP.jRes - 2);
@@ -119,10 +119,10 @@ inline void EulerianFluidSolver2D::InitialCondition(const int & example)
 			}
 		}
 		
-		reynoldNum = 300;
+		reynoldNum = 1000;
 		cflCondition = 0.5;
 		
-		maxIteration = 100;
+		maxIteration = 2000;
 		writeOutputIteration = 10;
 
 
@@ -164,14 +164,16 @@ inline void EulerianFluidSolver2D::FluidSolver(const int & example)
 	P.Variable("P");
 	U.Variable("U");
 	V.Variable("V");
-	MATLAB.Command("quiver(Xp,Yp,U(:,1:end-1)/2+U(:,2:end)/2,V(1:end-1,:)/2+V(2:end,:)/2,2)");
+	str = string("quiver(Xp,Yp,U(:,1:end-1)/2+U(:,2:end)/2,V(1:end-1,:)/2+V(2:end,:)/2,2),axis([Xp(1)-(Xp(end)-Xp(1))/10 Xp(end)+(Xp(end)-Xp(1))/10 Yp(1)-(Yp(end)-Yp(1))/10 Yp(end)+(Yp(end)-Yp(1))/10]);");
+	str = str + string("hold on,streamline(Xp,Yp,U(:,1:end-1)/2+U(:,2:end)/2,V(1:end-1,:)/2+V(2:end,:)/2,-100:0.1:100,-100:0.1:100),hold off;");
+	MATLAB.Command(str.c_str());
 	str = string("title(['iteration : ', num2str(") + to_string(0) + string(")]);");
 	cmd = str.c_str();
 	MATLAB.Command(cmd);
-	MATLAB.Command("axis([Xp(1)-(Xp(end)-Xp(1))/10 Xp(end)+(Xp(end)-Xp(1))/10 Yp(1)-(Yp(end)-Yp(1))/10 Yp(end)+(Yp(end)-Yp(1))/10])");
+	MATLAB.Command("");
 	dt = 0.0;
 	double totalT = 0.0;
-	for (int i = 1; i <= 1000; i++)
+	for (int i = 1; i <= maxIteration; i++)
 	{
 		cout << endl;
 		cout << "********************************" << endl;
@@ -185,7 +187,9 @@ inline void EulerianFluidSolver2D::FluidSolver(const int & example)
 		V.Variable("V");
 		MATLAB.Command("axis([Xp(1)-(Xp(end)-Xp(1))/10 Xp(end)+(Xp(end)-Xp(1))/10 Yp(1)-(Yp(end)-Yp(1))/10 Yp(end)+(Yp(end)-Yp(1))/10])");
 
-		MATLAB.Command("quiver(Xp,Yp,U(:,1:end-1)/2+U(:,2:end)/2,V(1:end-1,:)/2+V(2:end,:)/2,2),axis([Xp(1)-(Xp(end)-Xp(1))/10 Xp(end)+(Xp(end)-Xp(1))/10 Yp(1)-(Yp(end)-Yp(1))/10 Yp(end)+(Yp(end)-Yp(1))/10])");
+		str = string("quiver(Xp,Yp,U(:,1:end-1)/2+U(:,2:end)/2,V(1:end-1,:)/2+V(2:end,:)/2,2),axis([Xp(1)-(Xp(end)-Xp(1))/10 Xp(end)+(Xp(end)-Xp(1))/10 Yp(1)-(Yp(end)-Yp(1))/10 Yp(end)+(Yp(end)-Yp(1))/10]);");
+		str = str + string("hold on,streamline(Xp,Yp,U(:,1:end-1)/2+U(:,2:end)/2,V(1:end-1,:)/2+V(2:end,:)/2,-100:0.1:100,-100:0.1:100),hold off;");
+		MATLAB.Command(str.c_str());
 		str = string("title(['iteration : ', num2str(") + to_string(i) + string("),', time : ', num2str(") + to_string(totalT) + string(")]);");
 		cmd = str.c_str();
 		MATLAB.Command(cmd);
@@ -566,6 +570,7 @@ inline void EulerianFluidSolver2D::EulerMethod()
 		P(P.iStart, j) = P(P.iStart + 1, j);
 		P(P.iEnd, j) = P(P.iEnd - 1, j);
 	}
+	P(gridP.iStart, gridP.jEnd - 1) = 1;
 	//P.Variable("P");
 
 

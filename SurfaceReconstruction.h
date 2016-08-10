@@ -774,7 +774,7 @@ inline double SurfaceReconst<TT>::ComputeIntegralTerm()
 	{
 		for (int j = grid.jStart; j <= grid.jEnd; j++)
 		{
-			sum += pow(distance(i, j), LpNorm)*AdvectionMethod2D<double>::deltaFt(levelSet(i, j))*levelSet.gradient(i, j).magnitude()*grid.dx*grid.dy;
+			sum += pow(distance(i, j), LpNorm)*AdvectionMethod2D<double>::DeltaFt(levelSet(i, j))*levelSet.gradient(i, j).magnitude()*grid.dx*grid.dy;
 		}
 	}
 	return pow(sum, 1.0 / LpNorm - 1.0);
