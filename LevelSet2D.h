@@ -42,17 +42,17 @@ public:
 
 	inline void operator = (const LevelSet2D& ipLevelSet);
 
-	inline void computeNormal();
-	inline Vector2D<double> computeNormal(const int& i, const int& j);
-	inline Vector2D<double> computeNormal(const Vector2D<int> ipVector);
+	inline void ComputeNormal();
+	inline Vector2D<double> ComputeNormal(const int& i, const int& j);
+	inline Vector2D<double> ComputeNormal(const Vector2D<int> ipVector);
 
-	inline void computeUnitNormal();
-	inline Vector2D<double> computeUnitNormal(const int& i, const int& j);
-	inline Vector2D<double> computeUnitNormal(const Vector2D<int> ipVector);
+	inline void ComputeUnitNormal();
+	inline Vector2D<double> ComputeUnitNormal(const int& i, const int& j);
+	inline Vector2D<double> ComputeUnitNormal(const Vector2D<int> ipVector);
 
-	inline void computeMeanCurvature();
-	inline double computeMeanCurvature(const int& i, const int& j);
-	inline double computeMeanCurvature(const Vector2D<int> & ipVector);
+	inline void ComputeMeanCurvature();
+	inline double ComputeMeanCurvature(const int& i, const int& j);
+	inline double ComputeMeanCurvature(const Vector2D<int> & ipVector);
 
 	inline Vector2D<double> gradient(const int& i, const int& j);
 
@@ -160,19 +160,19 @@ inline void LevelSet2D::operator=(const LevelSet2D & ipLevelSet)
 	meanCurvature = ipLevelSet.meanCurvature;
 }
 
-inline void LevelSet2D::computeNormal()
+inline void LevelSet2D::ComputeNormal()
 {
 #pragma omp parallel for
 	for (int j = phi.jStart; j <= phi.jEnd; j++)
 	{
 		for (int i = phi.iStart; i <= phi.iEnd; i++)
 		{
-			normal.dataArray(i, j) = computeNormal(i, j);
+			normal.dataArray(i, j) = ComputeNormal(i, j);
 		}
 	}
 }
 
-inline Vector2D<double> LevelSet2D::computeNormal(const int & i, const int & j)
+inline Vector2D<double> LevelSet2D::ComputeNormal(const int & i, const int & j)
 {
 	Vector2D<double> normal;
 
@@ -256,26 +256,26 @@ inline Vector2D<double> LevelSet2D::computeNormal(const int & i, const int & j)
 	return normal;
 }
 
-inline Vector2D<double> LevelSet2D::computeNormal(const Vector2D<int> ipVector)
+inline Vector2D<double> LevelSet2D::ComputeNormal(const Vector2D<int> ipVector)
 {
-	return computeNormal(ipVector[0], ipVector[1]);
+	return ComputeNormal(ipVector[0], ipVector[1]);
 }
 
 
 
-inline void LevelSet2D::computeUnitNormal()
+inline void LevelSet2D::ComputeUnitNormal()
 {
 #pragma omp parallel for
 	for (int j = phi.jStart; j <= phi.jEnd; j++)
 	{
 		for (int i = phi.iStart; i <= phi.iEnd; i++)
 		{
-			unitNormal.dataArray(i, j) = computeUnitNormal(i, j);
+			unitNormal.dataArray(i, j) = ComputeUnitNormal(i, j);
 		}
 	}
 }
 
-inline Vector2D<double> LevelSet2D::computeUnitNormal(const int & i, const int & j)
+inline Vector2D<double> LevelSet2D::ComputeUnitNormal(const int & i, const int & j)
 {
 	Vector2D<double> normal;
 
@@ -359,31 +359,31 @@ inline Vector2D<double> LevelSet2D::computeUnitNormal(const int & i, const int &
 	return normal;
 }
 
-inline Vector2D<double> LevelSet2D::computeUnitNormal(const Vector2D<int> ipVector)
+inline Vector2D<double> LevelSet2D::ComputeUnitNormal(const Vector2D<int> ipVector)
 {
-	return computeUnitNormal(ipVector[0], ipVector[1]);
+	return ComputeUnitNormal(ipVector[0], ipVector[1]);
 }
 
-inline void LevelSet2D::computeMeanCurvature()
+inline void LevelSet2D::ComputeMeanCurvature()
 {
 #pragma omp parallel for
 	for (int i = grid.iStart; i <= grid.iEnd; i++)
 	{
 		for (int j = grid.iStart; j <= grid.jEnd; j++)
 		{
-			meanCurvature(i, j) = computeMeanCurvature(i, j);
+			meanCurvature(i, j) = ComputeMeanCurvature(i, j);
 		}
 	}
 }
 
-inline double LevelSet2D::computeMeanCurvature(const int & i, const int & j)
+inline double LevelSet2D::ComputeMeanCurvature(const int & i, const int & j)
 {
 	return -(dxxPhi(i, j)*dyPhi(i, j)*dyPhi(i, j) - 2.0*dxyPhi(i, j)*dxPhi(i, j)*dyPhi(i, j) + dyyPhi(i, j)*dxPhi(i, j)*dxPhi(i, j)) / pow(dxPhi(i, j)*dxPhi(i, j) + dyPhi(i, j)*dyPhi(i, j) + DBL_EPSILON, 3.0 / 2.0);
 }
 
-inline double LevelSet2D::computeMeanCurvature(const Vector2D<int> & ipVector)
+inline double LevelSet2D::ComputeMeanCurvature(const Vector2D<int> & ipVector)
 {
-	return computeMeanCurvature(ipVector.i, ipVector.j);
+	return ComputeMeanCurvature(ipVector.i, ipVector.j);
 }
 
 inline Vector2D<double> LevelSet2D::gradient(const int & i, const int & j)

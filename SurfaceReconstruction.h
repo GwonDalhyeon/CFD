@@ -737,7 +737,7 @@ inline void SurfaceReconst<TT>::ComputeVelocity()
 	double tempDist;
 	double tempCurvature;
 
-	levelSet.computeMeanCurvature();
+	levelSet.ComputeMeanCurvature();
 
 #pragma omp parallel for private(lastTerm, tempDist,tempCurvature, gradPhi)
 	for (int i = grid.iStart; i <= grid.iEnd; i++)
@@ -755,7 +755,7 @@ inline void SurfaceReconst<TT>::ComputeVelocity()
 				//lastTerm = dotProduct(distance.gradient(i, j), gradPhi / (gradPhi.magnitude() + DBL_EPSILON)) + 1.0 / LpNorm*distance(i, j)*levelSet.meanCurvature(i, j);
 				tempDist = min(distance(i, j), distanceThreshold);
 				tempCurvature = AdvectionMethod2D<double>::sign(levelSet.meanCurvature(i, j))* min(abs(levelSet.meanCurvature(i, j)), curvatureThreshold);
-				lastTerm = dotProduct(distance.gradient(i, j), gradPhi / (gradPhi.magnitude() + DBL_EPSILON)) + 1.0 / LpNorm*tempDist*tempCurvature;
+				lastTerm = dotProduct(distance.Gradient(i, j), gradPhi / (gradPhi.magnitude() + DBL_EPSILON)) + 1.0 / LpNorm*tempDist*tempCurvature;
 			}
 
 			//velocity(i, j) = gradPhi.magnitude()*integralTerm*pow(distance(i, j), LpNorm - 1)*lastTerm;

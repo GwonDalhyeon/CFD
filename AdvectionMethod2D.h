@@ -11,13 +11,15 @@ template <class TT>
 class AdvectionMethod2D
 {
 public:
-	static double alpha; // = min(delta x, delta y) // This is a parameter for heaviside function and delta function.
+	static double alpha; // = min(delta x, delta y) // This is a parameter for Heaviside function and delta function.
 
 	AdvectionMethod2D();
 	~AdvectionMethod2D();
 
-	static TT heaviside(const double& constant);
-	static TT deltaFt(const double& constant);
+	static TT Heaviside(const double& constant);
+	static TT Heaviside2(const double& constant);
+	static TT DeltaFt(const double& constant);
+	static TT DeltaFt2(const double& constant);
 
 	static TT sign(const TT& constant);
 
@@ -75,7 +77,7 @@ AdvectionMethod2D<TT>::~AdvectionMethod2D()
 }
 
 template<class TT>
-inline TT AdvectionMethod2D<TT>::heaviside(const double & constant)
+inline TT AdvectionMethod2D<TT>::Heaviside(const double & constant)
 {
 	if (constant > alpha)
 	{
@@ -92,7 +94,32 @@ inline TT AdvectionMethod2D<TT>::heaviside(const double & constant)
 }
 
 template<class TT>
-inline TT AdvectionMethod2D<TT>::deltaFt(const double & constant)
+inline TT AdvectionMethod2D<TT>::Heaviside2(const double & constant)
+{
+	if (constant < -alpha)
+	{
+		return 0.0;
+	}
+	else if (constant < -0.5*alpha)
+	{
+		return -1.0 / (6.0*PI)*(1.0 + constant / alpha + sin(PI*constant / alpha));
+	}
+	else if (constant <= 0.5*alpha)
+	{
+		return -1.0 / (6.0*PI)*(1.0 + constant / alpha + sin(PI*constant / alpha)) + 1.0 / 3.0 *(2.0 + 4.0*constant / alpha + 2.0 / PI*sin(2.0*PI*constant / alpha));
+	}
+	else if (constant <= alpha)
+	{
+		return -1.0 / (6.0)*(1.0 + constant / alpha + sin(PI*constant / alpha)) + 4.0 / 3.0;
+	}
+	else if (constant>alpha)
+	{
+		return 1.0;
+	}
+}
+
+template<class TT>
+inline TT AdvectionMethod2D<TT>::DeltaFt(const double & constant)
 {
 	if (abs(constant) > alpha)
 	{
@@ -101,6 +128,23 @@ inline TT AdvectionMethod2D<TT>::deltaFt(const double & constant)
 	else
 	{
 		return (1 + cos(PI*constant / alpha)) / (2 * alpha);
+	}
+}
+
+template<class TT>
+inline TT AdvectionMethod2D<TT>::DeltaFt2(const double & constant)
+{
+	if (abs(constant) > alpha)
+	{
+		return 0.0;
+	}
+	else if (abs(constant) < 0.5*alpha)
+	{
+		return -1.0 / (6.0*PI)*(1 + cos(PI*constant / alpha)) + 4.0 / (3.0*PI)*(1 + cos(2.0*PI*constant / alpha));
+	}
+	else
+	{
+		return -1.0 / (6.0*PI)*(1 + cos(PI*constant / alpha));
 	}
 }
 

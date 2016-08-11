@@ -476,7 +476,7 @@ inline void PoissonSolver::GeneratePoissonVectorJumpCondi(const Field2D<double>&
 	Vector2D<double> normalBottom;
 	Vector2D<double> normalTop;
 
-	levelSet.computeUnitNormal();
+	levelSet.ComputeUnitNormal();
 
 	for (int j = innerGrid.jStart; j <= innerGrid.jEnd; j++)
 	{

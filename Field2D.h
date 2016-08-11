@@ -114,7 +114,8 @@ public:
 
 	inline Vector2D<int> containedCell(const double& x, const double& y) const;
 
-	inline Vector2D<double> gradient(const int& i, const int& j);
+	inline Vector2D<double> Gradient(const int& i, const int& j);
+	static Field2D<Vector2D<double>> Gradient(const Field2D<double>& ipField);
 
 	inline TT minmod(const TT& constant1, const TT constant2) const;
 
@@ -135,14 +136,15 @@ public:
 	inline TT dxMinusPhiSubcell(const int& i, const int& j) const;
 	inline TT dyPlusPhiSubcell(const int& i, const int& j) const;
 	inline TT dyMinusPhiSubcell(const int& i, const int& j) const;
-
-
+	
 	static TT L1Norm(const Field2D<TT>& ipField1);
 	static TT L2Norm(const Field2D<TT>& ipField1);
 	static TT InnerProduct(const Field2D<TT>& ipField1, const Field2D<TT>& ipField2);
 
-	static Field2D<Vector2D<double>> Gradient(const Field2D<double>& ipField);
+	inline TT Divegence(const int& i, const int& j) const;
 	static Field2D<double> Divegence(const Field2D<Vector2D<double>>& ipField);
+	inline Array2D<double> Hessian(const int& i, const int& j) const;
+	//static Array2D<double> Hessian(const Field2D<double>& ipField);
 private:
 
 };
@@ -711,9 +713,24 @@ inline Vector2D<int> Field2D<TT>::containedCell(const double & x, const double &
 }
 
 template<class TT>
-inline Vector2D<double> Field2D<TT>::gradient(const int & i, const int & j)
+inline Vector2D<double> Field2D<TT>::Gradient(const int & i, const int & j)
 {
 	return Vector2D<double>(dxPhi(i, j), dyPhi(i, j));
+}
+
+template<class TT>
+inline Field2D<Vector2D<double>> Field2D<TT>::Gradient(const Field2D<double>& ipField)
+{
+	Field2D<Vector2D<double>> gradient(ipField.grid);
+#pragma omp parallel for
+	for (int i = gradient.iStart; i <= gradient.iEnd; i++)
+	{
+		for (int j = gradient.jStart; j <= gradient.jEnd; j++)
+		{
+			gradient(i, j) = Vector2D<double>(ipField.dxPhi(i, j), ipField.dyPhi(i, j));
+		}
+	}
+	return gradient;
 }
 
 template<class TT>
@@ -941,35 +958,43 @@ inline TT Field2D<TT>::InnerProduct(const Field2D<TT>& ipField1, const Field2D<T
 	return Array2D<TT>::InnerProduct(ipField1.dataArray, ipField2.dataArray);
 }
 
+
+
 template<class TT>
-inline Field2D<Vector2D<double>> Field2D<TT>::Gradient(const Field2D<double>& ipField)
+inline TT Field2D<TT>::Divegence(const int & i, const int & j) const
 {
-	Field2D<Vector2D<double>> gradient(ipField.grid);
-#pragma omp parallel for
-	for (int i = gradient.iStart; i <= gradient.iEnd; i++)
-	{
-		for (int j = gradient.jStart; j <= gradient.jEnd; j++)
-		{
-			gradient(i, j) = Vector2D<double>(ipField.dxPhi(i, j), ipField.dyPhi(i, j));
-		}
-	}
-	return gradient;
+	return dxPhi(i, j) + dyPhi(i, j);
 }
 
 template<class TT>
 inline Field2D<double> Field2D<TT>::Divegence(const Field2D<Vector2D<double>>& ipField)
 {
 	Field2D<double> divergence(ipField.grid);
-	Field2D<Vector2D<double>> dxField(ipField.grid);
-	Field2D<Vector2D<double>> dyField(ipField.grid);
+	//Field2D<Vector2D<double>> dxField(ipField.grid);
+	//Field2D<Vector2D<double>> dyField(ipField.grid);
 
 #pragma omp parallel for
 	for (int i = divergence.iStart; i <= divergence.iEnd; i++)
 	{
 		for (int j = divergence.jStart; j <= divergence.jEnd; j++)
 		{
-			divergence(i, j) = dxField.dxPhi(i, j).x + dyField.dyPhi(i, j).y;
+			divergence(i, j) = 0;// ipField.dxPhi(i, j);// +ipField.dyPhi(i, j);
 		}
 	}
 	return divergence;
 }
+
+template<class TT>
+inline Array2D<double> Field2D<TT>::Hessian(const int & i, const int & j) const
+{
+	Array2D<double> hessian(2, 2);
+	hessian(0, 0) = dxxPhi(i, j);
+	hessian(0, 1) = dxyPhi(i, j);
+	hessian(1, 0) = dxyPhi(i, j);
+	hessian(1, 1) = dyyPhi(i, j);
+	return hessian;
+}
+
+
+
+

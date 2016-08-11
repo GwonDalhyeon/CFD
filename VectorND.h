@@ -74,7 +74,6 @@ public:
 
 	inline void Variable(const char * varName);
 	inline void Variable(const char * varName, const int & dim);
-
 private:
 
 };
@@ -533,9 +532,9 @@ inline VectorND<TT> operator+(const TT & constant, const VectorND<TT>& ipVector)
 	VectorND<TT> returnVT(ipVector.iStart, ipVector.iLength);
 
 #pragma omp parallel for
-	for (int i = 0; i < iLength; i++)
+	for (int i = ipVector.iStart; i <= ipVector.iEnd; i++)
 	{
-		returnVT.values[i] = constant + ipVector.values[i];
+		returnVT[i] = constant + ipVector[i];
 	}
 	return returnVT;
 }

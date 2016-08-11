@@ -68,7 +68,6 @@ public:
 	void normalize();
 	
 	inline void Variable(const char * varName);
-
 private:
 
 };
