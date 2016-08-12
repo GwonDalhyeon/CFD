@@ -101,7 +101,7 @@ inline void MovingInterface::InitialCondition(const int & example)
 
 		A = Array2D<double>(1, (grid.iRes - 2)*(grid.jRes - 2), 1, (grid.iRes - 2)*(grid.jRes - 2));
 		dt = grid.dx / 4.0;
-		maxIteration = 100;
+		maxIteration = 200;
 	}
 
 	if (example == 2)
@@ -122,12 +122,6 @@ inline void MovingInterface::MovingInterfaceSolver(const int & example)
 
 	grid.Variable();
 
-	Surfactant.Variable("Surfactant");
-	MATLAB.Command("figure,surf(X,Y,Surfactant);");
-	str = string("title(['iteration : ', num2str(") + to_string(0) + string("),', time : ', num2str(") + to_string(totalT) + string(")]);");
-	cmd = str.c_str();
-	MATLAB.Command(cmd);
-
 	levelSet.ComputeMeanCurvature();
 	levelSet.ComputeNormal();
 
@@ -138,6 +132,15 @@ inline void MovingInterface::MovingInterfaceSolver(const int & example)
 	//// CG solver 2
 	CGSolver::SparseA(A, a, row, col, nonzeroNum);
 
+	Field2D<double> exact(grid);
+
+
+	//// Initial Surfactant
+	Surfactant.Variable("Surfactant");
+	MATLAB.Command("figure('units','normalized','outerposition',[0 0 1 1]), subplot(1,2,1),surf(X,Y,Surfactant);");
+	str = string("title(['iteration : ', num2str(") + to_string(0) + string("),', time : ', num2str(") + to_string(totalT) + string(")]);");
+	cmd = str.c_str();
+	MATLAB.Command(cmd);
 
 	//// Step 1
 	cout << "********************************" << endl;
@@ -150,10 +153,36 @@ inline void MovingInterface::MovingInterfaceSolver(const int & example)
 	cout << "********************************" << endl;
 
 	Surfactant.Variable("SurfactantNew");
-	MATLAB.Command("figure,surf(X,Y,SurfactantNew);");
+	MATLAB.Command("surf(X,Y,SurfactantNew);");
 	str = string("title(['iteration : ', num2str(") + to_string(1) + string("),', time : ', num2str(") + to_string(totalT) + string(")]);");
 	cmd = str.c_str();
 	MATLAB.Command(cmd);
+
+
+	double l2 = 0;
+
+//#pragma omp parallel for
+	for (int i = grid.iStart; i <= grid.iEnd; i++)
+	{
+		for (int j = grid.jStart; j <= grid.jEnd; j++)
+		{
+			exact(i, j) = ExactSurfactant(example, grid(i,j).x, grid(i,j).y, totalT);
+			if (grid(i, j).x*grid(i, j).x + grid(i, j).y*grid(i, j).y>0.8*0.8)
+			{
+				l2 += (Surfactant(i, j) - exact(i, j))*(Surfactant(i, j) - exact(i, j));
+			}
+		}
+	}
+
+	exact.Variable("SurfactantExact");
+	str = string("l2(") + to_string(1) + string(")=norm(SurfactantNew-SurfactantExact)");
+	cmd = str.c_str();
+	MATLAB.Command(cmd);
+	MATLAB.Command("subplot(1,2,2),surf(X,Y,SurfactantExact);");
+	str = string("title(['iteration : ', num2str(") + to_string(1) + string("),', time : ', num2str(") + to_string(totalT) + string(")]);");
+	cmd = str.c_str();
+	MATLAB.Command(cmd);
+
 
 	GenerateLinearSystem2(A, 1);
 	A.Variable("A2");
@@ -162,7 +191,8 @@ inline void MovingInterface::MovingInterfaceSolver(const int & example)
 	//// CG solver 2
 	CGSolver::SparseA(A, a, row, col, nonzeroNum);
 
-	for (int i = 2; i <= 5; i++)
+
+	for (int i = 2; i <= maxIteration; i++)
 	{
 		cout << "********************************" << endl;
 		cout << "       Iteration " << to_string(i) << " : Start" << endl;
@@ -174,11 +204,30 @@ inline void MovingInterface::MovingInterfaceSolver(const int & example)
 		cout << "********************************" << endl;
 
 		Surfactant.Variable("SurfactantNew");
-		MATLAB.Command("figure,surf(X,Y,SurfactantNew);");
+		MATLAB.Command("subplot(1,2,1),surf(X,Y,SurfactantNew);");
+		str = string("title(['iteration : ', num2str(") + to_string(i) + string("),', time : ', num2str(") + to_string(totalT) + string(")]);");
+		cmd = str.c_str();
+		MATLAB.Command(cmd);
+		l2 = 0;
+#pragma omp parallel for
+		for (int i = grid.iStart; i <= grid.iEnd; i++)
+		{
+			for (int j = grid.jStart; j <= grid.jEnd; j++)
+			{
+				exact(i, j) = ExactSurfactant(example, grid(i, j).x, grid(i, j).y, totalT);
+			}
+		}
+
+		exact.Variable("SurfactantExact");
+		str = string("l2(") + to_string(i) + string(")=norm(SurfactantNew-SurfactantExact)");
+		cmd = str.c_str();
+		MATLAB.Command(cmd);
+		MATLAB.Command("subplot(1,2,2),surf(X,Y,SurfactantExact);");
 		str = string("title(['iteration : ', num2str(") + to_string(i) + string("),', time : ', num2str(") + to_string(totalT) + string(")]);");
 		cmd = str.c_str();
 		MATLAB.Command(cmd);
 	}
+
 
 }
 
@@ -194,7 +243,7 @@ inline void MovingInterface::OneStepSemiImplicit(const int&example)
 
 	VectorND<double> tempSur((grid.iRes - 2)*(grid.jRes - 2));
 
-	int solver = 1;
+	int solver = 2;
 	if (solver == 1)
 	{
 		tempSur = CGSolver::SolverCSR(Acsr, vectorB, grid.dx*grid.dy);
@@ -212,7 +261,14 @@ inline void MovingInterface::OneStepSemiImplicit(const int&example)
 		for (int j = grid.jStart + 1; j <= grid.jEnd - 1; j++)
 		{
 			index = (i - (grid.iStart + 1)) + (j - (grid.jStart + 1))*(grid.iRes - 2);
-			Surfactant(i, j) = tempSur(index);
+			//if (grid(i, j).x*grid(i, j).x + grid(i, j).y*grid(i, j).y < 0.8*0.8)
+			//{
+			//	Surfactant(i, j) = ExactSurfactant(example, grid(i, j).x, grid(i, j).y, totalT);
+			//}
+			//else
+			{
+				Surfactant(i, j) = tempSur(index);
+			}
 		}
 	}
 
@@ -229,19 +285,6 @@ inline void MovingInterface::OneStepSemiImplicit(const int&example)
 		Surfactant(grid.iStart, j) = ExactSurfactant(example, grid(grid.iStart, j).x, grid(grid.iStart, j).y, totalT);
 		Surfactant(grid.iEnd, j) = ExactSurfactant(example, grid(grid.iEnd, j).x, grid(grid.iEnd, j).y, totalT);
 	}
-
-
-	//	//// Exact Solution
-	//#pragma omp parallel for
-	//	for (int i = grid.iStart; i <= grid.iEnd; i++)
-	//	{
-	//		for (int j = grid.jStart; j <= grid.jEnd; j++)
-	//		{
-	//			Surfactant(i, j) = ExactSurfactant(example, grid(i, j).x, grid(i, j).y, totalT);
-	//		}
-	//	}
-	//	Surfactant.Variable("SurfactantExact");
-	//	MATLAB.Command("figure,surf(X,Y,SurfactantExact);");
 }
 
 inline void MovingInterface::TwoStepSemiImplicit(const int&example)
@@ -253,7 +296,7 @@ inline void MovingInterface::TwoStepSemiImplicit(const int&example)
 
 	VectorND<double> tempSur((grid.iRes - 2)*(grid.jRes - 2));
 
-	int solver = 1;
+	int solver = 2;
 	if (solver == 1)
 	{
 		tempSur = CGSolver::SolverCSR(Acsr, vectorB, grid.dx*grid.dy);
@@ -271,7 +314,14 @@ inline void MovingInterface::TwoStepSemiImplicit(const int&example)
 		for (int j = grid.jStart + 1; j <= grid.jEnd - 1; j++)
 		{
 			index = (i - (grid.iStart + 1)) + (j - (grid.jStart + 1))*(grid.iRes - 2);
-			Surfactant(i, j) = tempSur(index);
+			//if (grid(i, j).x*grid(i, j).x + grid(i, j).y*grid(i, j).y < 0.8*0.8)
+			//{
+			//	Surfactant(i, j) = ExactSurfactant(example, grid(i, j).x, grid(i, j).y, totalT);
+			//}
+			//else
+			{
+				Surfactant(i, j) = tempSur(index);
+			}
 		}
 	}
 
@@ -440,24 +490,24 @@ inline void MovingInterface::GenerateLinearSystem1(VectorND<double>& vectorB, co
 		for (int j = innerJStart; j <= innerJEnd; j++)
 		{
 			index = (i - innerIStart) + (j - innerJStart)*innerIRes;
-			vectorB(index) = Surfactant(i, j);// +dt*term(i, j);
+			vectorB(index) = Surfactant(i, j) + dt*term(i, j);
 
 			if (i == innerIStart)
 			{
-				vectorB(index) += dt*grid.dx2*ExactSurfactant(1, grid(i - 1, j).x, grid(i - 1, j).y, totalT);
+				vectorB(index) += dt*grid.oneOverdx2*ExactSurfactant(1, grid(i - 1, j).x, grid(i - 1, j).y, totalT);
 			}
 			if (i == innerIEnd)
 			{
-				vectorB(index) += dt*grid.dx2*ExactSurfactant(1, grid(i + 1, j).x, grid(i + 1, j).y, totalT);
+				vectorB(index) += dt*grid.oneOverdx2*ExactSurfactant(1, grid(i + 1, j).x, grid(i + 1, j).y, totalT);
 			}
 			if (j == innerJStart)
 			{
-				vectorB(index) += dt*grid.dy2*ExactSurfactant(1, grid(i, j - 1).x, grid(i, j - 1).y, totalT);
+				vectorB(index) += dt*grid.oneOverdy2*ExactSurfactant(1, grid(i, j - 1).x, grid(i, j - 1).y, totalT);
 
 			}
 			if (j == innerJEnd)
 			{
-				vectorB(index) += dt*grid.dy2*ExactSurfactant(1, grid(i, j + 1).x, grid(i, j + 1).y, totalT);
+				vectorB(index) += dt*grid.oneOverdy2*ExactSurfactant(1, grid(i, j + 1).x, grid(i, j + 1).y, totalT);
 			}
 			vectorB(index) *= scaling;
 		}
@@ -510,7 +560,7 @@ inline void MovingInterface::GenerateLinearSystem2(Array2D<double>& matrixA, con
 					matrixA(index) = scaling*(1 + 1 * dt*grid.oneOverdx2 + 1 * dt*grid.oneOverdy2);
 					matrixA(leftIndex) = scaling * -1.0 / 2.0 * dt*grid.oneOverdx2;
 					matrixA(rightIndex) = scaling * -1.0 / 2.0 * dt*grid.oneOverdx2;
-					matrixA(topIndex) = scaling * -1 * dt*grid.oneOverdy2;
+					matrixA(topIndex) = scaling * -1 / 2.0 * dt*grid.oneOverdy2;
 				}
 			}
 			else if (j > innerJStart && j < innerJEnd)
@@ -587,25 +637,25 @@ inline void MovingInterface::GenerateLinearSystem2(VectorND<double>& vectorB, co
 		for (int j = innerJStart; j <= innerJEnd; j++)
 		{
 			index = (i - innerIStart) + (j - innerJStart)*innerIRes;
-			vectorB(index) = Surfactant(i, j) + dt / 2.0*(Surfactant.dxxPhi(i, j) + Surfactant.dyyPhi(i, j));
-			//+ 3.0 / 2.0*dt*term(i, j) - 1.0 / 2.0*dt*termOld(i, j);
+			vectorB(index) = Surfactant(i, j) + dt / 2.0*(Surfactant.dxxPhi(i, j) + Surfactant.dyyPhi(i, j))
+			+ 3.0 / 2.0*dt*term(i, j) - 1.0 / 2.0*dt*termOld(i, j);
 
 			if (i == innerIStart)
 			{
-				vectorB(index) += dt / 2.0*grid.dx2*ExactSurfactant(1, grid(i - 1, j).x, grid(i - 1, j).y, totalT);
+				vectorB(index) += dt / 2.0*grid.oneOverdx2*ExactSurfactant(1, grid(i - 1, j).x, grid(i - 1, j).y, totalT);
 			}
 			if (i == innerIEnd)
 			{
-				vectorB(index) += dt / 2.0*grid.dx2*ExactSurfactant(1, grid(i + 1, j).x, grid(i + 1, j).y, totalT);
+				vectorB(index) += dt / 2.0*grid.oneOverdx2*ExactSurfactant(1, grid(i + 1, j).x, grid(i + 1, j).y, totalT);
 			}
 			if (j == innerJStart)
 			{
-				vectorB(index) += dt / 2.0*grid.dy2*ExactSurfactant(1, grid(i, j - 1).x, grid(i, j - 1).y, totalT);
+				vectorB(index) += dt / 2.0*grid.oneOverdy2*ExactSurfactant(1, grid(i, j - 1).x, grid(i, j - 1).y, totalT);
 
 			}
 			if (j == innerJEnd)
 			{
-				vectorB(index) += dt / 2.0*grid.dy2*ExactSurfactant(1, grid(i, j + 1).x, grid(i, j + 1).y, totalT);
+				vectorB(index) += dt / 2.0*grid.oneOverdy2*ExactSurfactant(1, grid(i, j + 1).x, grid(i, j + 1).y, totalT);
 			}
 			vectorB(index) *= scaling;
 		}
