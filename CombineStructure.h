@@ -49,6 +49,33 @@ void ArrayVec2DVariable(const char * varName, const Array2D<Vector2D<TT>>& ipArr
 	tempArray1.Variable(varNameX);
 
 	string strY = string(varName) + "Y";
-	const char* varNameY = strX.c_str();
+	const char* varNameY = strY.c_str();
 	tempArray2.Variable(varNameY);
 }
+
+//template<class TT>
+//void FieldVec2DVariable(const char * varName, const Field2D<Vector2D<TT>>& ipField)
+//{
+//	ArrayVec2DVariable(varName, ipField.dataArray);
+////	Array2D<double> tempArray1(ipField.iStart, ipField.iRes, ipField.jStart, ipField.jRes);
+////	Array2D<double> tempArray2(ipField.iStart, ipField.iRes, ipField.jStart, ipField.jRes);
+////
+////#pragma omp parallel for
+////	for (int i = ipField.iStart; i <= ipField.iEnd; i++)
+////	{
+////		for (int j = ipField.jStart; j <= ipField.jEnd; j++)
+////		{
+////			tempArray1(i, j) = ipField(i, j).x;
+////			tempArray2(i, j) = ipField(i, j).y;
+////		}
+////	}
+////
+////
+////	string strX = string(varName) + "X";
+////	const char* varNameX = strX.c_str();
+////	tempArray1.Variable(varNameX);
+////
+////	string strY = string(varName) + "Y";
+////	const char* varNameY = strX.c_str();
+////	tempArray2.Variable(varNameY);
+//}

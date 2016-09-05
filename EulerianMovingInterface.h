@@ -12,10 +12,15 @@ public:
 
 	Field2D<double> U; // x velocity
 	Field2D<double> V; // y velocity
+	Field2D<double> UOld; // x velocity
+	Field2D<double> VOld; // y velocity
 	Field2D<double> Surfactant;
 	Field2D<double> SurfactantOld;
 
 	LevelSet2D levelSet;
+	LevelSet2D levelSetOld;
+	int ExamNum;
+
 
 	Array2D<double>A;
 	// CG solver 1
@@ -41,11 +46,13 @@ public:
 	inline void TwoStepSemiImplicit(const int&example);
 
 	inline void SurfactantNormalTerm(const Field2D<double>& ipField, Array2D<double>& term);
-	inline double ExactSurfactant(const int& example, const double& x, const double& y, const double& time);
+	inline double ExactSurfactant(const double& x, const double& y, const double& time);
 	inline void GenerateLinearSystem1(Array2D<double>& matrixA, const double & scaling);
 	inline void GenerateLinearSystem1(VectorND<double>& vectorB, const double & scaling);
 	inline void GenerateLinearSystem2(Array2D<double>& matrixA, const double & scaling);
 	inline void GenerateLinearSystem2(VectorND<double>& vectorB, const double & scaling);
+
+	inline void SurfactantExtension(const LevelSet2D& ipLevelSet, Field2D<double>& ipField);
 
 private:
 
@@ -61,6 +68,7 @@ MovingInterface::~MovingInterface()
 
 inline void MovingInterface::InitialCondition(const int & example)
 {
+	ExamNum = example;
 	if (example == 1)
 	{
 		cout << "*************************" << endl;
@@ -69,6 +77,7 @@ inline void MovingInterface::InitialCondition(const int & example)
 		cout << "          --JJ Xu, HK Zhao-- " << endl;
 		cout << "               Example 1 " << endl;
 		cout << "*************************" << endl;
+
 		int gridSize = 40;
 		grid = Grid2D(-2, 2, gridSize + 1, -2, 2, gridSize + 1);
 
@@ -101,10 +110,67 @@ inline void MovingInterface::InitialCondition(const int & example)
 
 		A = Array2D<double>(1, (grid.iRes - 2)*(grid.jRes - 2), 1, (grid.iRes - 2)*(grid.jRes - 2));
 		dt = grid.dx / 4.0;
-		maxIteration = 200;
+		maxIteration = 100;
 	}
 
 	if (example == 2)
+	{
+		cout << "*************************" << endl;
+		cout << "       An Eulerian Formulation  " << endl;
+		cout << " for Solving PDE along Moving Interface" << endl;
+		cout << "          --JJ Xu, HK Zhao-- " << endl;
+		cout << "               Example 2 " << endl;
+		cout << "*************************" << endl;
+
+		int gridSize = 40;
+		grid = Grid2D(-3, 5, gridSize + 1, -3, 3, gridSize * 3 / 4 + 1);
+
+		U = Field2D<double>(grid);
+		V = Field2D<double>(grid);
+
+#pragma omp parallel for
+		for (int i = grid.iStart; i <= grid.iEnd; i++)
+		{
+			for (int j = grid.jStart; j <= grid.jEnd; j++)
+			{
+				U(i, j) = 1;
+				V(i, j) = 0;
+			}
+		}
+		UOld = U;
+		VOld = V;
+
+		levelSet = LevelSet2D(grid);
+		double radius = 2.0;
+#pragma omp parallel for
+		for (int i = grid.iStart; i <= grid.iEnd; i++)
+		{
+			for (int j = grid.jStart; j <= grid.jEnd; j++)
+			{
+				levelSet(i, j) = sqrt(grid(i, j).x*grid(i, j).x + grid(i, j).y*grid(i, j).y) - radius;
+			}
+		}
+		levelSetOld = levelSet;
+
+		Surfactant = Field2D<double>(grid);
+#pragma omp parallel for
+		for (int i = grid.iStart; i <= grid.iEnd; i++)
+		{
+			for (int j = grid.jStart; j <= grid.jEnd; j++)
+			{
+				Surfactant(i, j) = grid(i, j).y / (sqrt(grid(i, j).x*grid(i, j).x + grid(i, j).y*grid(i, j).y) + DBL_EPSILON) + 2;
+			}
+		}
+		SurfactantOld = Surfactant;
+
+		AdvectionMethod2D<double>::alpha = 1.5*grid.dx;
+
+		A = Array2D<double>(1, (grid.iRes - 2)*(grid.jRes - 2), 1, (grid.iRes - 2)*(grid.jRes - 2));
+		dt = grid.dx / 4.0;
+		maxIteration = 100;
+	}
+
+	if (example == 3)
 	{
 
 	}
@@ -122,8 +188,8 @@ inline void MovingInterface::MovingInterfaceSolver(const int & example)
 
 	grid.Variable();
 
-	levelSet.ComputeMeanCurvature();
-	levelSet.ComputeNormal();
+
+	//levelSet.meanCurvature.Variable("curvature");
 
 	GenerateLinearSystem1(A, 1);
 	A.Variable("A1");
@@ -159,20 +225,19 @@ inline void MovingInterface::MovingInterfaceSolver(const int & example)
 	MATLAB.Command(cmd);
 
 
-	double l2 = 0;
-
-//#pragma omp parallel for
-	for (int i = grid.iStart; i <= grid.iEnd; i++)
-	{
-		for (int j = grid.jStart; j <= grid.jEnd; j++)
-		{
-			exact(i, j) = ExactSurfactant(example, grid(i,j).x, grid(i,j).y, totalT);
-			if (grid(i, j).x*grid(i, j).x + grid(i, j).y*grid(i, j).y>0.8*0.8)
-			{
-				l2 += (Surfactant(i, j) - exact(i, j))*(Surfactant(i, j) - exact(i, j));
-			}
-		}
-	}
+	//	double l2 = 0;
+	//#pragma omp parallel for
+	//	for (int i = grid.iStart; i <= grid.iEnd; i++)
+	//	{
+	//		for (int j = grid.jStart; j <= grid.jEnd; j++)
+	//		{
+	//			exact(i, j) = ExactSurfactant(grid(i,j).x, grid(i,j).y, totalT);
+	//			if (grid(i, j).x*grid(i, j).x + grid(i, j).y*grid(i, j).y>0.8*0.8)
+	//			{
+	//				l2 += (Surfactant(i, j) - exact(i, j))*(Surfactant(i, j) - exact(i, j));
+	//			}
+	//		}
+	//	}
 
 	exact.Variable("SurfactantExact");
 	str = string("l2(") + to_string(1) + string(")=norm(SurfactantNew-SurfactantExact)");
@@ -198,6 +263,7 @@ inline void MovingInterface::MovingInterfaceSolver(const int & example)
 		cout << "       Iteration " << to_string(i) << " : Start" << endl;
 
 		totalT += dt;
+		//OneStepSemiImplicit(example);
 		TwoStepSemiImplicit(example);
 
 		cout << "       Iteration " << to_string(i) << " : End" << endl;
@@ -208,15 +274,19 @@ inline void MovingInterface::MovingInterfaceSolver(const int & example)
 		str = string("title(['iteration : ', num2str(") + to_string(i) + string("),', time : ', num2str(") + to_string(totalT) + string(")]);");
 		cmd = str.c_str();
 		MATLAB.Command(cmd);
-		l2 = 0;
+
+
+		//l2 = 0;
+
 #pragma omp parallel for
 		for (int i = grid.iStart; i <= grid.iEnd; i++)
 		{
 			for (int j = grid.jStart; j <= grid.jEnd; j++)
 			{
-				exact(i, j) = ExactSurfactant(example, grid(i, j).x, grid(i, j).y, totalT);
+				exact(i, j) = ExactSurfactant(grid(i, j).x, grid(i, j).y, totalT);
 			}
 		}
+
 
 		exact.Variable("SurfactantExact");
 		str = string("l2(") + to_string(i) + string(")=norm(SurfactantNew-SurfactantExact)");
@@ -234,7 +304,7 @@ inline void MovingInterface::MovingInterfaceSolver(const int & example)
 inline void MovingInterface::OneStepSemiImplicit(const int&example)
 {
 	//// Copy Old Data.
-	SurfactantOld = Surfactant;
+	//SurfactantOld = Surfactant;
 
 	//// Linear Equation
 	VectorND<double> vectorB((grid.iRes - 2)*(grid.jRes - 2));
@@ -252,7 +322,7 @@ inline void MovingInterface::OneStepSemiImplicit(const int&example)
 	{
 		CGSolver::SolverSparse(A.iRes, a, row, col, vectorB, tempSur);
 	}
-	tempSur.Variable("sur");
+	//tempSur.Variable("sur");
 
 	int index;
 #pragma omp parallel for private(index)
@@ -263,7 +333,7 @@ inline void MovingInterface::OneStepSemiImplicit(const int&example)
 			index = (i - (grid.iStart + 1)) + (j - (grid.jStart + 1))*(grid.iRes - 2);
 			//if (grid(i, j).x*grid(i, j).x + grid(i, j).y*grid(i, j).y < 0.8*0.8)
 			//{
-			//	Surfactant(i, j) = ExactSurfactant(example, grid(i, j).x, grid(i, j).y, totalT);
+			//	Surfactant(i, j) = ExactSurfactant(grid(i, j).x, grid(i, j).y, totalT);
 			//}
 			//else
 			{
@@ -273,22 +343,47 @@ inline void MovingInterface::OneStepSemiImplicit(const int&example)
 	}
 
 	//// Dirichlet Boundary Condition from the Exact Solution
-#pragma omp parallel for
-	for (int i = grid.iStart; i <= grid.iEnd; i++)
+	if (example == 1)
 	{
-		Surfactant(i, grid.jStart) = ExactSurfactant(example, grid(i, grid.jStart).x, grid(i, grid.jStart).y, totalT);
-		Surfactant(i, grid.jEnd) = ExactSurfactant(example, grid(i, grid.jEnd).x, grid(i, grid.jEnd).y, totalT);
-	}
 #pragma omp parallel for
-	for (int j = grid.jStart; j <= grid.jEnd; j++)
-	{
-		Surfactant(grid.iStart, j) = ExactSurfactant(example, grid(grid.iStart, j).x, grid(grid.iStart, j).y, totalT);
-		Surfactant(grid.iEnd, j) = ExactSurfactant(example, grid(grid.iEnd, j).x, grid(grid.iEnd, j).y, totalT);
+		for (int i = grid.iStart; i <= grid.iEnd; i++)
+		{
+			Surfactant(i, grid.jStart) = ExactSurfactant(grid(i, grid.jStart).x, grid(i, grid.jStart).y, totalT);
+			Surfactant(i, grid.jEnd) = ExactSurfactant(grid(i, grid.jEnd).x, grid(i, grid.jEnd).y, totalT);
+		}
+#pragma omp parallel for
+		for (int j = grid.jStart; j <= grid.jEnd; j++)
+		{
+			Surfactant(grid.iStart, j) = ExactSurfactant(grid(grid.iStart, j).x, grid(grid.iStart, j).y, totalT);
+			Surfactant(grid.iEnd, j) = ExactSurfactant(grid(grid.iEnd, j).x, grid(grid.iEnd, j).y, totalT);
+		}
 	}
+	if (example == 2)
+	{
+#pragma omp parallel for
+		for (int i = grid.iStart; i <= grid.iEnd; i++)
+		{
+			Surfactant(i, grid.jStart) = ExactSurfactant(grid(i, grid.jStart).x, grid(i, grid.jStart).y, totalT);
+			Surfactant(i, grid.jEnd) = ExactSurfactant(grid(i, grid.jEnd).x, grid(i, grid.jEnd).y, totalT);
+		}
+#pragma omp parallel for
+		for (int j = grid.jStart; j <= grid.jEnd; j++)
+		{
+			Surfactant(grid.iStart, j) = ExactSurfactant(grid(grid.iStart, j).x, grid(grid.iStart, j).y, totalT);
+			Surfactant(grid.iEnd, j) = ExactSurfactant(grid(grid.iEnd, j).x, grid(grid.iEnd, j).y, totalT);
+		}
+	}
+
+	levelSetOld = levelSet;
+	AdvectionMethod2D<double>::levelSetPropagatingTVDRK3(levelSet, U, V, dt);
+	//levelSet.phi.Variable("phi");
 }
 
 inline void MovingInterface::TwoStepSemiImplicit(const int&example)
 {
+	//// Copy Old Data.
+	SurfactantOld = Surfactant;
+
 	//// Linear Equation
 	VectorND<double> vectorB((grid.iRes - 2)*(grid.jRes - 2));
 	GenerateLinearSystem2(vectorB, 1);
@@ -305,7 +400,7 @@ inline void MovingInterface::TwoStepSemiImplicit(const int&example)
 	{
 		CGSolver::SolverSparse(A.iRes, a, row, col, vectorB, tempSur);
 	}
-	tempSur.Variable("sur");
+	//tempSur.Variable("sur");
 
 	int index;
 #pragma omp parallel for private(index)
@@ -316,7 +411,7 @@ inline void MovingInterface::TwoStepSemiImplicit(const int&example)
 			index = (i - (grid.iStart + 1)) + (j - (grid.jStart + 1))*(grid.iRes - 2);
 			//if (grid(i, j).x*grid(i, j).x + grid(i, j).y*grid(i, j).y < 0.8*0.8)
 			//{
-			//	Surfactant(i, j) = ExactSurfactant(example, grid(i, j).x, grid(i, j).y, totalT);
+			//	Surfactant(i, j) = ExactSurfactant(grid(i, j).x, grid(i, j).y, totalT);
 			//}
 			//else
 			{
@@ -326,46 +421,107 @@ inline void MovingInterface::TwoStepSemiImplicit(const int&example)
 	}
 
 	//// Dirichlet Boundary Condition from the Exact Solution
-#pragma omp parallel for
-	for (int i = grid.iStart; i <= grid.iEnd; i++)
+	if (example == 1)
 	{
-		Surfactant(i, grid.jStart) = ExactSurfactant(example, grid(i, grid.jStart).x, grid(i, grid.jStart).y, totalT);
-		Surfactant(i, grid.jEnd) = ExactSurfactant(example, grid(i, grid.jEnd).x, grid(i, grid.jEnd).y, totalT);
+#pragma omp parallel for
+		for (int i = grid.iStart; i <= grid.iEnd; i++)
+		{
+			Surfactant(i, grid.jStart) = ExactSurfactant(grid(i, grid.jStart).x, grid(i, grid.jStart).y, totalT);
+			Surfactant(i, grid.jEnd) = ExactSurfactant(grid(i, grid.jEnd).x, grid(i, grid.jEnd).y, totalT);
+		}
+#pragma omp parallel for
+		for (int j = grid.jStart; j <= grid.jEnd; j++)
+		{
+			Surfactant(grid.iStart, j) = ExactSurfactant(grid(grid.iStart, j).x, grid(grid.iStart, j).y, totalT);
+			Surfactant(grid.iEnd, j) = ExactSurfactant(grid(grid.iEnd, j).x, grid(grid.iEnd, j).y, totalT);
+		}
 	}
-#pragma omp parallel for
-	for (int j = grid.jStart; j <= grid.jEnd; j++)
+	if (example == 2)
 	{
-		Surfactant(grid.iStart, j) = ExactSurfactant(example, grid(grid.iStart, j).x, grid(grid.iStart, j).y, totalT);
-		Surfactant(grid.iEnd, j) = ExactSurfactant(example, grid(grid.iEnd, j).x, grid(grid.iEnd, j).y, totalT);
+#pragma omp parallel for
+		for (int i = grid.iStart; i <= grid.iEnd; i++)
+		{
+			Surfactant(i, grid.jStart) = ExactSurfactant(grid(i, grid.jStart).x, grid(i, grid.jStart).y, totalT);
+			Surfactant(i, grid.jEnd) = ExactSurfactant(grid(i, grid.jEnd).x, grid(i, grid.jEnd).y, totalT);
+		}
+#pragma omp parallel for
+		for (int j = grid.jStart; j <= grid.jEnd; j++)
+		{
+			Surfactant(grid.iStart, j) = ExactSurfactant(grid(grid.iStart, j).x, grid(grid.iStart, j).y, totalT);
+			Surfactant(grid.iEnd, j) = ExactSurfactant(grid(grid.iEnd, j).x, grid(grid.iEnd, j).y, totalT);
+		}
 	}
 
+	levelSetOld = levelSet;
+	AdvectionMethod2D<double>::levelSetPropagatingTVDRK3(levelSet, U, V, dt);
+	//levelSet.phi.Variable("phi");
 }
 
 inline void MovingInterface::SurfactantNormalTerm(const Field2D<double>& ipField, Array2D<double>& term)
 {
-	Field2D<Vector2D<double>> gradient = Field2D<double>::Gradient(ipField);
+	levelSet.ComputeMeanCurvature();
+	levelSet.ComputeNormal();
+
+	Field2D<Vector2D<double>> gradientF(Field2D<double>::Gradient(ipField));
+	//Field2D<Vector2D<double>> Normal(grid);
 	Vector2D<double> normal;
 	Array2D<double> Hessian(2, 2);
-#pragma omp parallel for private(normal, Hessian)
+
+	Field2D<double> wenoDxMinus(grid);
+	Field2D<double> wenoDxPlus(grid);
+	Field2D<double> wenoDyMinus(grid);
+	Field2D<double> wenoDyPlus(grid);
+	AdvectionMethod2D<double>::WENO5th(ipField, wenoDxMinus, wenoDxPlus, wenoDyMinus, wenoDyPlus);
+
+	Field2D<Vector2D<double>> gradientU(Field2D<double>::Gradient(U));
+	Field2D<Vector2D<double>> gradientV(Field2D<double>::Gradient(V));
+
+	double curvatureThreshold = 3.0;
+	double curvature;
+#pragma omp parallel for private(normal, Hessian, curvature)
 	for (int i = term.iStart; i <= term.iEnd; i++)
 	{
 		for (int j = term.jStart; j <= term.jEnd; j++)
 		{
 			normal = levelSet.normal(i, j);
+			//Normal(i, j) = normal;
 			Hessian = Surfactant.Hessian(i, j);
+			curvature = -levelSet.meanCurvature(i, j); //// LEVELSET.MEANCURVATURE has a nagative sign. so mutiple -1.
 			term(i, j) = 0;
-			term(i, j) += -levelSet.meanCurvature(i, j)*dotProduct(normal, gradient(i, j));
+			if (abs(curvature) < curvatureThreshold)
+			{
+				term(i, j) += -curvature*dotProduct(normal, gradientF(i, j));
+			}
+			else
+			{
+				term(i, j) += -AdvectionMethod2D<double>::sign(curvature)*curvatureThreshold*dotProduct(normal, gradientF(i, j));
+			}
 			term(i, j) += -normal(0)*(Hessian(0, 0)*normal(0) + Hessian(0, 1)*normal(1));
 			term(i, j) += -normal(1)*(Hessian(1, 0)*normal(0) + Hessian(1, 1)*normal(1));
+
+			//// Upwind WENO
+			term(i, j) += -(AdvectionMethod2D<double>::Plus(U(i, j))*wenoDxMinus(i, j) + AdvectionMethod2D<double>::Minus(U(i, j))*wenoDxPlus(i, j));
+			term(i, j) += -(AdvectionMethod2D<double>::Plus(V(i, j))*wenoDyMinus(i, j) + AdvectionMethod2D<double>::Minus(V(i, j))*wenoDyPlus(i, j));
+
+			////
+			term(i, j) += normal(0)*(gradientU(i, j).x*normal(0) + gradientU(i, j).y*normal(1))*ipField(i, j);
+			term(i, j) += normal(1)*(gradientV(i, j).x*normal(0) + gradientV(i, j).y*normal(1))*ipField(i, j);
 		}
 	}
+	//term.Variable("addedTerm");
+	//ArrayVec2DVariable("normal", Normal.dataArray);
+	//ArrayVec2DVariable("gradient", gradient.dataArray);
 }
 
-inline double MovingInterface::ExactSurfactant(const int & example, const double & x, const double & y, const double & time)
+inline double MovingInterface::ExactSurfactant(const double & x, const double & y, const double & time)
 {
-	if (example == 1)
+	if (ExamNum == 1)
 	{
 		return exp(-time / (x*x + y*y + DBL_EPSILON))*(y / sqrt(x*x + y*y + DBL_EPSILON)) + 2;
+	}
+	if (ExamNum == 2)
+	{
+		return exp(-time / ((x - totalT)*(x - totalT) + y*y + DBL_EPSILON))*(y / sqrt((x - totalT)*(x - totalT) + y*y + DBL_EPSILON)) + 2;
 	}
 	return 0.0;
 }
@@ -483,6 +639,7 @@ inline void MovingInterface::GenerateLinearSystem1(VectorND<double>& vectorB, co
 
 	Array2D<double> term(innerIStart, innerIRes, innerJStart, innerJRes);
 	SurfactantNormalTerm(Surfactant, term);
+	//term.Variable("addedTerm");
 	int index;
 #pragma omp parallel for private(index)
 	for (int i = innerIStart; i <= innerIEnd; i++)
@@ -494,20 +651,20 @@ inline void MovingInterface::GenerateLinearSystem1(VectorND<double>& vectorB, co
 
 			if (i == innerIStart)
 			{
-				vectorB(index) += dt*grid.oneOverdx2*ExactSurfactant(1, grid(i - 1, j).x, grid(i - 1, j).y, totalT);
+				vectorB(index) += dt*grid.oneOverdx2*ExactSurfactant(grid(i - 1, j).x, grid(i - 1, j).y, totalT);
 			}
 			if (i == innerIEnd)
 			{
-				vectorB(index) += dt*grid.oneOverdx2*ExactSurfactant(1, grid(i + 1, j).x, grid(i + 1, j).y, totalT);
+				vectorB(index) += dt*grid.oneOverdx2*ExactSurfactant(grid(i + 1, j).x, grid(i + 1, j).y, totalT);
 			}
 			if (j == innerJStart)
 			{
-				vectorB(index) += dt*grid.oneOverdy2*ExactSurfactant(1, grid(i, j - 1).x, grid(i, j - 1).y, totalT);
+				vectorB(index) += dt*grid.oneOverdy2*ExactSurfactant(grid(i, j - 1).x, grid(i, j - 1).y, totalT);
 
 			}
 			if (j == innerJEnd)
 			{
-				vectorB(index) += dt*grid.oneOverdy2*ExactSurfactant(1, grid(i, j + 1).x, grid(i, j + 1).y, totalT);
+				vectorB(index) += dt*grid.oneOverdy2*ExactSurfactant(grid(i, j + 1).x, grid(i, j + 1).y, totalT);
 			}
 			vectorB(index) *= scaling;
 		}
@@ -540,7 +697,7 @@ inline void MovingInterface::GenerateLinearSystem2(Array2D<double>& matrixA, con
 				+ (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart - 1)*innerIRes;
 			topIndex = (i - innerIStart)*innerIRes*innerJRes + (i - innerIStart)
 				+ (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart + 1)*innerIRes;
-			// Boundary condition.
+			//// Boundary condition.
 			if (j == innerJStart)
 			{
 				if (i == innerIStart)
@@ -638,24 +795,24 @@ inline void MovingInterface::GenerateLinearSystem2(VectorND<double>& vectorB, co
 		{
 			index = (i - innerIStart) + (j - innerJStart)*innerIRes;
 			vectorB(index) = Surfactant(i, j) + dt / 2.0*(Surfactant.dxxPhi(i, j) + Surfactant.dyyPhi(i, j))
-			+ 3.0 / 2.0*dt*term(i, j) - 1.0 / 2.0*dt*termOld(i, j);
+				+ 3.0 / 2.0*dt*term(i, j) - 1.0 / 2.0*dt*termOld(i, j);
 
 			if (i == innerIStart)
 			{
-				vectorB(index) += dt / 2.0*grid.oneOverdx2*ExactSurfactant(1, grid(i - 1, j).x, grid(i - 1, j).y, totalT);
+				vectorB(index) += dt / 2.0*grid.oneOverdx2*ExactSurfactant(grid(i - 1, j).x, grid(i - 1, j).y, totalT);
 			}
 			if (i == innerIEnd)
 			{
-				vectorB(index) += dt / 2.0*grid.oneOverdx2*ExactSurfactant(1, grid(i + 1, j).x, grid(i + 1, j).y, totalT);
+				vectorB(index) += dt / 2.0*grid.oneOverdx2*ExactSurfactant(grid(i + 1, j).x, grid(i + 1, j).y, totalT);
 			}
 			if (j == innerJStart)
 			{
-				vectorB(index) += dt / 2.0*grid.oneOverdy2*ExactSurfactant(1, grid(i, j - 1).x, grid(i, j - 1).y, totalT);
+				vectorB(index) += dt / 2.0*grid.oneOverdy2*ExactSurfactant(grid(i, j - 1).x, grid(i, j - 1).y, totalT);
 
 			}
 			if (j == innerJEnd)
 			{
-				vectorB(index) += dt / 2.0*grid.oneOverdy2*ExactSurfactant(1, grid(i, j + 1).x, grid(i, j + 1).y, totalT);
+				vectorB(index) += dt / 2.0*grid.oneOverdy2*ExactSurfactant(grid(i, j + 1).x, grid(i, j + 1).y, totalT);
 			}
 			vectorB(index) *= scaling;
 		}

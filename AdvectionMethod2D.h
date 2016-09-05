@@ -22,7 +22,8 @@ public:
 	static TT DeltaFt2(const double& constant);
 
 	static TT sign(const TT& constant);
-
+	static TT Plus(const TT& constant);
+	static TT Minus(const TT& constant);
 
 	static void ENO3rdDerivation(const Field2D<TT>& ipField, Field2D<TT>& enoDxMinus, Field2D<TT>& enoDxPlus, Field2D<TT>& enoDyMinus, Field2D<TT>& enoDyPlus);
 	static void ENO3rdDxMinus(const Field2D<TT>& ipField, Field2D<TT>& enoDxMinus);
@@ -153,6 +154,33 @@ template<class TT>
 inline TT AdvectionMethod2D<TT>::sign(const TT & constant)
 {
 	return TT(constant / sqrt(constant*constant + DBL_EPSILON));
+}
+
+template<class TT>
+inline TT AdvectionMethod2D<TT>::Plus(const TT & constant)
+{
+	if (constant >= 0)
+	{
+		return TT(constant);
+	}
+	else
+	{
+		return TT(0);
+	}
+	
+}
+
+template<class TT>
+inline TT AdvectionMethod2D<TT>::Minus(const TT & constant)
+{
+	if (constant <= 0)
+	{
+		return TT(constant);
+	}
+	else
+	{
+		return TT(0);
+	}
 }
 
 template<class TT>

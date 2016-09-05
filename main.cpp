@@ -29,7 +29,7 @@ void main()
 	MATLAB.Command("workspace");
 
 	int problem = 12;
-	int example = 1;
+	int example = 2;
 	if (problem==0) //// GMRES test :: example 1,2,3,4
 	{
 		switch (example)
