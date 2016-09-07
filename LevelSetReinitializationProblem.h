@@ -10,8 +10,8 @@ class Reinitialzation
 {
 public:
 	Grid2D grid;
-	LevelSet2D exactLevelSet;
-	LevelSet2D levelSet;
+	LS exactLevelSet;
+	LS levelSet;
 
 	double cflCondition;
 	double dt;
@@ -47,8 +47,8 @@ inline void Reinitialzation::InitialCondition(const int & example)
 	maxIteration = 120;
 	writeIter = 10;
 
-	exactLevelSet = LevelSet2D(grid);
-	levelSet = LevelSet2D(grid);
+	exactLevelSet = LS(grid);
+	levelSet = LS(grid);
 
 	double a = 0.7;
 	double r = 1.0;
@@ -217,7 +217,7 @@ inline void Reinitialzation::ReinitializationSolver(const int & example)
 
 		cout << "Reinitialization : " << i << endl;
 		dt = AdaptiveTimeStep();
-		AdvectionMethod2D<double>::levelSetReinitializationTVDRK3(levelSet, dt);
+		AdvectionMethod2D<double>::LSReinitializationTVDRK3(levelSet, dt);
 		levelSet.phi.Variable("phi");
 
 		MATLAB.Command("subplot(1, 2, 1)");

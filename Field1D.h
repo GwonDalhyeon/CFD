@@ -104,9 +104,9 @@ public:
 
 	inline void FillGhostCell();
 
-	inline Vector2D<int> containedCell(const double& x) const;
+	inline VI containedCell(const double& x) const;
 
-	inline Vector2D<double> gradient(const int& i);
+	inline VT gradient(const int& i);
 
 	inline TT minmod(const TT& constant1, const TT constant2) const;
 
@@ -539,7 +539,7 @@ inline void Field1D<TT>::FillGhostCell()
 }
 
 template<class TT>
-inline Vector2D<int> Field1D<TT>::containedCell(const double & x) const
+inline VI Field1D<TT>::containedCell(const double & x) const
 {
 	return int (floor((x - xMin)*oneOverdx));
 }
@@ -663,9 +663,9 @@ inline TT Field1D<TT>::InnerProduct(const Field1D<TT>& ipField1, const Field1D<T
 }
 
 //template<class TT>
-//inline Field1D<Vector2D<double>> Field1D<TT>::Gradient(const Field1D<double>& ipField)
+//inline Field1D<VT> Field1D<TT>::Gradient(const Field1D<double>& ipField)
 //{
-//	Field1D<Vector2D<double>> gradient(ipField.grid);
+//	Field1D<VT> gradient(ipField.grid);
 //#pragma omp parallel for
 //	for (int i = gradient.iStart; i <= gradient.iEnd; i++)
 //	{

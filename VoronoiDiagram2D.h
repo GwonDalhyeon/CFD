@@ -9,15 +9,15 @@ public:
 	~VoronoiDiagram();
 
 
-	static void Make(const Grid2D & grid, const VectorND<Vector2D<double>> & ipPoints, const VectorND<int> & innerIndex, const VectorND<int> & bdryIndex, VectorND<Polygon2D> & rVoronoi);
+	static void Make(const Grid2D & grid, const VectorND<VT> & ipPoints, const VectorND<int> & innerIndex, const VectorND<int> & bdryIndex, VectorND<Polygon2D> & rVoronoi);
 
 	static void FindNbhdPolygon(const VectorND<Polygon2D> & polygon, const VectorND<int> & innerIndex, const VectorND<int> & bdryIndex, VectorND<int> & nbhdNum, VectorND<VectorND<int>> & nbhdPoly);
 
-	static void RearrangeNbhdPolygonClockwise(const VectorND<Vector2D<double>>& ipPoints, const VectorND<int> & innerIndex, const VectorND<int> & bdryIndex, VectorND<VectorND<int>>& nbhdPoly, VectorND<Vector2D<double>> & center);
+	static void RearrangeNbhdPolygonClockwise(const VectorND<VT>& ipPoints, const VectorND<int> & innerIndex, const VectorND<int> & bdryIndex, VectorND<VectorND<int>>& nbhdPoly, VectorND<VT> & center);
 
-	static void BdryAddedVoronoi(const VectorND<Vector2D<double>>& ipPoints, const VectorND<int> & bdryIndex, const VectorND<Polygon2D> & ipPolygon, const VectorND<VectorND<int>>& nbhdPoly, const VectorND<Vector2D<double>>& polyCenter, VectorND<Polygon2D> & rVoronoi);
+	static void BdryAddedVoronoi(const VectorND<VT>& ipPoints, const VectorND<int> & bdryIndex, const VectorND<Polygon2D> & ipPolygon, const VectorND<VectorND<int>>& nbhdPoly, const VectorND<VT>& polyCenter, VectorND<Polygon2D> & rVoronoi);
 
-	static double Angle(const Vector2D<double> & P1, const Vector2D<double> & P2);
+	static double Angle(const VT & P1, const VT & P2);
 private:
 
 };
@@ -33,10 +33,10 @@ inline VoronoiDiagram<TT>::~VoronoiDiagram()
 }
 
 template<class TT>
-inline void VoronoiDiagram<TT>::Make(const Grid2D & grid, const VectorND<Vector2D<double>> & ipPoints, const VectorND<int> & innerIndex, const VectorND<int> & bdryIndex, VectorND<Polygon2D> & rVoronoi)
+inline void VoronoiDiagram<TT>::Make(const Grid2D & grid, const VectorND<VT> & ipPoints, const VectorND<int> & innerIndex, const VectorND<int> & bdryIndex, VectorND<Polygon2D> & rVoronoi)
 {
 	VectorND<Polygon2D> Triangles;
-	VectorND<Vector2D<double>> TriCenter;
+	VectorND<VT> TriCenter;
 	VectorND<double> radius;
 	DelaunayTriangulization::DelaunayTriangulate(ipPoints, Triangles, TriCenter, radius);
 
@@ -95,11 +95,11 @@ inline void VoronoiDiagram<TT>::FindNbhdPolygon(const VectorND<Polygon2D>& polyg
 }
 
 template<class TT>
-inline void VoronoiDiagram<TT>::RearrangeNbhdPolygonClockwise(const VectorND<Vector2D<double>>& ipPoints, const VectorND<int> & innerIndex, const VectorND<int> & bdryIndex, VectorND<VectorND<int>>& nbhdPoly, VectorND<Vector2D<double>>& center)
+inline void VoronoiDiagram<TT>::RearrangeNbhdPolygonClockwise(const VectorND<VT>& ipPoints, const VectorND<int> & innerIndex, const VectorND<int> & bdryIndex, VectorND<VectorND<int>>& nbhdPoly, VectorND<VT>& center)
 {
 	int maxNbhdTri = 20;
-	Vector2D<double> currentPoint;
-	Vector2D<double> P1, P2;
+	VT currentPoint;
+	VT P1, P2;
 	VectorND<VectorND<int>> angleRank(ipPoints.iStart, ipPoints.iLength);
 	VectorND<VectorND<double>> angle(ipPoints.iStart, ipPoints.iLength);
 	VectorND<int> tempV;
@@ -144,20 +144,20 @@ inline void VoronoiDiagram<TT>::RearrangeNbhdPolygonClockwise(const VectorND<Vec
 }
 
 template<class TT>
-inline void VoronoiDiagram<TT>::BdryAddedVoronoi(const VectorND<Vector2D<double>>& ipPoints, const VectorND<int>& bdryIndex, const VectorND<Polygon2D>& ipPolygon, const VectorND<VectorND<int>>& nbhdPoly, const VectorND<Vector2D<double>>& polyCenter, VectorND<Polygon2D> & rVoronoi)
+inline void VoronoiDiagram<TT>::BdryAddedVoronoi(const VectorND<VT>& ipPoints, const VectorND<int>& bdryIndex, const VectorND<Polygon2D>& ipPolygon, const VectorND<VectorND<int>>& nbhdPoly, const VectorND<VT>& polyCenter, VectorND<Polygon2D> & rVoronoi)
 {
 
 	int maxNbhdTri = 20;
-	Vector2D<double> currentPoint;
-	Vector2D<double> P1, P2;
+	VT currentPoint;
+	VT P1, P2;
 	int tempI;
 	VectorND<VectorND<int>> angleRank(ipPoints.iStart, ipPoints.iLength);
 	VectorND<VectorND<double>> angle(ipPoints.iStart, ipPoints.iLength);
 	VectorND<int> tempV;
 	int addedPointNum;
-	VectorND<Vector2D<double>> addedPoint(1, 3);
+	VectorND<VT> addedPoint(1, 3);
 
-	VectorND<Vector2D<double>> tempCenter(polyCenter.iStart, 2 * polyCenter.iLength);
+	VectorND<VT> tempCenter(polyCenter.iStart, 2 * polyCenter.iLength);
 	VectorND<VectorND<int>> tempNbhdPoly(ipPoints.iStart, ipPoints.iLength);
 
 #pragma omp parallel for
@@ -277,7 +277,7 @@ inline void VoronoiDiagram<TT>::BdryAddedVoronoi(const VectorND<Vector2D<double>
 }
 
 template<class TT>
-inline double VoronoiDiagram<TT>::Angle(const Vector2D<double>& P1, const  Vector2D<double>& P2)
+inline double VoronoiDiagram<TT>::Angle(const VT& P1, const  VT& P2)
 {
 	double alpha = atan2(P1.y, P1.x);
 	double beta = atan2(P2.y, P2.x);

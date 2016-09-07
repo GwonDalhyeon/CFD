@@ -2,6 +2,7 @@
 
 #include "LevelSetAdvectionProblem.h"
 #include "LevelSetReinitializationProblem.h"
+#include "LocalLevelSetProb.h"
 
 #include "EulerianFluidSolver.h"
 #include "VortexSheet.h"
@@ -28,8 +29,8 @@ void main()
 	MATLAB.Command("clc; clear all; close all;");
 	MATLAB.Command("workspace");
 
-	int problem = 12;
-	int example = 2;
+	int problem = 13;
+	int example = 4;
 	if (problem==0) //// GMRES test :: example 1,2,3,4
 	{
 		switch (example)
@@ -110,6 +111,11 @@ void main()
 	{
 		MovingInterface Eulerian;
 		Eulerian.MovingInterfaceSolver(example);
+	}
+	else if (problem == 13) // Local Level Set Problem Solver
+	{
+		LocalLevelSetAdvection LLS;
+		LLS.AdvectionSolver(example);
 	}
 
 	system("pause");

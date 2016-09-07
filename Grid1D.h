@@ -44,7 +44,7 @@ public:
 
 	inline double operator ()(const int& i)const;
 
-	//inline Vector2D<double> operator ()(const Vector2D<int> ipVector)const;
+	//inline VT operator ()(const VI ipVector)const;
 
 	double point(const int& i);
 	double cellCenter(const int& i);
@@ -114,12 +114,12 @@ inline double Grid1D::operator()(const int & i) const
 	return (xMin + double(i - iStart)*dx);
 }
 
-//inline Vector2D<double> Grid1D::operator()(const Vector2D<int> ipVector) const
+//inline VT Grid1D::operator()(const VI ipVector) const
 //{
 //	//assert(ipVector.i >= iStart && ipVector.i <= iEnd);
 //	//assert(ipVector.j >= jStart && ipVector.j <= jEnd);
 //
-//	return Vector2D<double>(xMin + double(ipVector.i - iStart)*dx, yMin + double(ipVector.j - jStart)*dy);
+//	return VT(xMin + double(ipVector.i - iStart)*dx, yMin + double(ipVector.j - jStart)*dy);
 //}
 
 inline double Grid1D::point(const int & i)

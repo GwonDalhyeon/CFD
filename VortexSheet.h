@@ -12,12 +12,12 @@ class VortexSheet
 public:
 	Grid2D grid;
 
-	LevelSet2D levelSet;
+	LS levelSet;
 
-	Field2D<double> P;
-	Field2D<double> streamFunction;
-	Field2D<double> velocityX;
-	Field2D<double> velocityY;
+	FD P;
+	FD streamFunction;
+	FD velocityX;
+	FD velocityY;
 
 	double dt;
 	double cflCondition;
@@ -41,9 +41,9 @@ public:
 	inline void VortexSolver(const int& example);
 
 	inline void GenerateLinearSystem(Array2D<double>& matrixA, const double & scaling);
-	inline void GenerateLinearSystem(const Field2D<double>& P, VectorND<double>& vectorB, const double & scaling);
+	inline void GenerateLinearSystem(const FD& P, VectorND<double>& vectorB, const double & scaling);
 	inline void Stream2Velocity();
-	inline double AdaptiveTimeStep(const Field2D<double>& velocity1, const Field2D<double>& velocity2);
+	inline double AdaptiveTimeStep(const FD& velocity1, const FD& velocity2);
 	inline double DeltaFt(const double& ip);
 private:
 
@@ -65,11 +65,11 @@ inline void VortexSheet::InitialCondition(const int & example)
 		cout << "    Vortex Sheet in 2D" << endl;
 		cout << "*************************" << endl;
 		grid = Grid2D(-1, 1, 101, -1, 1, 101);
-		levelSet = LevelSet2D(grid);
-		P = Field2D<double>(grid);
-		streamFunction = Field2D<double>(grid);
-		velocityX = Field2D<double>(grid);
-		velocityY = Field2D<double>(grid);
+		levelSet = LS(grid);
+		P = FD(grid);
+		streamFunction = FD(grid);
+		velocityX = FD(grid);
+		velocityY = FD(grid);
 
 		cflCondition = 0.8;
 
@@ -93,11 +93,11 @@ inline void VortexSheet::InitialCondition(const int & example)
 		cout << "    Vortex Sheet Dipole" << endl;
 		cout << "*************************" << endl;
 		grid = Grid2D(-1, 1, 101, -1, 1, 101);
-		levelSet = LevelSet2D(grid);
-		P = Field2D<double>(grid);
-		streamFunction = Field2D<double>(grid);
-		velocityX = Field2D<double>(grid);
-		velocityY = Field2D<double>(grid);
+		levelSet = LS(grid);
+		P = FD(grid);
+		streamFunction = FD(grid);
+		velocityX = FD(grid);
+		velocityY = FD(grid);
 		
 		cflCondition = 0.8;
 		
@@ -276,7 +276,7 @@ inline void VortexSheet::VortexSolver(const int & example)
 		}
 
 
-		AdvectionMethod2D<double>::levelSetPropagatingTVDRK3(levelSet, velocityX, velocityY, dt);
+		AdvectionMethod2D<double>::LSPropagatingTVDRK3(levelSet, velocityX, velocityY, dt);
 		levelSet.phi.Variable("phi");
 
 #pragma omp parallel for 
@@ -435,7 +435,7 @@ inline void VortexSheet::GenerateLinearSystem(Array2D<double>& matrixA, const do
 }
 
 
-inline void VortexSheet::GenerateLinearSystem(const Field2D<double>& P, VectorND<double>& vectorB, const double & scaling)
+inline void VortexSheet::GenerateLinearSystem(const FD& P, VectorND<double>& vectorB, const double & scaling)
 {
 	int index;
 
@@ -454,11 +454,11 @@ inline void VortexSheet::GenerateLinearSystem(const Field2D<double>& P, VectorND
 
 inline void VortexSheet::Stream2Velocity()
 {
-	Field2D<double> wenoXMinus(grid);
-	Field2D<double> wenoXPlus(grid);
-	Field2D<double> wenoYMinus(grid);
-	Field2D<double> wenoYPlus(grid);
-	AdvectionMethod2D<double>::WENO5th(streamFunction, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
+	FD wenoXMinus(grid);
+	FD wenoXPlus(grid);
+	FD wenoYMinus(grid);
+	FD wenoYPlus(grid);
+	AdvectionMethod2D<double>::WENO5thDerivation(streamFunction, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
 
 #pragma omp parallel for
 	for (int i = grid.iStart; i <= grid.iEnd; i++)
@@ -533,7 +533,7 @@ inline void VortexSheet::Stream2Velocity()
 }
 
 
-inline double VortexSheet::AdaptiveTimeStep(const Field2D<double>& velocity1, const Field2D<double>& velocity2)
+inline double VortexSheet::AdaptiveTimeStep(const FD& velocity1, const FD& velocity2)
 {
 	double maxVel1 = 0;
 	double maxVel2 = 0;

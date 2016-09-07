@@ -6,6 +6,7 @@
 #include "Grid2D.h"
 #include "Array2D.h"
 
+
 // Declare MATLAB variable.
 // TT<Vector2D<tt>> type structure to MATLAB
 template<class TT>
@@ -52,6 +53,7 @@ void ArrayVec2DVariable(const char * varName, const Array2D<Vector2D<TT>>& ipArr
 	const char* varNameY = strY.c_str();
 	tempArray2.Variable(varNameY);
 }
+
 
 //template<class TT>
 //void FieldVec2DVariable(const char * varName, const Field2D<Vector2D<TT>>& ipField)

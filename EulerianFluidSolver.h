@@ -15,15 +15,15 @@ public:
 	Grid2D gridVinner;
 	
 
-	Field2D<double> U; // x velocity
-	Field2D<double> Ustar;
-	Field2D<double> V; // y velocity
-	Field2D<double> Vstar;
-	Field2D<double> P; // Pressure
-	Field2D<double> Rho;
-	Field2D<double> Mu;
+	FD U; // x velocity
+	FD Ustar;
+	FD V; // y velocity
+	FD Vstar;
+	FD P; // Pressure
+	FD Rho;
+	FD Mu;
 
-	LevelSet2D levelSet;
+	LS levelSet;
 
 	Array2D<double>poissonMatrix;
 	// CG solver 1
@@ -54,10 +54,10 @@ public:
 	inline void GenerateLinearSystem(VectorND<double>& vectorB, const double & scaling);
 	inline void TVDRK3TimeAdvection();
 	inline void EulerMethod();
-	inline void AdvectionTerm(const Field2D<double>& U, const Field2D<double>& V, Field2D<double>& TermU, Field2D<double>& TermV);
-	inline void DiffusionTerm(const Field2D<double>& U, const Field2D<double>& V, Field2D<double>& TermU, Field2D<double>& TermV);
+	inline void AdvectionTerm(const FD& U, const FD& V, FD& TermU, FD& TermV);
+	inline void DiffusionTerm(const FD& U, const FD& V, FD& TermU, FD& TermV);
 
-	inline double AdaptiveTimeStep(const Field2D<double>& velocity1, const Field2D<double>& velocity2);
+	inline double AdaptiveTimeStep(const FD& velocity1, const FD& velocity2);
 
 private:
 
@@ -95,11 +95,11 @@ inline void EulerianFluidSolver2D::InitialCondition(const int & example)
 			gridP.yMin - gridP.dy / 2, gridP.yMax + gridP.dy / 2, gridP.jRes + 1);
 		gridVinner = Grid2D(gridV.xMin + gridV.dx, gridV.xMax - gridV.dx, 1, gridV.iRes - 2,
 			gridV.yMin + gridV.dy, gridV.yMax - gridV.dy, 1, gridV.jRes - 2);
-		P = Field2D<double>(gridP);
-		U = Field2D<double>(gridU);
-		V = Field2D<double>(gridV);
+		P = FD(gridP);
+		U = FD(gridU);
+		V = FD(gridV);
 
-		Rho = Field2D<double>(gridP);
+		Rho = FD(gridP);
 
 		// initial condition
 #pragma omp parallel for
@@ -385,8 +385,8 @@ inline void EulerianFluidSolver2D::GenerateLinearSystem(VectorND<double>& vector
 
 inline void EulerianFluidSolver2D::TVDRK3TimeAdvection()
 {
-	Field2D<double> originU = U;
-	Field2D<double> originV = V;
+	FD originU = U;
+	FD originV = V;
 
 	dt = AdaptiveTimeStep(U, V);
 	
@@ -474,14 +474,14 @@ inline void EulerianFluidSolver2D::EulerMethod()
 	////     Projection Method 1 : advection    ////
 	////////////////////////////////////////////////
 
-	Field2D<double> K1U(gridUinner);
-	Field2D<double> K1V(gridVinner);
+	FD K1U(gridUinner);
+	FD K1V(gridVinner);
 
-	Field2D<double> advectionU(gridUinner);
-	Field2D<double> advectionV(gridVinner);
+	FD advectionU(gridUinner);
+	FD advectionV(gridVinner);
 
-	Field2D<double> diffusionU(gridUinner);
-	Field2D<double> diffusionV(gridVinner);
+	FD diffusionU(gridUinner);
+	FD diffusionV(gridVinner);
 	
 	AdvectionTerm(U, V, advectionU, advectionV);
 	DiffusionTerm(U, V, diffusionU, diffusionV);
@@ -615,17 +615,17 @@ inline void EulerianFluidSolver2D::EulerMethod()
 
 
 
-inline void EulerianFluidSolver2D::AdvectionTerm(const Field2D<double>& U, const Field2D<double>& V, Field2D<double>& TermU, Field2D<double>& TermV)
+inline void EulerianFluidSolver2D::AdvectionTerm(const FD& U, const FD& V, FD& TermU, FD& TermV)
 {
-	Field2D<double> dUdxM(U.grid);
-	Field2D<double> dUdxP(U.grid);
-	Field2D<double> dUdyM(U.grid);
-	Field2D<double> dUdyP(U.grid);
+	FD dUdxM(U.grid);
+	FD dUdxP(U.grid);
+	FD dUdyM(U.grid);
+	FD dUdyP(U.grid);
 	AdvectionMethod2D<double>::ENO3rdDerivation(U, dUdxM, dUdxP, dUdyM, dUdyP);
-	Field2D<double> dVdxM(V.grid);
-	Field2D<double> dVdxP(V.grid);
-	Field2D<double> dVdyM(V.grid);
-	Field2D<double> dVdyP(V.grid);
+	FD dVdxM(V.grid);
+	FD dVdxP(V.grid);
+	FD dVdyM(V.grid);
+	FD dVdyP(V.grid);
 	AdvectionMethod2D<double>::ENO3rdDerivation(V, dVdxM, dVdxP, dVdyM, dVdyP);
 
 
@@ -688,7 +688,7 @@ inline void EulerianFluidSolver2D::AdvectionTerm(const Field2D<double>& U, const
 	}
 }
 
-inline void EulerianFluidSolver2D::DiffusionTerm(const Field2D<double>& U, const Field2D<double>& V, Field2D<double>& TermU, Field2D<double>& TermV)
+inline void EulerianFluidSolver2D::DiffusionTerm(const FD& U, const FD& V, FD& TermU, FD& TermV)
 {
 #pragma omp parallel for
 	for (int i = TermU.iStart; i <= TermU.iEnd; i++)
@@ -711,7 +711,7 @@ inline void EulerianFluidSolver2D::DiffusionTerm(const Field2D<double>& U, const
 	}
 }
 
-inline double EulerianFluidSolver2D::AdaptiveTimeStep(const Field2D<double>& velocity1, const Field2D<double>& velocity2)
+inline double EulerianFluidSolver2D::AdaptiveTimeStep(const FD& velocity1, const FD& velocity2)
 {
 	double maxVel = 0;
 	for (int i = velocity1.iStart; i <= velocity1.iEnd; i++)

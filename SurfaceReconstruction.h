@@ -13,12 +13,12 @@ class SurfaceReconst
 {
 public:
 	Grid2D grid;
-	LevelSet2D levelSet;
-	Field2D<double> distance;
-	Field2D<double> velocity;
+	LS levelSet;
+	FD distance;
+	FD velocity;
 
 	// Zero level set point.
-	VectorND<Vector2D<double>> givenPoint;
+	VectorND<VT> givenPoint;
 	int givenPointNum;
 	double dt;
 	double cflCondition;
@@ -52,15 +52,15 @@ public:
 
 	void ComputeVelocity();
 	double ComputeIntegralTerm();
-	void LevelSetPropagatingTVDRK3();
+	void LSPropagatingTVDRK3();
 
 
 	bool StoppingCriterion();
 
 	// Adaptive time step functions.
 	double AdaptiveTimeStep();
-	double AdaptiveTimeStep(const Field2D<double>& velocity1);
-	double AdaptiveTimeStep(const Field2D<double>& velocity1, const Field2D<double>& velocity2);
+	double AdaptiveTimeStep(const FD& velocity1);
+	double AdaptiveTimeStep(const FD& velocity1, const FD& velocity2);
 
 
 
@@ -77,12 +77,12 @@ public:
 
 	void SurfaceReconstructionSplitBregman(const int & example);
 
-	void InitialF(const int & example, Field2D<double>& f);
+	void InitialF(const int & example, FD& f);
 	void GenerateLinearSystem(Array2D<double>& matrixA, const double & scaling);
-	void GenerateLinearSystem(const Field2D<double>& u, const Field2D<double>& f, const Field2D<Vector2D<double>>& d, const Field2D<Vector2D<double>>& b, VectorND<double>& vectorB, const double & scaling);
-	void OptimalU(const Field2D<double>& f, const Field2D<Vector2D<double>>& d, const Field2D<Vector2D<double>>& b, const CSR<double>& csrA, Field2D<double>& u);
-	void OptimalD(const Field2D<Vector2D<double>>& gradientU, const Field2D<Vector2D<double>>& b, Field2D<Vector2D<double>>& d);
-	void OptimalB(const Field2D<Vector2D<double>>& gradientU, const Field2D<Vector2D<double>>& d, Field2D<Vector2D<double>>& b);
+	void GenerateLinearSystem(const FD& u, const FD& f, const FV& d, const FV& b, VectorND<double>& vectorB, const double & scaling);
+	void OptimalU(const FD& f, const FV& d, const FV& b, const CSR<double>& csrA, FD& u);
+	void OptimalD(const FV& gradientU, const FV& b, FV& d);
+	void OptimalB(const FV& gradientU, const FV& d, FV& b);
 
 private:
 
@@ -113,12 +113,12 @@ inline void SurfaceReconst<TT>::InitialCondition(int example)
 		cout << "******************************************************" << endl;
 
 		grid = Grid2D(0, 1, 101, 0, 1, 101);
-		levelSet = LevelSet2D(grid);
-		distance = Field2D<double>(grid);
+		levelSet = LS(grid);
+		distance = FD(grid);
 		//distance.dataArray = 100;
-		velocity = Field2D<double>(grid);
+		velocity = FD(grid);
 		givenPointNum = 100;
-		givenPoint = VectorND<Vector2D<double>>(givenPointNum);
+		givenPoint = VectorND<VT>(givenPointNum);
 		AdvectionMethod2D<double>::alpha = min(grid.dx, grid.dy);
 		//dt = 5 * grid.dx*grid.dy / 2.0;
 		reconstMaxIteration = 500;
@@ -132,7 +132,7 @@ inline void SurfaceReconst<TT>::InitialCondition(int example)
 
 		for (int i = 0; i < givenPointNum; i++)
 		{
-			givenPoint(i) = 0.25*Vector2D<double>(cos(2 * PI*i / givenPointNum), sin(2 * PI*i / givenPointNum)) + 0.5 + grid.dx / 2;
+			givenPoint(i) = 0.25*VT(cos(2 * PI*i / givenPointNum), sin(2 * PI*i / givenPointNum)) + 0.5 + grid.dx / 2;
 		}
 
 		//int i0, i1, j0, j1;
@@ -184,12 +184,12 @@ inline void SurfaceReconst<TT>::InitialCondition(int example)
 		cout << "******************************************************" << endl;
 
 		grid = Grid2D(0, 1, 101, 0, 1, 101);
-		levelSet = LevelSet2D(grid);
-		distance = Field2D<double>(grid);
+		levelSet = LS(grid);
+		distance = FD(grid);
 		//distance.dataArray = 100;
-		velocity = Field2D<double>(grid);
+		velocity = FD(grid);
 		givenPointNum = 100;
-		givenPoint = VectorND<Vector2D<double>>(givenPointNum);
+		givenPoint = VectorND<VT>(givenPointNum);
 		AdvectionMethod2D<double>::alpha = min(grid.dx, grid.dy);
 		//dt = 5 * grid.dx*grid.dy / 2.0;
 		reconstMaxIteration = 500;
@@ -203,7 +203,7 @@ inline void SurfaceReconst<TT>::InitialCondition(int example)
 #pragma omp parallel for
 		for (int i = 0; i < givenPointNum; i++)
 		{
-			givenPoint(i) = 0.25*Vector2D<double>(cos(2 * PI*i / givenPointNum), sin(2 * PI*i / givenPointNum)) + 0.5 + grid.dx / 2;
+			givenPoint(i) = 0.25*VT(cos(2 * PI*i / givenPointNum), sin(2 * PI*i / givenPointNum)) + 0.5 + grid.dx / 2;
 		}
 
 		//int i0, i1, j0, j1;
@@ -247,12 +247,12 @@ inline void SurfaceReconst<TT>::InitialCondition(int example)
 		cout << "******************************************************" << endl;
 
 		grid = Grid2D(0, 1, 101, 0, 1, 101);
-		levelSet = LevelSet2D(grid);
-		distance = Field2D<double>(grid);
+		levelSet = LS(grid);
+		distance = FD(grid);
 		//distance.dataArray = 100;
-		velocity = Field2D<double>(grid);
+		velocity = FD(grid);
 		givenPointNum = 400;
-		givenPoint = VectorND<Vector2D<double>>(givenPointNum);
+		givenPoint = VectorND<VT>(givenPointNum);
 		AdvectionMethod2D<double>::alpha = min(grid.dx, grid.dy);
 		//dt = 5 * grid.dx*grid.dy / 2.0;
 		reconstMaxIteration = 5000;
@@ -264,14 +264,14 @@ inline void SurfaceReconst<TT>::InitialCondition(int example)
 		lambda = 0.5;
 		mu = 10e-5;
 
-		Vector2D<double> point1(0.6, 0.4);
-		Vector2D<double> point2(0.4, 0.6);
+		VT point1(0.6, 0.4);
+		VT point2(0.4, 0.6);
 
 #pragma omp parallel for
 		for (int i = 0; i < givenPointNum / 2; i++)
 		{
-			givenPoint(i) = 0.1*Vector2D<double>(cos(2 * PI*i / givenPointNum * 2), sin(2 * PI*i / givenPointNum * 2)) + point1 + grid.dx / 2;
-			givenPoint(i + givenPointNum / 2) = 0.1*Vector2D<double>(cos(2 * PI*i / givenPointNum * 2), sin(2 * PI*i / givenPointNum * 2)) + point2 + grid.dx / 2;
+			givenPoint(i) = 0.1*VT(cos(2 * PI*i / givenPointNum * 2), sin(2 * PI*i / givenPointNum * 2)) + point1 + grid.dx / 2;
+			givenPoint(i + givenPointNum / 2) = 0.1*VT(cos(2 * PI*i / givenPointNum * 2), sin(2 * PI*i / givenPointNum * 2)) + point2 + grid.dx / 2;
 		}
 
 		//int i0, i1, j0, j1;
@@ -317,12 +317,12 @@ inline void SurfaceReconst<TT>::InitialCondition(int example)
 
 
 		grid = Grid2D(0, 1, 101, 0, 1, 101);
-		levelSet = LevelSet2D(grid);
-		distance = Field2D<double>(grid);
-		velocity = Field2D<double>(grid);
+		levelSet = LS(grid);
+		distance = FD(grid);
+		velocity = FD(grid);
 		givenPointNum = 400;
 		int outlier = 20;
-		givenPoint = VectorND<Vector2D<double>>(givenPointNum + outlier);
+		givenPoint = VectorND<VT>(givenPointNum + outlier);
 		AdvectionMethod2D<double>::alpha = min(grid.dx, grid.dy);
 		reconstMaxIteration = 2000;
 		writeIter = 10;
@@ -333,20 +333,20 @@ inline void SurfaceReconst<TT>::InitialCondition(int example)
 		lambda = 0.5;
 		mu = 10e-5;
 
-		Vector2D<double> point1(0.6, 0.4);
-		Vector2D<double> point2(0.4, 0.6);
+		VT point1(0.6, 0.4);
+		VT point2(0.4, 0.6);
 
 #pragma omp parallel for
 		for (int i = 0; i < givenPointNum / 2; i++)
 		{
-			givenPoint(i) = 0.1*Vector2D<double>(cos(2 * PI*i / givenPointNum * 2), sin(2 * PI*i / givenPointNum * 2)) + point1 + grid.dx / 2;
-			givenPoint(i + givenPointNum / 2) = 0.1*Vector2D<double>(cos(2 * PI*i / givenPointNum * 2), sin(2 * PI*i / givenPointNum * 2)) + point2 + grid.dx / 2;
+			givenPoint(i) = 0.1*VT(cos(2 * PI*i / givenPointNum * 2), sin(2 * PI*i / givenPointNum * 2)) + point1 + grid.dx / 2;
+			givenPoint(i + givenPointNum / 2) = 0.1*VT(cos(2 * PI*i / givenPointNum * 2), sin(2 * PI*i / givenPointNum * 2)) + point2 + grid.dx / 2;
 		}
 
 		srand(time(NULL));
 		for (int i = 0; i < outlier; i++)
 		{
-			Vector2D<double> tempVector(double(rand()) / double(RAND_MAX), double(rand()) / double(RAND_MAX));
+			VT tempVector(double(rand()) / double(RAND_MAX), double(rand()) / double(RAND_MAX));
 			if (((tempVector - 0.5) / 3).magnitude()<0.28)
 			{
 				givenPoint(i + givenPointNum) = (tempVector - 0.5) / 3 + 0.5;
@@ -379,12 +379,12 @@ inline void SurfaceReconst<TT>::InitialCondition(int example)
 
 
 		grid = Grid2D(0, 1, 101, 0, 1, 101);
-		levelSet = LevelSet2D(grid);
-		distance = Field2D<double>(grid);
-		velocity = Field2D<double>(grid);
+		levelSet = LS(grid);
+		distance = FD(grid);
+		velocity = FD(grid);
 		givenPointNum = 400;
 		int outlier = 20;
-		givenPoint = VectorND<Vector2D<double>>(givenPointNum + outlier);
+		givenPoint = VectorND<VT>(givenPointNum + outlier);
 		AdvectionMethod2D<double>::alpha = min(grid.dx, grid.dy);
 		reconstMaxIteration = 2000;
 		writeIter = 10;
@@ -395,20 +395,20 @@ inline void SurfaceReconst<TT>::InitialCondition(int example)
 		lambda = 0.5;
 		mu = 10e-5;
 
-		Vector2D<double> point1(0.6, 0.4);
-		Vector2D<double> point2(0.4, 0.6);
+		VT point1(0.6, 0.4);
+		VT point2(0.4, 0.6);
 
 #pragma omp parallel for
 		for (int i = 0; i < givenPointNum / 2; i++)
 		{
-			givenPoint(i) = 0.1*Vector2D<double>(cos(2 * PI*i / givenPointNum * 2), sin(2 * PI*i / givenPointNum * 2)) + point1 + grid.dx / 2;
-			givenPoint(i + givenPointNum / 2) = 0.1*Vector2D<double>(cos(2 * PI*i / givenPointNum * 2), sin(2 * PI*i / givenPointNum * 2)) + point2 + grid.dx / 2;
+			givenPoint(i) = 0.1*VT(cos(2 * PI*i / givenPointNum * 2), sin(2 * PI*i / givenPointNum * 2)) + point1 + grid.dx / 2;
+			givenPoint(i + givenPointNum / 2) = 0.1*VT(cos(2 * PI*i / givenPointNum * 2), sin(2 * PI*i / givenPointNum * 2)) + point2 + grid.dx / 2;
 		}
 
 		srand(time(NULL));
 		for (int i = 0; i < outlier; i++)
 		{
-			Vector2D<double> tempVector(double(rand()) / double(RAND_MAX), double(rand()) / double(RAND_MAX));
+			VT tempVector(double(rand()) / double(RAND_MAX), double(rand()) / double(RAND_MAX));
 			if (((tempVector - 0.5) / 3).magnitude()<0.28)
 			{
 				givenPoint(i + givenPointNum) = (tempVector - 0.5) / 3 + 0.5;
@@ -448,12 +448,12 @@ inline void SurfaceReconst<TT>::InitialCondition(int example)
 		cout << "******************************************************" << endl;
 
 		grid = Grid2D(0, 1, 101, 0, 1, 101);
-		levelSet = LevelSet2D(grid);
-		distance = Field2D<double>(grid);
-		velocity = Field2D<double>(grid);
+		levelSet = LS(grid);
+		distance = FD(grid);
+		velocity = FD(grid);
 		givenPointNum = 400;
 		int outlier = 20;
-		givenPoint = VectorND<Vector2D<double>>(givenPointNum + outlier);
+		givenPoint = VectorND<VT>(givenPointNum + outlier);
 		AdvectionMethod2D<double>::alpha = min(grid.dx, grid.dy);
 		reconstMaxIteration = 2000;
 		writeIter = 10;
@@ -464,20 +464,20 @@ inline void SurfaceReconst<TT>::InitialCondition(int example)
 		lambda = 0.5;
 		mu = 10e-5;
 
-		Vector2D<double> point1(0.6, 0.4);
-		Vector2D<double> point2(0.4, 0.6);
+		VT point1(0.6, 0.4);
+		VT point2(0.4, 0.6);
 
 #pragma omp parallel for
 		for (int i = 0; i < givenPointNum / 2; i++)
 		{
-			givenPoint(i) = 0.1*Vector2D<double>(cos(2 * PI*i / givenPointNum * 2), sin(2 * PI*i / givenPointNum * 2)) + point1 + grid.dx / 2;
-			givenPoint(i + givenPointNum / 2) = 0.1*Vector2D<double>(cos(2 * PI*i / givenPointNum * 2), sin(2 * PI*i / givenPointNum * 2)) + point2 + grid.dx / 2;
+			givenPoint(i) = 0.1*VT(cos(2 * PI*i / givenPointNum * 2), sin(2 * PI*i / givenPointNum * 2)) + point1 + grid.dx / 2;
+			givenPoint(i + givenPointNum / 2) = 0.1*VT(cos(2 * PI*i / givenPointNum * 2), sin(2 * PI*i / givenPointNum * 2)) + point2 + grid.dx / 2;
 		}
 
 		srand(time(NULL));
 		for (int i = 0; i < outlier; i++)
 		{
-			Vector2D<double> tempVector(double(rand()) / double(RAND_MAX), double(rand()) / double(RAND_MAX));
+			VT tempVector(double(rand()) / double(RAND_MAX), double(rand()) / double(RAND_MAX));
 			if (((tempVector - 0.5) / 3).magnitude()<0.28)
 			{
 				givenPoint(i + givenPointNum) = (tempVector - 0.5) / 3 + 0.5;
@@ -578,7 +578,7 @@ inline void SurfaceReconst<TT>::SurfaceReconstructionSolver(int example)
 		// MATLAB command : end
 
 		dt = AdaptiveTimeStep(velocity);
-		LevelSetPropagatingTVDRK3();
+		LSPropagatingTVDRK3();
 
 		//// MATLAB command : start
 		//MATLAB.Command("subplot(1, 2, 2)");
@@ -598,7 +598,7 @@ inline void SurfaceReconst<TT>::SurfaceReconstructionSolver(int example)
 		for (int j = 0; j < reinitialIter; j++)
 		{
 			cout << "Reinitialization : " << i << "-" << j + 1 << endl;
-			AdvectionMethod2D<double>::levelSetReinitializationTVDRK3(levelSet, dt);
+			AdvectionMethod2D<double>::LSPropagatingTVDRK3(levelSet, dt);
 		}
 
 		if (i%writeIter && writeFile)
@@ -781,20 +781,20 @@ inline double SurfaceReconst<TT>::ComputeIntegralTerm()
 }
 
 template<class TT>
-inline void SurfaceReconst<TT>::LevelSetPropagatingTVDRK3()
+inline void SurfaceReconst<TT>::LSPropagatingTVDRK3()
 {
-	LevelSet2D originLevelSet = levelSet;
+	LS originLevelSet = levelSet;
 
-	Field2D<double> k1(levelSet.grid);
-	Field2D<double> k2(levelSet.grid);
-	Field2D<double> k3(levelSet.grid);
+	FD k1(levelSet.grid);
+	FD k2(levelSet.grid);
+	FD k3(levelSet.grid);
 
-	Field2D<double> wenoXMinus(levelSet.grid);
-	Field2D<double> wenoXPlus(levelSet.grid);
-	Field2D<double> wenoYMinus(levelSet.grid);
-	Field2D<double> wenoYPlus(levelSet.grid);
+	FD wenoXMinus(levelSet.grid);
+	FD wenoXPlus(levelSet.grid);
+	FD wenoYMinus(levelSet.grid);
+	FD wenoYPlus(levelSet.grid);
 
-	AdvectionMethod2D<double>::WENO5th(levelSet.phi, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
+	AdvectionMethod2D<double>::WENO5thDerivation(levelSet.phi, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
 #pragma omp parallel for
 	for (int i = levelSet.grid.iStart; i <= levelSet.grid.iEnd; i++)
 	{
@@ -804,7 +804,7 @@ inline void SurfaceReconst<TT>::LevelSetPropagatingTVDRK3()
 			levelSet(i, j) = originLevelSet(i, j) + k1(i, j);
 		}
 	}
-	AdvectionMethod2D<double>::WENO5th(levelSet.phi, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
+	AdvectionMethod2D<double>::WENO5thDerivation(levelSet.phi, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
 #pragma omp parallel for
 	for (int i = levelSet.grid.iStart; i <= levelSet.grid.iEnd; i++)
 	{
@@ -814,7 +814,7 @@ inline void SurfaceReconst<TT>::LevelSetPropagatingTVDRK3()
 			levelSet(i, j) = 3.0 / 4.0*originLevelSet(i, j) + 1.0 / 4.0*levelSet(i, j) + 1.0 / 4.0*k2(i, j);
 		}
 	}
-	AdvectionMethod2D<double>::WENO5th(levelSet.phi, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
+	AdvectionMethod2D<double>::WENO5thDerivation(levelSet.phi, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
 #pragma omp parallel for
 	for (int i = levelSet.grid.iStart; i <= levelSet.grid.iEnd; i++)
 	{
@@ -854,7 +854,7 @@ inline double SurfaceReconst<TT>::AdaptiveTimeStep()
 }
 
 template<class TT>
-inline double SurfaceReconst<TT>::AdaptiveTimeStep(const Field2D<double>& velocity1)
+inline double SurfaceReconst<TT>::AdaptiveTimeStep(const FD& velocity1)
 {
 	double maxVel1 = 0;
 
@@ -872,7 +872,7 @@ inline double SurfaceReconst<TT>::AdaptiveTimeStep(const Field2D<double>& veloci
 }
 
 template<class TT>
-inline double SurfaceReconst<TT>::AdaptiveTimeStep(const Field2D<double>& velocity1, const Field2D<double>& velocity2)
+inline double SurfaceReconst<TT>::AdaptiveTimeStep(const FD& velocity1, const FD& velocity2)
 {
 	double maxVel1 = 0;
 	double maxVel2 = 0;
@@ -904,10 +904,10 @@ inline void SurfaceReconst<TT>::SurfaceReconstructionSplitBregman(const int & ex
 
 	InitialCondition(example);
 
-	Field2D<Vector2D<double>> b(grid);
-	Field2D<Vector2D<double>> d(grid);
-	Field2D<Vector2D<double>> gradientU(grid);;
-	Field2D<double> f(grid);
+	FV b(grid);
+	FV d(grid);
+	FV gradientU(grid);;
+	FD f(grid);
 
 	InitialF(example, f);
 
@@ -959,7 +959,7 @@ inline void SurfaceReconst<TT>::SurfaceReconstructionSplitBregman(const int & ex
 		OptimalU(distance, d, b, csrA, levelSet.phi);
 		levelSet.phi.Variable("u");
 
-		gradientU = Field2D<Vector2D<double>>::Gradient(levelSet.phi);
+		gradientU = FV::Gradient(levelSet.phi);
 		ArrayVec2DVariable("grad", gradientU.dataArray);
 
 		OptimalD(gradientU, b, d);
@@ -976,7 +976,7 @@ inline void SurfaceReconst<TT>::SurfaceReconstructionSplitBregman(const int & ex
 }
 
 template<class TT>
-inline void SurfaceReconst<TT>::InitialF(const int & example, Field2D<double>& f)
+inline void SurfaceReconst<TT>::InitialF(const int & example, FD& f)
 {
 	if (example == 1)
 	{
@@ -1039,13 +1039,13 @@ inline void SurfaceReconst<TT>::GenerateLinearSystem(Array2D<double>& matrixA, c
 }
 
 template<class TT>
-inline void SurfaceReconst<TT>::GenerateLinearSystem(const Field2D<double>& u, const Field2D<double>& f, const Field2D<Vector2D<double>>& d, const Field2D<Vector2D<double>>& b, VectorND<double>& vectorB, const double & scaling)
+inline void SurfaceReconst<TT>::GenerateLinearSystem(const FD& u, const FD& f, const FV& d, const FV& b, VectorND<double>& vectorB, const double & scaling)
 {
 	int index;
 
-	Field2D<Vector2D<double>> temp(grid);
+	FV temp(grid);
 	temp.dataArray = b.dataArray - d.dataArray;
-	Field2D<double> div = Field2D<double>::Divegence(temp);
+	FD div = FD::Divegence(temp);
 
 #pragma omp parallel for private(index)
 	for (int i = innerIStart; i <= innerIEnd; i++)
@@ -1077,7 +1077,7 @@ inline void SurfaceReconst<TT>::GenerateLinearSystem(const Field2D<double>& u, c
 }
 
 template<class TT>
-inline void SurfaceReconst<TT>::OptimalU(const Field2D<double>& f, const Field2D<Vector2D<double>>& d, const Field2D<Vector2D<double>>& b, const CSR<double>& csrA, Field2D<double>& u)
+inline void SurfaceReconst<TT>::OptimalU(const FD& f, const FV& d, const FV& b, const CSR<double>& csrA, FD& u)
 {
 	cout << "Start Optimal U" << endl;
 
@@ -1107,7 +1107,7 @@ inline void SurfaceReconst<TT>::OptimalU(const Field2D<double>& f, const Field2D
 }
 
 template<class TT>
-inline void SurfaceReconst<TT>::OptimalD(const Field2D<Vector2D<double>>& gradientU, const Field2D<Vector2D<double>>& b, Field2D<Vector2D<double>>& d)
+inline void SurfaceReconst<TT>::OptimalD(const FV& gradientU, const FV& b, FV& d)
 {
 #pragma omp parallel for
 	for (int i = d.iStart; i <= d.iEnd; i++)
@@ -1120,7 +1120,7 @@ inline void SurfaceReconst<TT>::OptimalD(const Field2D<Vector2D<double>>& gradie
 }
 
 template<class TT>
-inline void SurfaceReconst<TT>::OptimalB(const Field2D<Vector2D<double>>& gradientU, const Field2D<Vector2D<double>>& d, Field2D<Vector2D<double>>& b)
+inline void SurfaceReconst<TT>::OptimalB(const FV& gradientU, const FV& d, FV& b)
 {
 #pragma omp parallel for
 	for (int i = b.iStart; i <= b.iEnd; i++)

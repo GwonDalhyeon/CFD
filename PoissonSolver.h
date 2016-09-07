@@ -21,11 +21,11 @@ public:
 	Array2D<double> poissonMatrix;
 	VectorND<double> poissonVector;
 
-	Field2D<double> solution;
+	FD solution;
 	VectorND<double> innerSolution;
 
 	CSR<double> poissonCSR;
-	LevelSet2D levelSet;
+	LS levelSet;
 
 	PoissonSolver();
 	~PoissonSolver();
@@ -36,11 +36,11 @@ public:
 	int indexMat(int i, int j);
 
 	// A Boundary Condition Capturing Method
-	PoissonSolver(const Grid2D& ipGrid, const LevelSet2D& ipLevelSet, const Field2D<double>& ipBeta, const Field2D<double>& ipF, const Field2D<double>& ipjCondition1, const Field2D<double>& ipjCondition2);
+	PoissonSolver(const Grid2D& ipGrid, const LS& ipLevelSet, const FD& ipBeta, const FD& ipF, const FD& ipjCondition1, const FD& ipjCondition2);
 
-	void GenerateJumpCondi(int example, Field2D<double>& beta, Field2D<double>& f, Field2D<double>& jCondition1, Field2D<double>& jCondition2);
-	void GeneratePoissonMatrixJumpCondi(const Field2D<double>& ipBeta, const Field2D<double>& ipF, const Field2D<double>& ipjCondition1, const Field2D<double>& ipjCondition2);
-	void GeneratePoissonVectorJumpCondi(const Field2D<double>& ipBeta, const Field2D<double>& ipF, const Field2D<double>& ipjCondition1, const Field2D<double>& ipjCondition2);
+	void GenerateJumpCondi(int example, FD& beta, FD& f, FD& jCondition1, FD& jCondition2);
+	void GeneratePoissonMatrixJumpCondi(const FD& ipBeta, const FD& ipF, const FD& ipjCondition1, const FD& ipjCondition2);
+	void GeneratePoissonVectorJumpCondi(const FD& ipBeta, const FD& ipF, const FD& ipjCondition1, const FD& ipjCondition2);
 	void SolvePoissonJumpCondi(int example);
 	void OutputResult();
 
@@ -62,18 +62,18 @@ PoissonSolver::~PoissonSolver()
 {
 }
 
-PoissonSolver::PoissonSolver(const Grid2D& ipGrid, const LevelSet2D& ipLevelSet, const Field2D<double>& ipBeta, const Field2D<double>& ipF, const Field2D<double>& ipjCondition1, const Field2D<double>& ipjCondition2)
+PoissonSolver::PoissonSolver(const Grid2D& ipGrid, const LS& ipLevelSet, const FD& ipBeta, const FD& ipF, const FD& ipjCondition1, const FD& ipjCondition2)
 {
 	grid = ipGrid;
-	solution = Field2D<double>(grid);
+	solution = FD(grid);
 	levelSet = ipLevelSet;
 
 	Grid2D innerGrid = Grid2D(ipGrid.xMin + ipGrid.dx, ipGrid.xMax - ipGrid.dx, 1, ipGrid.iRes - 2, ipGrid.yMin + ipGrid.dy, ipGrid.yMax - ipGrid.dy, 1, ipGrid.jRes - 2);
 	VectorND<double> innerSolution(innerGrid.iRes*innerGrid.jRes);
-	Field2D<double> beta = ipBeta;;
-	Field2D<double> f = ipF;
-	Field2D<double> jCondition1 = ipjCondition1;
-	Field2D<double> jCondition2 = ipjCondition2;
+	FD beta = ipBeta;;
+	FD f = ipF;
+	FD jCondition1 = ipjCondition1;
+	FD jCondition2 = ipjCondition2;
 	//double leftBdry, rightBdry;
 
 	poissonMatrix = Array2D<double>(1, innerGrid.iRes, 1, innerGrid.jRes);
@@ -105,7 +105,7 @@ inline int PoissonSolver::indexMat(int i, int j)
 }
 
 
-inline void PoissonSolver::GenerateJumpCondi(int example, Field2D<double>& beta, Field2D<double>& f, Field2D<double>& jCondition1, Field2D<double>& jCondition2)
+inline void PoissonSolver::GenerateJumpCondi(int example, FD& beta, FD& f, FD& jCondition1, FD& jCondition2)
 {
 	if (example == 1)
 	{
@@ -193,7 +193,7 @@ inline void PoissonSolver::GenerateJumpCondi(int example, Field2D<double>& beta,
 		//Y0 = 0; Y1 = 1; numY = 11;
 		//Z0 = 0; Z1 = 1; numZ = 101;
 
-		levelSet = LevelSet2D(grid);
+		levelSet = LS(grid);
 		for (int j = grid.jStart; j <= grid.jEnd; j++)
 		{
 			for (int i = grid.iStart; i <= grid.iEnd; i++)
@@ -252,7 +252,7 @@ inline void PoissonSolver::GenerateJumpCondi(int example, Field2D<double>& beta,
 	}
 }
 
-inline void PoissonSolver::GeneratePoissonMatrixJumpCondi(const Field2D<double>& beta, const Field2D<double>& f, const Field2D<double>& jCondition1, const Field2D<double>& jCondition2)
+inline void PoissonSolver::GeneratePoissonMatrixJumpCondi(const FD& beta, const FD& f, const FD& jCondition1, const FD& jCondition2)
 {
 	double tempBeta = 0;
 
@@ -458,7 +458,7 @@ inline void PoissonSolver::GeneratePoissonMatrixJumpCondi(const Field2D<double>&
 
 }
 
-inline void PoissonSolver::GeneratePoissonVectorJumpCondi(const Field2D<double>& beta, const Field2D<double>& f, const Field2D<double>& jCondition1, const Field2D<double>& jCondition2)
+inline void PoissonSolver::GeneratePoissonVectorJumpCondi(const FD& beta, const FD& f, const FD& jCondition1, const FD& jCondition2)
 {
 	double aGamma = 0;
 	double bGamma = 0;
@@ -470,11 +470,11 @@ inline void PoissonSolver::GeneratePoissonVectorJumpCondi(const Field2D<double>&
 	//VectorND<double> fT(innerGrid.iRes*innerGrid.jRes);
 	double fL, fR, fB, fT;
 
-	Vector2D<double> normalLeft;
-	Vector2D<double> normalRight;
-	Vector2D<double> normalCenter;
-	Vector2D<double> normalBottom;
-	Vector2D<double> normalTop;
+	VT normalLeft;
+	VT normalRight;
+	VT normalCenter;
+	VT normalBottom;
+	VT normalTop;
 
 	levelSet.ComputeUnitNormal();
 
@@ -689,14 +689,14 @@ inline void PoissonSolver::SolvePoissonJumpCondi(int example)
 {
 	grid = Grid2D(0, 1, 101, 0, 1, 101);
 	grid.Variable();
-	solution = Field2D<double>(grid);
+	solution = FD(grid);
 
 	innerGrid = Grid2D(grid.xMin + grid.dx, grid.xMax - grid.dx, 1, grid.iRes - 2, grid.yMin + grid.dy, grid.yMax - grid.dy, 1, grid.jRes - 2);
 	VectorND<double> innerSolution(innerGrid.iRes*innerGrid.jRes);
-	Field2D<double> beta(grid);
-	Field2D<double> f(innerGrid);
-	Field2D<double> jCondition1(grid);
-	Field2D<double> jCondition2(grid);
+	FD beta(grid);
+	FD f(innerGrid);
+	FD jCondition1(grid);
+	FD jCondition2(grid);
 	//double leftBdry, rightBdry;
 
 	poissonMatrix = Array2D<double>(1, innerGrid.iRes*innerGrid.jRes, 1, innerGrid.iRes*innerGrid.jRes);

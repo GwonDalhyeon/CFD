@@ -75,9 +75,21 @@ inline void ToMATLAB::Variable(const char * varName, const int & rowNum, const i
 		// Tranaspose array.
 		engEvalString(ME, cmd);
 	}
+	else if (sizeof(TT) == 1)
+	{
+		mxArray* dataArray = mxCreateLogicalMatrix(rowNum, colNum);
+		memcpy((TT*)mxGetPr(dataArray), (TT*)values, sizeof(TT) * rowNum*colNum);
+		engPutVariable(ME, varName, dataArray);
+		string str = string(varName) + "=double(transpose(" + (varName)+"));";
+		const char* cmd = str.c_str();
+
+		// Tranaspose array.
+		engEvalString(ME, cmd);
+	}
 	else
 	{
 		cout << "Input error" << endl;
+		cout << "Size of TT = " << sizeof(TT) << endl;
 		assert(false);
 	}
 }
@@ -90,8 +102,8 @@ ToMATLAB MATLAB;
 
 //Grid2D grid(0, 1, 3, 0, 2, 5);
 //grid.Variable();
-//Field2D<double>X(grid);
-//Field2D<double>Y(grid);
+//FDX(grid);
+//FDY(grid);
 //Array2D<int>row(grid);
 //Array2D<int>col(grid);
 //VectorND<double> vec(grid.iRes);

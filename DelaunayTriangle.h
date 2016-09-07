@@ -8,9 +8,9 @@ public:
 	DelaunayTriangulization();
 	~DelaunayTriangulization();
 
-	static bool CircumCircle(const Vector2D<double> & p, const Vector2D<double> & p1, const Vector2D<double> & p2, const Vector2D<double> & p3, Vector2D<double> & center, double &r);
-	static void CircumCircle(const Vector2D<double> & p1, const Vector2D<double> & p2, const Vector2D<double> & p3, Vector2D<double> & center, double &r);
-	static void DelaunayTriangulate(const VectorND<Vector2D<double>> & points, VectorND<Polygon2D> & Triangles, VectorND<Vector2D<double>> & center, VectorND<double> & radius);
+	static bool CircumCircle(const VT & p, const VT & p1, const VT & p2, const VT & p3, VT & center, double &r);
+	static void CircumCircle(const VT & p1, const VT & p2, const VT & p3, VT & center, double &r);
+	static void DelaunayTriangulate(const VectorND<VT> & points, VectorND<Polygon2D> & Triangles, VectorND<VT> & center, VectorND<double> & radius);
 private:
 
 };
@@ -30,7 +30,7 @@ DelaunayTriangulization::~DelaunayTriangulization()
 //   The circumcircle centre is returned in (xc,yc) and the radius r
 //   Note : A point on the edge is inside the circumcircle
 ////////////////////////////////////////////////////////////////////////
-inline bool DelaunayTriangulization::CircumCircle(const Vector2D<double>& p, const Vector2D<double>& p1, const Vector2D<double>& p2, const Vector2D<double>& p3, Vector2D<double>& center, double & r)
+inline bool DelaunayTriangulization::CircumCircle(const VT& p, const VT& p1, const VT& p2, const VT& p3, VT& center, double & r)
 {
 	double xp = p.x, yp = p.y;
 	double x1 = p1.x, y1 = p1.y;
@@ -103,7 +103,7 @@ inline bool DelaunayTriangulization::CircumCircle(const Vector2D<double>& p, con
 //   made up of the points (x1,y1), (x2,y2), (x3,y3).
 //   Note : A point on the edge is inside the circumcircle
 ////////////////////////////////////////////////////////////////////////
-inline void DelaunayTriangulization::CircumCircle(const Vector2D<double>& p1, const Vector2D<double>& p2, const Vector2D<double>& p3, Vector2D<double>& center, double & r)
+inline void DelaunayTriangulization::CircumCircle(const VT& p1, const VT& p2, const VT& p3, VT& center, double & r)
 {
 	double x1 = p1.x, y1 = p1.y;
 	double x2 = p2.x, y2 = p2.y;
@@ -156,13 +156,13 @@ inline void DelaunayTriangulization::CircumCircle(const Vector2D<double>& p1, co
 	r = sqrt(rsqr);
 }
 
-inline void DelaunayTriangulization::DelaunayTriangulate(const VectorND<Vector2D<double>>& points, VectorND<Polygon2D> & Triangles, VectorND<Vector2D<double>> & center, VectorND<double> & radius)
+inline void DelaunayTriangulization::DelaunayTriangulate(const VectorND<VT>& points, VectorND<Polygon2D> & Triangles, VectorND<VT> & center, VectorND<double> & radius)
 {
 	int triMax = points.iLength * 4;
 	int edgeMax = 100;
 
-	VectorND<Vector2D<int>> Edge(1, edgeMax);
-	VectorND<Vector2D<int>> tempEdge(1, 2*edgeMax);
+	VectorND<VI> Edge(1, edgeMax);
+	VectorND<VI> tempEdge(1, 2*edgeMax);
 
 	VectorND<VectorND<int>> triangle(1, triMax);
 #pragma omp parallel for
@@ -218,7 +218,7 @@ inline void DelaunayTriangulization::DelaunayTriangulate(const VectorND<Vector2D
 	vertex list. The supertriangle is the first triangle in
 	the triangle list.
 	*/
-	VectorND<Vector2D<double>>  newPoints(points.iStart, points.iLength + 3);
+	VectorND<VT>  newPoints(points.iStart, points.iLength + 3);
 #pragma omp parallel for
 	for (int i = points.iStart; i <= points.iEnd; i++)
 	{
@@ -244,9 +244,9 @@ inline void DelaunayTriangulization::DelaunayTriangulate(const VectorND<Vector2D
 	Include each point one at a time into the existing mesh
 	*/
 	int nbhdEdge;
-	Vector2D<double> currentPoint;
-	Vector2D<double> P1, P2, P3;
-	center = VectorND<Vector2D<double>>(1, triMax);
+	VT currentPoint;
+	VT P1, P2, P3;
+	center = VectorND<VT>(1, triMax);
 	radius = VectorND<double>(1, triMax);
 	bool inside;
 	for (int i = points.iStart; i <= points.iEnd; i++)
@@ -289,7 +289,7 @@ inline void DelaunayTriangulization::DelaunayTriangulate(const VectorND<Vector2D
 				if (nbhdEdge + 3 >= edgeMax)
 				{
 					edgeMax += 100;
-					tempEdge = VectorND<Vector2D<int>>(edgeMax);
+					tempEdge = VectorND<VI>(edgeMax);
 					#pragma omp parallel for
 					for (int i = Edge.iStart; i <= Edge.iEnd; i++)
 					{
@@ -298,11 +298,11 @@ inline void DelaunayTriangulization::DelaunayTriangulate(const VectorND<Vector2D
 					Edge = tempEdge;
 				}
 				nbhdEdge++;
-				Edge(nbhdEdge) = Vector2D<int>(triangle(j)(1), triangle(j)(2));
+				Edge(nbhdEdge) = VI(triangle(j)(1), triangle(j)(2));
 				nbhdEdge++;
-				Edge(nbhdEdge) = Vector2D<int>(triangle(j)(2), triangle(j)(3));
+				Edge(nbhdEdge) = VI(triangle(j)(2), triangle(j)(3));
 				nbhdEdge++;
-				Edge(nbhdEdge) = Vector2D<int>(triangle(j)(3), triangle(j)(1));
+				Edge(nbhdEdge) = VI(triangle(j)(3), triangle(j)(1));
 
 				triangle(j) = triangle(numTri);
 				complete(j) = complete(numTri);
@@ -382,10 +382,10 @@ inline void DelaunayTriangulization::DelaunayTriangulate(const VectorND<Vector2D
 		}
 	}
 
-	VectorND<Vector2D<double>> tempCenter = center;
+	VectorND<VT> tempCenter = center;
 	VectorND<double> tempRadius = radius;
 
-	center = VectorND<Vector2D<double>>(1, numTri);
+	center = VectorND<VT>(1, numTri);
 	radius = VectorND<double>(1, numTri);
 	Triangles = VectorND<Polygon2D> (1, numTri);
 

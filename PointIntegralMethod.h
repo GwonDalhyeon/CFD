@@ -14,7 +14,7 @@ public:
 	Grid2D grid;
 	
 	int pointNum;
-	VectorND<Vector2D<double>> pointCloud;
+	VectorND<VT> pointCloud;
 	
 	int innerPointNum;
 	VectorND<int> innerPointIndex;
@@ -70,16 +70,16 @@ inline void PointIntegralMethod<TT>::InitialCondition(const int & example)
 		pointNum = innerPointNum + bdryPointNum;
 		innerPointIndex = VectorND<int>(1, pointNum);
 		bdryPointIndex = VectorND<int>(1, pointNum);
-		pointCloud = VectorND<Vector2D<double>>(1, pointNum);
+		pointCloud = VectorND<VT>(1, pointNum);
 
 		nbhdNum = 20;
 		nNearstNbhdIndex = Array2D<int>(1, pointNum, 1, nbhdNum);
 		nNearstNbhdDist = Array2D<double>(1, pointNum, 1, nbhdNum);
 
-		Vector2D<double> tempVector;
+		VT tempVector;
 		for (int i = 1; i <= bdryPointNum; i++)
 		{
-			pointCloud(i) = 0.5*Vector2D<double>(cos(2 * PI*i / bdryPointNum), sin(2 * PI*i / bdryPointNum));
+			pointCloud(i) = 0.5*VT(cos(2 * PI*i / bdryPointNum), sin(2 * PI*i / bdryPointNum));
 			bdryPointIndex(i) = 1;
 
 			for (int j = i; j >= 2; j--)
@@ -102,7 +102,7 @@ inline void PointIntegralMethod<TT>::InitialCondition(const int & example)
 		srand(time(NULL));
 		for (int i = 1; i <= innerPointNum; i++)
 		{
-			tempVector = Vector2D<double>(double(rand()) / double(RAND_MAX), double(rand()) / double(RAND_MAX));
+			tempVector = VT(double(rand()) / double(RAND_MAX), double(rand()) / double(RAND_MAX));
 			if (((tempVector - 0.5)).magnitude()<0.5-grid.dx/2- bdryBand)
 			{
 				pointCloud(i + bdryPointNum) = tempVector - 0.5;

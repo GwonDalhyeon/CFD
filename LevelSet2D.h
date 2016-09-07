@@ -16,50 +16,63 @@ class LevelSet2D
 public:
 	Grid2D grid;
 
-	Field2D<double> phi;
-	Field2D<Vector2D<double>> normal;
-	Field2D<Vector2D<double>> unitNormal;
-	Field2D<Vector2D<double>> tangential;
-	Field2D<double> meanCurvature;
+	FD phi;
+	FV normal;
+	FV unitNormal;
+	FV tangential;
+	FD meanCurvature;
 
+
+	// Local Level Set Variables
+	Array2D<bool> T1;
+	Array2D<bool> T2;
+	Array2D<bool> T3;
+	double gamma1;
+	double gamma2;
+	double gamma3;
 
 	LevelSet2D();
 	~LevelSet2D();
 
 	LevelSet2D(const Grid2D& ipGrid);
+	LevelSet2D(const Grid2D& ipGrid, const double& ipGamma);
+	LevelSet2D(const Grid2D& ipGrid, const double& ipGamma1, const double& ipGamma2, const double& ipGamma3);
+	LevelSet2D(const LevelSet2D& ipLevelSet, const double& ipGamma);
+	LevelSet2D(const LevelSet2D& ipLevelSet, const double& ipGamma1, const double& ipGamma2, const double& ipGamma3);
+	LevelSet2D(const FD& ipField);
 
 	const int index(const int& i, const int& j) const;
 
-	const int index(const Vector2D<int>& ipVector) const;
+	const int index(const VI& ipVector) const;
 
 	inline double& operator ()(const int& i, const int& j) const;
 
-	inline double& operator ()(const Vector2D<int>& ipVector) const;
+	inline double& operator ()(const VI& ipVector) const;
 
 	inline double operator ()(const double& x, const double& y) const;
 
-	inline double operator ()(const Vector2D<double>& ipVector) const;
+	inline double operator ()(const VT& ipVector) const;
 
 	inline void operator = (const LevelSet2D& ipLevelSet);
 
 	inline void ComputeNormal();
-	inline Vector2D<double> ComputeNormal(const int& i, const int& j);
-	inline Vector2D<double> ComputeNormal(const Vector2D<int> ipVector);
+	inline VT ComputeNormal(const int& i, const int& j);
+	inline VT ComputeNormal(const VI ipVector);
 
 	inline void ComputeUnitNormal();
-	inline Vector2D<double> ComputeUnitNormal(const int& i, const int& j);
-	inline Vector2D<double> ComputeUnitNormal(const Vector2D<int> ipVector);
+	inline VT ComputeUnitNormal(const int& i, const int& j);
+	inline VT ComputeUnitNormal(const VI ipVector);
 
 	inline void ComputeMeanCurvature();
 	inline double ComputeMeanCurvature(const int& i, const int& j);
-	inline double ComputeMeanCurvature(const Vector2D<int> & ipVector);
+	inline double ComputeMeanCurvature(const VI & ipVector);
 
-	inline Vector2D<double> gradient(const int& i, const int& j);
+	inline VT gradient(const int& i, const int& j);
 
 	inline double interpolation(const double& x, const double& y);
-	inline double interpolation(const Vector2D<double>& ipVector);
+	inline double interpolation(const VT& ipVector);
 	inline double interpolation(const int& i, const int& j);
-	//inline double interpolation(const Vector2D<int>& ipVector);
+	//inline double interpolation(const VI& ipVector);
 
 	inline void FillGhostCell();
 
@@ -75,6 +88,17 @@ public:
 	inline double dyMinusPhi(const int& i, const int& j);
 
 	inline double dxyPhi(const int& i, const int& j);
+
+
+	// Local Level Set Functions
+	inline double Cutoff(const double & constant);
+	inline double Cutoff(const int& i, const int& j);
+
+	inline void UpdateInterface();
+	inline void UpdateInterface(const double& ipGamma);
+	inline void UpdateInterface(const double& ipGamma1, const double& ipGamma2, const double& ipGamma3);
+
+	inline void UpdateLLS();
 
 private:
 
@@ -97,11 +121,95 @@ LevelSet2D::~LevelSet2D()
 inline LevelSet2D::LevelSet2D(const Grid2D & ipGrid)
 {
 	grid = ipGrid;
-	phi = Field2D<double>(ipGrid);
-	normal = Field2D<Vector2D<double>>(ipGrid);
-	unitNormal = Field2D<Vector2D<double>>(ipGrid);
-	tangential = Field2D<Vector2D<double>>(ipGrid);
-	meanCurvature = Field2D<double>(ipGrid);
+	phi = FD(ipGrid);
+	normal = FV(ipGrid);
+	unitNormal = FV(ipGrid);
+	tangential = FV(ipGrid);
+	meanCurvature = FD(ipGrid);
+
+	T1 = Array2D<bool>(ipGrid);
+	T2 = Array2D<bool>(ipGrid);
+	T3 = Array2D<bool>(ipGrid);
+
+	gamma1 = 3.0*max(ipGrid.dx, ipGrid.dy);
+	gamma2 = 2.0*gamma1;
+	gamma3 = 3.0*gamma1;
+}
+
+inline LevelSet2D::LevelSet2D(const Grid2D & ipGrid, const double & ipGamma)
+{
+	grid = ipGrid;
+	phi = FD(ipGrid);
+	normal = FV(ipGrid);
+	unitNormal = FV(ipGrid);
+	tangential = FV(ipGrid);
+	meanCurvature = FD(ipGrid);
+
+	T1 = Array2D<bool>(ipGrid);
+	T2 = Array2D<bool>(ipGrid);
+	T3 = Array2D<bool>(ipGrid);
+
+	gamma1 = ipGamma;
+	gamma2 = 2.0*gamma1;
+	gamma3 = 3.0*gamma1;
+}
+
+inline LevelSet2D::LevelSet2D(const Grid2D & ipGrid, const double & ipGamma1, const double & ipGamma2, const double & ipGamma3)
+{
+	grid = ipGrid;
+	phi = FD(ipGrid);
+	normal = FV(ipGrid);
+	unitNormal = FV(ipGrid);
+	tangential = FV(ipGrid);
+	meanCurvature = FD(ipGrid);
+
+	T1 = Array2D<bool>(ipGrid);
+	T2 = Array2D<bool>(ipGrid);
+	T3 = Array2D<bool>(ipGrid);
+
+	gamma1 = ipGamma1;
+	gamma2 = 2.0*gamma1;
+	gamma3 = 3.0*gamma1;
+}
+
+inline LevelSet2D::LevelSet2D(const LevelSet2D & ipLevelSet, const double & ipGamma)
+{
+	grid = ipLevelSet.grid;
+	phi = FD(grid);
+	normal = FV(grid);
+	unitNormal = FV(grid);
+	tangential = FV(grid);
+	meanCurvature = FD(grid);
+
+	T1 = Array2D<bool>(grid);
+	T2 = Array2D<bool>(grid);
+	T3 = Array2D<bool>(grid);
+
+	gamma1 = ipGamma;
+	gamma2 = 2.0*gamma1;
+	gamma3 = 3.0*gamma1;
+}
+
+inline LevelSet2D::LevelSet2D(const LevelSet2D & ipLevelSet, const double & ipGamma1, const double & ipGamma2, const double & ipGamma3)
+{
+	grid = ipLevelSet.grid;
+	phi = FD(grid);
+	normal = FV(grid);
+	unitNormal = FV(grid);
+	tangential = FV(grid);
+	meanCurvature = FD(grid);
+
+	T1 = Array2D<bool>(grid);
+	T2 = Array2D<bool>(grid);
+	T3 = Array2D<bool>(grid);
+
+	gamma1 = ipGamma1;
+	gamma2 = ipGamma2;
+	gamma3 = ipGamma3;
+}
+
+inline LevelSet2D::LevelSet2D(const FD& ipField)
+{
 }
 
 const int LevelSet2D::index(const int & i, const int & j) const
@@ -111,7 +219,7 @@ const int LevelSet2D::index(const int & i, const int & j) const
 	return phi.index(i, j);
 }
 
-const int LevelSet2D::index(const Vector2D<int>& ipVector) const
+const int LevelSet2D::index(const VI& ipVector) const
 {
 	assert(ipVector[0] >= phi.iStart && ipVector[0] <= phi.iEnd);
 	assert(ipVector[1] >= phi.jStart && ipVector[1] <= phi.jEnd);
@@ -126,7 +234,7 @@ inline double & LevelSet2D::operator()(const int & i, const int & j) const
 }
 
 
-inline double & LevelSet2D::operator()(const Vector2D<int>& ipVector) const
+inline double & LevelSet2D::operator()(const VI& ipVector) const
 {
 	assert(ipVector[0] >= phi.iStart && ipVector[0] <= phi.iEnd);
 	assert(ipVector[1] >= phi.jStart && ipVector[1] <= phi.jEnd);
@@ -143,7 +251,7 @@ inline double LevelSet2D::operator()(const double & x, const double & y) const
 	return phi(x, y);
 }
 
-inline double LevelSet2D::operator()(const Vector2D<double>& ipVector) const
+inline double LevelSet2D::operator()(const VT& ipVector) const
 {
 	assert(ipVector[0] >= grid.xMin && ipVector[0] <= grid.xMax);
 	assert(ipVector[1] >= grid.yMin && ipVector[1] <= grid.yMax);
@@ -158,6 +266,14 @@ inline void LevelSet2D::operator=(const LevelSet2D & ipLevelSet)
 	unitNormal = ipLevelSet.unitNormal;
 	tangential = ipLevelSet.tangential;
 	meanCurvature = ipLevelSet.meanCurvature;
+	
+	T1 = ipLevelSet.T1;
+	T2 = ipLevelSet.T2;
+	T3 = ipLevelSet.T3;
+
+	gamma1 = ipLevelSet.gamma1;
+	gamma2 = ipLevelSet.gamma2;
+	gamma3 = ipLevelSet.gamma3;
 }
 
 inline void LevelSet2D::ComputeNormal()
@@ -172,9 +288,9 @@ inline void LevelSet2D::ComputeNormal()
 	}
 }
 
-inline Vector2D<double> LevelSet2D::ComputeNormal(const int & i, const int & j)
+inline VT LevelSet2D::ComputeNormal(const int & i, const int & j)
 {
-	Vector2D<double> normal;
+	VT normal;
 
 	if (j > phi.jStart && j < phi.jEnd)
 	{
@@ -256,7 +372,7 @@ inline Vector2D<double> LevelSet2D::ComputeNormal(const int & i, const int & j)
 	return normal;
 }
 
-inline Vector2D<double> LevelSet2D::ComputeNormal(const Vector2D<int> ipVector)
+inline VT LevelSet2D::ComputeNormal(const VI ipVector)
 {
 	return ComputeNormal(ipVector[0], ipVector[1]);
 }
@@ -275,9 +391,9 @@ inline void LevelSet2D::ComputeUnitNormal()
 	}
 }
 
-inline Vector2D<double> LevelSet2D::ComputeUnitNormal(const int & i, const int & j)
+inline VT LevelSet2D::ComputeUnitNormal(const int & i, const int & j)
 {
-	Vector2D<double> normal;
+	VT normal;
 
 	if (j > phi.jStart && j < phi.jEnd)
 	{
@@ -359,7 +475,7 @@ inline Vector2D<double> LevelSet2D::ComputeUnitNormal(const int & i, const int &
 	return normal;
 }
 
-inline Vector2D<double> LevelSet2D::ComputeUnitNormal(const Vector2D<int> ipVector)
+inline VT LevelSet2D::ComputeUnitNormal(const VI ipVector)
 {
 	return ComputeUnitNormal(ipVector[0], ipVector[1]);
 }
@@ -381,22 +497,22 @@ inline double LevelSet2D::ComputeMeanCurvature(const int & i, const int & j)
 	return -(dxxPhi(i, j)*dyPhi(i, j)*dyPhi(i, j) - 2.0*dxyPhi(i, j)*dxPhi(i, j)*dyPhi(i, j) + dyyPhi(i, j)*dxPhi(i, j)*dxPhi(i, j)) / pow(dxPhi(i, j)*dxPhi(i, j) + dyPhi(i, j)*dyPhi(i, j) + DBL_EPSILON, 3.0 / 2.0);
 }
 
-inline double LevelSet2D::ComputeMeanCurvature(const Vector2D<int> & ipVector)
+inline double LevelSet2D::ComputeMeanCurvature(const VI & ipVector)
 {
 	return ComputeMeanCurvature(ipVector.i, ipVector.j);
 }
 
-inline Vector2D<double> LevelSet2D::gradient(const int & i, const int & j)
+inline VT LevelSet2D::gradient(const int & i, const int & j)
 {
-	return Vector2D<double>(dxPhi(i, j), dyPhi(i, j));
+	return VT(dxPhi(i, j), dyPhi(i, j));
 }
 
 inline double LevelSet2D::interpolation(const double & x, const double & y)
 {
 	if (grid.xMin <= x && grid.xMax >= x &&grid.yMin <= y && grid.yMax >= y)
 	{
-		Vector2D<double> xy(x, y);
-		Vector2D<int> cell = phi.containedCell(x, y);
+		VT xy(x, y);
+		VI cell = phi.containedCell(x, y);
 
 		double distance00, distance10, distance01, distance11;
 		distance00 = (grid.point(cell.i, cell.j) - xy).magnitude();
@@ -479,7 +595,7 @@ inline double LevelSet2D::interpolation(const double & x, const double & y)
 	}
 }
 
-inline double LevelSet2D::interpolation(const Vector2D<double>& ipVector)
+inline double LevelSet2D::interpolation(const VT& ipVector)
 {
 	return interpolation(ipVector.x, ipVector.y);
 }
@@ -664,3 +780,122 @@ inline double LevelSet2D::dxyPhi(const int & i, const int & j)
 		return (dxPhi(i, j) - dxPhi(i, j - 1))*grid.oneOverdy;
 	}
 }
+
+inline double LevelSet2D::Cutoff(const double & constant)
+{
+	double absConst = abs(constant);
+	if (gamma2<absConst)
+	{
+		return 0.0;
+	}
+	else if (gamma1<absConst && absConst <= gamma2)
+	{
+		return (absConst - gamma2)*(absConst - gamma2)*(2.0*absConst + gamma2 - 3.0*gamma1) / pow(gamma2 - gamma1, 3.0);
+	}
+	else
+	{
+		return 1.0;
+	}
+}
+
+inline double LevelSet2D::Cutoff(const int & i, const int & j)
+{
+	return Cutoff(phi(i, j));
+}
+
+inline void LevelSet2D::UpdateInterface()
+{
+	UpdateInterface(gamma1, gamma2, gamma3);
+}
+
+inline void LevelSet2D::UpdateInterface(const double & ipGamma)
+{
+	gamma1 = ipGamma;
+	gamma2 = 2.0*ipGamma;
+	gamma3 = 3.0*ipGamma;
+	UpdateInterface(gamma1, gamma2, gamma3);
+}
+
+inline void LevelSet2D::UpdateInterface(const double & ipGamma1, const double & ipGamma2, const double & ipGamma3)
+{
+	gamma1 = ipGamma1;
+	gamma2 = ipGamma2;
+	gamma3 = ipGamma3;
+
+	double absConst;
+#pragma omp parallel for private(absConst)
+	for (int i = phi.grid.iStart; i <= phi.grid.iEnd; i++)
+	{
+		for (int j = phi.grid.iStart; j <= phi.grid.jEnd; j++)
+		{
+			absConst = abs(phi(i, j));
+			if (absConst<=gamma3)
+			{
+				T3(i, j) = true;
+				if (absConst<=gamma2)
+				{
+					T2(i, j) = true;
+					if (absConst<=gamma1)
+					{
+						T1(i, j) = true;
+					}
+					else
+					{
+						T1(i, j) = false;
+					}
+				}
+				else
+				{
+					T1(i, j) = false;
+					T2(i, j) = false;
+				}
+			}
+			else
+			{
+				T1(i, j) = false;
+				T2(i, j) = false;
+				T3(i, j) = false;
+			}
+		}
+	}
+
+	Array2D<bool>tempT3 = T3;
+#pragma omp parallel for
+	for (int i = phi.grid.iStart + 1; i <= phi.grid.iEnd - 1; i++)
+	{
+		for (int j = phi.grid.iStart + 1; j <= phi.grid.jEnd - 1; j++)
+		{
+			if (tempT3(i - 1, j - 1) || tempT3(i - 1, j) || tempT3(i - 1, j + 1) || tempT3(i, j - 1) || tempT3(i, j + 1) || tempT3(i + 1, j - 1) || tempT3(i + 1, j) || tempT3(i + 1, j + 1))
+			{
+				if (!T2(i, j))
+				{
+					T3(i, j) = true;
+				}
+			}
+		}
+	}
+
+}
+
+inline void LevelSet2D::UpdateLLS()
+{
+#pragma omp parallel for
+	for (int i = phi.grid.iStart; i <= phi.grid.iEnd; i++)
+	{
+		for (int j = phi.grid.iStart; j <= phi.grid.jEnd; j++)
+		{
+			if (phi(i, j) < -gamma2)
+			{
+				phi(i, j) = -gamma2;
+			}
+			else if (phi(i, j) > gamma2)
+			{
+				phi(i, j) = gamma2;
+			}
+		}
+	}
+
+}
+
+typedef LevelSet2D LS;
+

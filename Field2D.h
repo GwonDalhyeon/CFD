@@ -1,12 +1,7 @@
 #pragma once
 
-
-#include "CommonDef.h"
-#include "Vector2D.h"
-#include "VectorND.h"
-#include "Grid2D.h"
-#include "Array2D.h"
 #include "CombineStructure.h"
+
 
 template<class TT>
 class Field2D
@@ -970,8 +965,8 @@ template<class TT>
 inline Field2D<double> Field2D<TT>::Divegence(const Field2D<Vector2D<double>>& ipField)
 {
 	Field2D<double> divergence(ipField.grid);
-	//Field2D<Vector2D<double>> dxField(ipField.grid);
-	//Field2D<Vector2D<double>> dyField(ipField.grid);
+	//FV dxField(ipField.grid);
+	//FV dyField(ipField.grid);
 
 #pragma omp parallel for
 	for (int i = divergence.iStart; i <= divergence.iEnd; i++)
@@ -998,3 +993,16 @@ inline Array2D<double> Field2D<TT>::Hessian(const int & i, const int & j) const
 
 
 
+// Typedef
+//typedef double			T;
+typedef Vector2D<double> VT;
+typedef Vector2D<int> VI;
+typedef VectorND<double> VTN;
+typedef VectorND<int> VIN;
+typedef Array2D<double> AD;
+typedef Array2D<int> AI;
+typedef Field2D<double> FD;
+typedef Field2D<Vector2D<double>> FV;
+
+//typedef complex<T>		Tcomp;
+//typedef complex<int>    Icomp;
