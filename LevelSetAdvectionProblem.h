@@ -349,13 +349,7 @@ inline void LevelSetAdvection::AdvectionSolver(const int & example)
 			dt = AdaptiveTimeStep(velocityX, velocityY);
 			AdvectionMethod2D<double>::LSPropagatingTVDRK3(levelSet, velocityX, velocityY, dt);
 			levelSet.phi.Variable("phi");
-
-			MATLAB.Command("contour(X, Y, phi0, [0 0],'b');");
-			MATLAB.Command("hold on");
-			MATLAB.Command("grid on");
-			MATLAB.Command("axis([-1 1 -1 1]);axis equal;");
-			MATLAB.Command("contour(X, Y, phi, [0 0],'r');");
-			MATLAB.Command("hold off");
+			MATLAB.Command("contour(X, Y, phi0, [0 0],'b');hold on, grid on,axis([-1 1 -1 1]);axis equal;contour(X, Y, phi, [0 0],'r');hold off");
 		}
 		else
 		{

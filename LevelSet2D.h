@@ -24,9 +24,9 @@ public:
 
 
 	// Local Level Set Variables
-	Array2D<bool> T1;
-	Array2D<bool> T2;
-	Array2D<bool> T3;
+	Array2D<int> Tube;
+	VectorND<VI> TubeIndex;
+	int numTube;
 	double gamma1;
 	double gamma2;
 	double gamma3;
@@ -93,7 +93,10 @@ public:
 	// Local Level Set Functions
 	inline double Cutoff(const double & constant);
 	inline double Cutoff(const int& i, const int& j);
+	inline double Cutoff23(const double & constant);
+	inline double Cutoff23(const int& i, const int& j);
 
+	inline void InitialTube();
 	inline void UpdateInterface();
 	inline void UpdateInterface(const double& ipGamma);
 	inline void UpdateInterface(const double& ipGamma1, const double& ipGamma2, const double& ipGamma3);
@@ -127,9 +130,9 @@ inline LevelSet2D::LevelSet2D(const Grid2D & ipGrid)
 	tangential = FV(ipGrid);
 	meanCurvature = FD(ipGrid);
 
-	T1 = Array2D<bool>(ipGrid);
-	T2 = Array2D<bool>(ipGrid);
-	T3 = Array2D<bool>(ipGrid);
+	Tube = Array2D<int>(ipGrid);
+
+	TubeIndex = VectorND<VI>(1, grid.iRes*grid.jRes);
 
 	gamma1 = 3.0*max(ipGrid.dx, ipGrid.dy);
 	gamma2 = 2.0*gamma1;
@@ -145,9 +148,9 @@ inline LevelSet2D::LevelSet2D(const Grid2D & ipGrid, const double & ipGamma)
 	tangential = FV(ipGrid);
 	meanCurvature = FD(ipGrid);
 
-	T1 = Array2D<bool>(ipGrid);
-	T2 = Array2D<bool>(ipGrid);
-	T3 = Array2D<bool>(ipGrid);
+	Tube = Array2D<int>(ipGrid);
+
+	TubeIndex = VectorND<VI>(1, grid.iRes*grid.jRes);
 
 	gamma1 = ipGamma;
 	gamma2 = 2.0*gamma1;
@@ -163,10 +166,8 @@ inline LevelSet2D::LevelSet2D(const Grid2D & ipGrid, const double & ipGamma1, co
 	tangential = FV(ipGrid);
 	meanCurvature = FD(ipGrid);
 
-	T1 = Array2D<bool>(ipGrid);
-	T2 = Array2D<bool>(ipGrid);
-	T3 = Array2D<bool>(ipGrid);
-
+	Tube = Array2D<int>(ipGrid);
+	TubeIndex = VectorND<VI>(1, grid.iRes*grid.jRes);
 	gamma1 = ipGamma1;
 	gamma2 = 2.0*gamma1;
 	gamma3 = 3.0*gamma1;
@@ -181,10 +182,8 @@ inline LevelSet2D::LevelSet2D(const LevelSet2D & ipLevelSet, const double & ipGa
 	tangential = FV(grid);
 	meanCurvature = FD(grid);
 
-	T1 = Array2D<bool>(grid);
-	T2 = Array2D<bool>(grid);
-	T3 = Array2D<bool>(grid);
-
+	Tube = Array2D<int>(grid);
+	TubeIndex = VectorND<VI>(1, grid.iRes*grid.jRes);
 	gamma1 = ipGamma;
 	gamma2 = 2.0*gamma1;
 	gamma3 = 3.0*gamma1;
@@ -199,10 +198,8 @@ inline LevelSet2D::LevelSet2D(const LevelSet2D & ipLevelSet, const double & ipGa
 	tangential = FV(grid);
 	meanCurvature = FD(grid);
 
-	T1 = Array2D<bool>(grid);
-	T2 = Array2D<bool>(grid);
-	T3 = Array2D<bool>(grid);
-
+	Tube = Array2D<int>(grid);
+	TubeIndex = VectorND<VI>(1, grid.iRes*grid.jRes);
 	gamma1 = ipGamma1;
 	gamma2 = ipGamma2;
 	gamma3 = ipGamma3;
@@ -267,10 +264,9 @@ inline void LevelSet2D::operator=(const LevelSet2D & ipLevelSet)
 	tangential = ipLevelSet.tangential;
 	meanCurvature = ipLevelSet.meanCurvature;
 	
-	T1 = ipLevelSet.T1;
-	T2 = ipLevelSet.T2;
-	T3 = ipLevelSet.T3;
-
+	Tube = ipLevelSet.Tube;
+	TubeIndex = ipLevelSet.TubeIndex;
+	numTube = ipLevelSet.numTube;
 	gamma1 = ipLevelSet.gamma1;
 	gamma2 = ipLevelSet.gamma2;
 	gamma3 = ipLevelSet.gamma3;
@@ -803,6 +799,77 @@ inline double LevelSet2D::Cutoff(const int & i, const int & j)
 	return Cutoff(phi(i, j));
 }
 
+inline double LevelSet2D::Cutoff23(const double & constant)
+{
+	double absConst = abs(constant);
+	if (gamma3<absConst)
+	{
+		return 0.0;
+	}
+	else if (gamma2<absConst && absConst <= gamma3)
+	{
+		return (absConst - gamma3)*(absConst - gamma3)*(2.0*absConst + gamma3 - 3.0*gamma1) / pow(gamma3 - gamma1, 3.0);
+	}
+	else
+	{
+		return 1.0;
+	}
+}
+
+inline double LevelSet2D::Cutoff23(const int & i, const int & j)
+{
+	return Cutoff23(phi(i, j));
+}
+
+inline void LevelSet2D::InitialTube()
+{
+	numTube = 0;
+	double absConst;
+	for (int i = phi.grid.iStart; i <= phi.grid.iEnd; i++)
+	{
+		for (int j = phi.grid.iStart; j <= phi.grid.jEnd; j++)
+		{
+			absConst = abs(phi(i, j));
+			//if (absConst<gamma3)
+			{
+				//Tube(i, j) = 3;
+				//numTube += 1;
+				//TubeIndex(numTube) = VI(i, j);
+				//if (absConst<gamma2)
+				{
+					//Tube(i, j) = 2;
+					if (absConst<gamma1)
+					{
+						Tube(i, j) = 1;
+						numTube += 1;
+						TubeIndex(numTube) = VI(i, j);
+					}
+				}
+			}
+		}
+	}
+	int i, j;
+	int tempNumTube = numTube;
+	int bdryWidth = 4;
+	for (int k = 1; k <= tempNumTube; k++)
+	{
+		i = TubeIndex(k).i;
+		j = TubeIndex(k).j;
+		for (int ii = -bdryWidth; ii <= bdryWidth; ii++)
+		{
+			for (int jj = -bdryWidth; jj <= bdryWidth; jj++)
+			{
+				if (Tube(i + ii, j + jj) == 0)
+				{
+					Tube(i + ii, j + jj) = 2;
+					numTube += 1;
+					TubeIndex(numTube) = VI(i + ii, j + jj);
+				}
+			}
+		}
+	}
+}
+
 inline void LevelSet2D::UpdateInterface()
 {
 	UpdateInterface(gamma1, gamma2, gamma3);
@@ -821,80 +888,94 @@ inline void LevelSet2D::UpdateInterface(const double & ipGamma1, const double & 
 	gamma1 = ipGamma1;
 	gamma2 = ipGamma2;
 	gamma3 = ipGamma3;
-
+	int tempNumTube = numTube;
+	Tube = 0;
+	numTube = 0;
+	int i, j;
 	double absConst;
-#pragma omp parallel for private(absConst)
-	for (int i = phi.grid.iStart; i <= phi.grid.iEnd; i++)
+	for (int k = 1; k <= tempNumTube; k++)
 	{
-		for (int j = phi.grid.iStart; j <= phi.grid.jEnd; j++)
+		i = TubeIndex(k).i;
+		j = TubeIndex(k).j;
+		absConst = abs(phi(i, j));
+		//if (absConst<gamma3)
 		{
-			absConst = abs(phi(i, j));
-			if (absConst<=gamma3)
+			//Tube(i, j) = 3;
+			//numTube += 1;
+			//TubeIndex(numTube) = VI(i, j);
+			//if (absConst<gamma2)
 			{
-				T3(i, j) = true;
-				if (absConst<=gamma2)
+				//Tube(i, j) = 2;
+				if (absConst<=gamma1 && Tube(i, j) == 0)
 				{
-					T2(i, j) = true;
-					if (absConst<=gamma1)
-					{
-						T1(i, j) = true;
-					}
-					else
-					{
-						T1(i, j) = false;
-					}
+					Tube(i, j) = 1;
+					numTube += 1;
+					TubeIndex(numTube) = VI(i, j);
 				}
-				else
-				{
-					T1(i, j) = false;
-					T2(i, j) = false;
-				}
-			}
-			else
-			{
-				T1(i, j) = false;
-				T2(i, j) = false;
-				T3(i, j) = false;
 			}
 		}
+	}
+	//Tube.Variable("Tube1");
+	//MATLAB.Command("figure('units','normalized','outerposition',[0 0 1 1])");
+	//MATLAB.Command("subplot(1,2,1)");
+	//MATLAB.Command("surf(X, Y, Tube1);grid on;axis([-1 1 -1 1]);axis equal;");
+	tempNumTube = numTube;
+	int bdryWidth = 4;
+	for (int k = 1; k <= tempNumTube; k++)
+	{
+		i = TubeIndex(k).i;
+		j = TubeIndex(k).j;
+		for (int ii = -bdryWidth; ii <= bdryWidth; ii++)
+		{
+			for (int jj = -bdryWidth; jj <= bdryWidth; jj++)
+			{
+				if (Tube(i + ii, j + jj) == 0)
+				{
+					Tube(i + ii, j + jj) = 2;
+					numTube += 1;
+					TubeIndex(numTube) = VI(i + ii, j + jj);
+				}
+			}
+		}	
 	}
 
-	Array2D<bool>tempT3 = T3;
-#pragma omp parallel for
-	for (int i = phi.grid.iStart + 1; i <= phi.grid.iEnd - 1; i++)
-	{
-		for (int j = phi.grid.iStart + 1; j <= phi.grid.jEnd - 1; j++)
-		{
-			if (tempT3(i - 1, j - 1) || tempT3(i - 1, j) || tempT3(i - 1, j + 1) || tempT3(i, j - 1) || tempT3(i, j + 1) || tempT3(i + 1, j - 1) || tempT3(i + 1, j) || tempT3(i + 1, j + 1))
-			{
-				if (!T2(i, j))
-				{
-					T3(i, j) = true;
-				}
-			}
-		}
-	}
+	//Tube.Variable("Tube2");
+	//MATLAB.Command("subplot(1,2,2)");
+	//MATLAB.Command("surf(X, Y, Tube2);grid on;axis([-1 1 -1 1]);axis equal;");
 
 }
 
 inline void LevelSet2D::UpdateLLS()
 {
-#pragma omp parallel for
-	for (int i = phi.grid.iStart; i <= phi.grid.iEnd; i++)
+	double threshold = gamma2;
+	int i, j;
+	int bdryWidth = 3;
+#pragma omp parallel for private(i, j)
+	for (int k = 1; k <= numTube; k++)
 	{
-		for (int j = phi.grid.iStart; j <= phi.grid.jEnd; j++)
+		i = TubeIndex(k).i;
+		j = TubeIndex(k).j;
+		if (Tube(i, j) == 2)
 		{
-			if (phi(i, j) < -gamma2)
+			for (int ii = -bdryWidth; ii <= bdryWidth; ii++)
 			{
-				phi(i, j) = -gamma2;
-			}
-			else if (phi(i, j) > gamma2)
-			{
-				phi(i, j) = gamma2;
+				for (int jj = -bdryWidth; jj <= bdryWidth; jj++)
+				{
+					if (Tube(i + ii, j + jj) == 0)
+					{
+						if (phi(i + ii, j + jj) < -threshold)
+						{
+							phi(i + ii, j + jj) = -(threshold);
+						}
+						else if (phi(i + ii, j + jj) > threshold)
+						{
+							phi(i + ii, j + jj) = threshold;
+						}
+					}
+				}
 			}
 		}
 	}
-
 }
 
 typedef LevelSet2D LS;

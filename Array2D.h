@@ -349,11 +349,6 @@ inline void Array2D<TT>::operator=(const Array2D<TT>& ipArray)
 
 	values = new TT[ijRes];
 	memcpy(values, ipArray.values, ijRes * sizeof(TT));
-//#pragma omp parallel for
-//	for (int i = 0; i < ijRes; i++)
-//	{
-//		values[i] = ipArray.values[i];
-//	}
 }
 
 template<class TT>

@@ -70,7 +70,7 @@ inline void LocalLevelSetAdvection::InitialCondition(const int & example)
 				LLS(i, j) = sqrt((grid(i, j).x - 0.5)*(grid(i, j).x - 0.5) + grid(i, j).y*grid(i, j).y) - 0.25;
 			}
 		}
-		LLS.UpdateInterface();
+		LLS.InitialTube();
 
 		velocityX = FD(grid);
 		velocityY = FD(grid);
@@ -93,95 +93,6 @@ inline void LocalLevelSetAdvection::InitialCondition(const int & example)
 	}
 	else if (example == 2)
 	{
-		cout << "Level set advection Test - Spiral" << endl;
-
-		isVelocity = false;
-		needReinitial = false;
-
-		grid = Grid2D(-1, 1, 201, -1, 1, 201);
-
-
-		LLS = LS(grid);
-#pragma omp parallel for
-		for (int i = grid.iStart; i <= grid.iEnd; i++)
-		{
-			for (int j = grid.jStart; j <= grid.jEnd; j++)
-			{
-				LLS(i, j) = sqrt((grid(i, j).x - 0.5)*(grid(i, j).x - 0.5) + grid(i, j).y*grid(i, j).y) - 0.25;
-			}
-		}
-
-		cflCondition = 0.5;
-
-		//dt = grid.dx*grid.dy;
-		maxIteration = 1000;
-		writeIter = 10;
-	}
-	else if (example == 3)
-	{
-		cout << "Level set advection Test - Seven-point Star" << endl;
-
-		isVelocity = false;
-		needReinitial = false;
-
-		grid = Grid2D(-0.25, 0.25, 101, -0.25, 0.25, 101);
-
-		givenPointNum = 100;
-		givenPoint = VectorND<VT>(givenPointNum);
-
-		double s;
-#pragma omp parallel for private (s)
-		for (int i = 0; i < givenPointNum; i++)
-		{
-			s = double(i) / double(givenPointNum);
-			givenPoint(i) = (0.1 + 0.065*sin(7 * 2 * PI*s))*VT(cos(2 * PI*s), sin(2 * PI*s));
-		}
-
-		LLS = LS(grid);
-#pragma omp parallel for
-		for (int i = grid.iStart; i <= grid.iEnd; i++)
-		{
-			for (int j = grid.jStart; j <= grid.jEnd; j++)
-			{
-
-				//LLS(i, j) = distance2Data(i, j);
-			}
-		}
-
-		cflCondition = 0.5;
-
-		//dt = grid.dx*grid.dy;
-		maxIteration = 1000;
-		writeIter = 10;
-	}
-	else if (example == 4)
-	{
-		cout << "Level set advection Test - Unit square" << endl;
-
-		isVelocity = false;
-		needReinitial = false;
-
-		grid = Grid2D(-1, 1, 201, -1, 1, 201);
-
-
-		LLS = LS(grid);
-		//#pragma omp parallel for
-		for (int i = grid.iStart; i <= grid.iEnd; i++)
-		{
-			for (int j = grid.jStart; j <= grid.jEnd; j++)
-			{
-				LLS(i, j) = max(abs(grid(i, j).x), abs(grid(i, j).y)) - 0.5;
-			}
-		}
-
-		cflCondition = 0.05;
-
-		//dt = grid.dx*grid.dy;
-		maxIteration = 1000;
-		writeIter = 10;
-	}
-	else if (example == 5)
-	{
 		cout << "Level set advection Test - Unit sircle" << endl;
 
 		isVelocity = false;
@@ -199,96 +110,7 @@ inline void LocalLevelSetAdvection::InitialCondition(const int & example)
 				LLS(i, j) = sqrt(grid(i, j).x*grid(i, j).x + grid(i, j).y*grid(i, j).y) - 0.5;
 			}
 		}
-
-		cflCondition = 0.05;
-
-		//dt = grid.dx*grid.dy;
-		maxIteration = 1000;
-		writeIter = 10;
-	}
-	else if (example == 6)
-	{
-		cout << "Level set advection Test - Diamond" << endl;
-
-		isVelocity = false;
-		needReinitial = false;
-
-		grid = Grid2D(-1.5, 1.5, 301, -1.5, 1.5, 301);
-
-
-		LLS = LS(grid);
-		//#pragma omp parallel for
-		for (int i = grid.iStart; i <= grid.iEnd; i++)
-		{
-			for (int j = grid.jStart; j <= grid.jEnd; j++)
-			{
-				LLS(i, j) = (4 * abs(grid(i, j).x) + abs(grid(i, j).y)) - 1;
-			}
-		}
-
-		cflCondition = 0.05;
-
-		//dt = grid.dx*grid.dy;
-		maxIteration = 1000;
-		writeIter = 10;
-	}
-	else if (example == 7)
-	{
-		cout << "Level set advection Test - Concave" << endl;
-
-		isVelocity = false;
-		needReinitial = false;
-
-		grid = Grid2D(-1.5, 1.5, 301, -1.5, 1.5, 301);
-
-		int edgePointNum = 200;
-		givenPointNum = edgePointNum * 5;
-		givenPoint = VectorND<VT>(1, givenPointNum);
-
-		for (int i = givenPoint.iStart; i <= edgePointNum; i++)
-		{
-			givenPoint(i).x = 0.25 / edgePointNum * i;
-			givenPoint(i).y = (1 - 4 * abs(givenPoint(i).x));
-			givenPoint(i + edgePointNum).x = 0.25 / edgePointNum * i;
-			givenPoint(i + edgePointNum).y = -(1 - 4 * abs(givenPoint(i + edgePointNum).x));
-			givenPoint(i + edgePointNum * 2).x = 0.25 / edgePointNum * i - 0.25;
-			givenPoint(i + edgePointNum * 2).y = (1 - 4 * abs(givenPoint(i + edgePointNum * 2).x));
-		}
-		for (int i = 1; i <= edgePointNum; i++)
-		{
-			givenPoint(i + edgePointNum * 3).x = 0.25 / edgePointNum * i - 0.25;
-			givenPoint(i + edgePointNum * 3).y = 0;
-		}
-		for (int i = 1; i <= edgePointNum; i++)
-		{
-			givenPoint(i + edgePointNum * 4).x = 0;
-			givenPoint(i + edgePointNum * 4).y = -1 / double(edgePointNum) * i;
-
-		}
-
-		distance = FD(grid);
-		ExactDistance();
-		LLS = LS(grid);
-		//#pragma omp parallel for
-		for (int i = grid.iStart; i <= grid.iEnd; i++)
-		{
-			for (int j = grid.jStart; j <= grid.jEnd; j++)
-			{
-				if ((4 * abs(grid(i, j).x) + abs(grid(i, j).y)) - 1 >= 0)
-				{
-					LLS(i, j) = distance(i, j);
-				}
-				else if (grid(i, j).x <= 0 && grid(i, j).y <= 0)
-				{
-					LLS(i, j) = distance(i, j);
-				}
-				else
-				{
-					LLS(i, j) = -distance(i, j);
-				}
-			}
-		}
-
+		LLS.InitialTube();
 		cflCondition = 0.05;
 
 		//dt = grid.dx*grid.dy;
@@ -308,7 +130,13 @@ inline void LocalLevelSetAdvection::AdvectionSolver(const int & example)
 
 	grid.Variable();
 	LLS.phi.Variable("phi0");
-
+	LLS.phi.Variable("phi");
+	LLS.Tube.Variable("Tube");
+	MATLAB.Command("figure('units','normalized','outerposition',[0 0 1 1])");
+	MATLAB.Command("subplot(1,2,1)");
+	MATLAB.Command("surf(X, Y, Tube);grid on;axis([-1 1 -1 1]);axis equal;");
+	MATLAB.Command("subplot(1,2,2)");
+	MATLAB.Command("surf(X,Y,phi);");
 
 	if (writeFile)
 	{
@@ -324,38 +152,51 @@ inline void LocalLevelSetAdvection::AdvectionSolver(const int & example)
 		}
 	}
 
-	//LLS.T1.Variable("T1");
-	//LLS.T2.Variable("T2");
-	//MATLAB.Command("subplot(1,2,1)");
-	//MATLAB.Command("plot3(X,Y,T1,'o')");
-	//MATLAB.Command("subplot(1,2,2)");
-	//MATLAB.Command("plot3(X,Y,T2,'o')");
-
-	MATLAB.Command("figure('units','normalized','outerposition',[0 0 1/2 1])");
+	//MATLAB.Command("figure('units','normalized','outerposition',[0 0 1 1])");
 	//MATLAB.Command("v = VideoWriter('newfile.avi');");
 	//MATLAB.Command("open(v)");
+	clock_t before;
+	double  result;
+	
+	double totalT = 0;
 	for (int i = 1; i <= maxIteration; i++)
 	{
+		cout << endl;
+		cout << "********************************" << endl;
 		cout << "Level set advection : " << i << endl;
 
 		if (isVelocity)
 		{
 			dt = AdaptiveTimeStep(velocityX, velocityY);
+			totalT += dt;
+			before = clock();
 			AdvectionMethod2D<double>::LLSPropagatingTVDRK3(LLS, velocityX, velocityY, dt);
+			result = (double)(clock() - before) / CLOCKS_PER_SEC;
+			cout << result << endl;
 			LLS.phi.Variable("phi");
 			MATLAB.Command("subplot(1,2,1)");
-			MATLAB.Command("contour(X, Y, phi0, [0 0],'b');hold on;grid on;axis([-1 1 -1 1]);axis equal;contour(X, Y, phi, [0 0],'r');");
-			MATLAB.Command("hold off");
-			MATLAB.Command("subplot(1,2,2)");
 			MATLAB.Command("surf(X,Y,phi);");
+			str = string("title(['iteration : ', num2str(") + to_string(i) + string("),', time : ', num2str(") + to_string(totalT) + string(")]);");
+			cmd = str.c_str();
+			MATLAB.Command(cmd);
+			MATLAB.Command("subplot(1,2,2)");
+			MATLAB.Command("contour(X, Y, phi0, [0 0],'b');hold on;grid on;contour(X, Y, phi,[0 0],'r');axis([-1 1 -1 1]);axis equal;hold off;");
 		}
 		else
 		{
 			dt = AdaptiveTimeStep();
+			before = clock();
 			AdvectionMethod2D<double>::LLSPropagatingTVDRK3(LLS, dt);
-			MATLAB.Variable("i", i);
+			result = (double)(clock() - before) / CLOCKS_PER_SEC;
+			cout << result << endl;
 			LLS.phi.Variable("phi");
-			MATLAB.Command("contour(X, Y, phi0, [0 0],'b');hold on;grid on;contour(X, Y, phi, [0 0],'r');axis([-1 1 -1 1]);axis equal;hold off;");
+			MATLAB.Command("subplot(1,2,1)");
+			MATLAB.Command("surf(X,Y,phi);");
+			str = string("title(['iteration : ', num2str(") + to_string(i) + string("),', time : ', num2str(") + to_string(totalT) + string(")]);");
+			cmd = str.c_str();
+			MATLAB.Command(cmd);
+			MATLAB.Command("subplot(1,2,2)");
+			MATLAB.Command("contour(X, Y, phi0, [0 0],'b');hold on;grid on;contour(X, Y, phi,[0 0],'r');axis([-1 1 -1 1]);axis equal;hold off;");
 			//MATLAB.Command("F=getframe;");
 			//MATLAB.Command("writeVideo(v,F)");
 		}
