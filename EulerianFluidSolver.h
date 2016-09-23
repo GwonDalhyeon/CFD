@@ -54,7 +54,7 @@ public:
 	inline void GenerateLinearSystem(VectorND<double>& vectorB, const double & scaling);
 	inline void TVDRK3TimeAdvection();
 	inline void EulerMethod();
-	inline void AdvectionTerm(const FD& U, const FD& V, FD& TermU, FD& TermV);
+	inline void AdvectionTerm(FD& U, FD& V, FD& TermU, FD& TermV);
 	inline void DiffusionTerm(const FD& U, const FD& V, FD& TermU, FD& TermV);
 
 	inline double AdaptiveTimeStep(const FD& velocity1, const FD& velocity2);
@@ -615,17 +615,18 @@ inline void EulerianFluidSolver2D::EulerMethod()
 
 
 
-inline void EulerianFluidSolver2D::AdvectionTerm(const FD& U, const FD& V, FD& TermU, FD& TermV)
+inline void EulerianFluidSolver2D::AdvectionTerm(FD& U, FD& V, FD& TermU, FD& TermV)
 {
-	FD dUdxM(U.grid);
-	FD dUdxP(U.grid);
-	FD dUdyM(U.grid);
-	FD dUdyP(U.grid);
+
+	Array2D<double>& dUdxM = U.dfdxM;
+	Array2D<double>& dUdxP = U.dfdxP;
+	Array2D<double>& dUdyM = U.dfdyM;
+	Array2D<double>& dUdyP = U.dfdyP;
 	AdvectionMethod2D<double>::ENO3rdDerivation(U, dUdxM, dUdxP, dUdyM, dUdyP);
-	FD dVdxM(V.grid);
-	FD dVdxP(V.grid);
-	FD dVdyM(V.grid);
-	FD dVdyP(V.grid);
+	Array2D<double>& dVdxM = V.dfdxM;
+	Array2D<double>& dVdxP = V.dfdxP;
+	Array2D<double>& dVdyM = V.dfdyM;
+	Array2D<double>& dVdyP = V.dfdyP;
 	AdvectionMethod2D<double>::ENO3rdDerivation(V, dVdxM, dVdxP, dVdyM, dVdyP);
 
 

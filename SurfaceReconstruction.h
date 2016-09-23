@@ -81,8 +81,8 @@ public:
 	void GenerateLinearSystem(Array2D<double>& matrixA, const double & scaling);
 	void GenerateLinearSystem(const FD& u, const FD& f, const FV& d, const FV& b, VectorND<double>& vectorB, const double & scaling);
 	void OptimalU(const FD& f, const FV& d, const FV& b, const CSR<double>& csrA, FD& u);
-	void OptimalD(const FV& gradientU, const FV& b, FV& d);
-	void OptimalB(const FV& gradientU, const FV& d, FV& b);
+	void OptimalD(const FD& ipField, const FV& b, FV& d);
+	void OptimalB(const FD& ipField, const FV& d, FV& b);
 
 private:
 
@@ -785,14 +785,14 @@ inline void SurfaceReconst<TT>::LSPropagatingTVDRK3()
 {
 	LS originLevelSet = levelSet;
 
-	FD k1(levelSet.grid);
-	FD k2(levelSet.grid);
-	FD k3(levelSet.grid);
+	Array2D<double>& k1 = levelSet.phi.K1;
+	Array2D<double>& k2 = levelSet.phi.K2;
+	Array2D<double>& k3 = levelSet.phi.K3;
 
-	FD wenoXMinus(levelSet.grid);
-	FD wenoXPlus(levelSet.grid);
-	FD wenoYMinus(levelSet.grid);
-	FD wenoYPlus(levelSet.grid);
+	Array2D<double>& wenoXMinus = levelSet.phi.dfdxM;
+	Array2D<double>& wenoXPlus = levelSet.phi.dfdxP;
+	Array2D<double>& wenoYMinus = levelSet.phi.dfdyM;
+	Array2D<double>& wenoYPlus = levelSet.phi.dfdyP;
 
 	AdvectionMethod2D<double>::WENO5thDerivation(levelSet.phi, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
 #pragma omp parallel for
@@ -906,7 +906,6 @@ inline void SurfaceReconst<TT>::SurfaceReconstructionSplitBregman(const int & ex
 
 	FV b(grid);
 	FV d(grid);
-	FV gradientU(grid);;
 	FD f(grid);
 
 	InitialF(example, f);
@@ -958,13 +957,12 @@ inline void SurfaceReconst<TT>::SurfaceReconstructionSplitBregman(const int & ex
 	{
 		OptimalU(distance, d, b, csrA, levelSet.phi);
 		levelSet.phi.Variable("u");
+		levelSet.phi.Gradient();
+		ArrayVec2DVariable("grad", levelSet.phi.gradient);
 
-		gradientU = FV::Gradient(levelSet.phi);
-		ArrayVec2DVariable("grad", gradientU.dataArray);
+		OptimalD(levelSet.phi, b, d);
 
-		OptimalD(gradientU, b, d);
-
-		OptimalB(gradientU, d, b);
+		OptimalB(levelSet.phi, d, b);
 
 		if (WriteFile)
 		{
@@ -1107,27 +1105,27 @@ inline void SurfaceReconst<TT>::OptimalU(const FD& f, const FV& d, const FV& b, 
 }
 
 template<class TT>
-inline void SurfaceReconst<TT>::OptimalD(const FV& gradientU, const FV& b, FV& d)
+inline void SurfaceReconst<TT>::OptimalD(const FD & ipField, const FV & b, FV & d)
 {
 #pragma omp parallel for
 	for (int i = d.iStart; i <= d.iEnd; i++)
 	{
 		for (int j = d.jStart; j <= d.jEnd; j++)
 		{
-			d(i, j) = BregmanMethod<double>::Shrink(gradientU(i, j) + b(i, j), lambda);
+			d(i, j) = BregmanMethod<double>::Shrink(ipField.gradient(i, j) + b(i, j), lambda);
 		}
 	}
 }
 
 template<class TT>
-inline void SurfaceReconst<TT>::OptimalB(const FV& gradientU, const FV& d, FV& b)
+inline void SurfaceReconst<TT>::OptimalB(const FD & ipField, const FV & d, FV & b)
 {
 #pragma omp parallel for
 	for (int i = b.iStart; i <= b.iEnd; i++)
 	{
 		for (int j = b.jStart; j <= b.jEnd; j++)
 		{
-			b(i, j) = b(i, j) + gradientU(i, j) - d(i, j);
+			b(i, j) = b(i, j) + ipField.gradient(i, j) - d(i, j);
 		}
 	}
 }

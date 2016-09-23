@@ -117,6 +117,10 @@ inline void LocalLevelSetAdvection::InitialCondition(const int & example)
 		maxIteration = 1000;
 		writeIter = 10;
 	}
+	else if (example == 3)
+	{
+
+	}
 }
 
 

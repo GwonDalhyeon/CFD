@@ -454,10 +454,10 @@ inline void VortexSheet::GenerateLinearSystem(const FD& P, VectorND<double>& vec
 
 inline void VortexSheet::Stream2Velocity()
 {
-	FD wenoXMinus(grid);
-	FD wenoXPlus(grid);
-	FD wenoYMinus(grid);
-	FD wenoYPlus(grid);
+	Array2D<double> wenoXMinus(grid);
+	Array2D<double> wenoXPlus(grid);
+	Array2D<double> wenoYMinus(grid);
+	Array2D<double> wenoYPlus(grid);
 	AdvectionMethod2D<double>::WENO5thDerivation(streamFunction, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
 
 #pragma omp parallel for

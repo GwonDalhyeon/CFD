@@ -26,11 +26,11 @@ public:
 	static TT Plus(const TT& constant);
 	static TT Minus(const TT& constant);
 
-	static void ENO3rdDerivation(const Field2D<TT>& ipField, Field2D<TT>& enoDxMinus, Field2D<TT>& enoDxPlus, Field2D<TT>& enoDyMinus, Field2D<TT>& enoDyPlus);
-	static void ENO3rdDxMinus(const Field2D<TT>& ipField, Field2D<TT>& enoDxMinus);
-	static void ENO3rdDxPlus(const Field2D<TT>& ipField, Field2D<TT>& enoDxPlus);
-	static void ENO3rdDyMinus(const Field2D<TT>& ipField, Field2D<TT>& enoDyMinus);
-	static void ENO3rdDyPlus(const Field2D<TT>& ipField, Field2D<TT>& enoDyPlus);
+	static void ENO3rdDerivation(const Field2D<TT>& ipField, Array2D<TT>& enoDxMinus, Array2D<TT>& enoDxPlus, Array2D<TT>& enoDyMinus, Array2D<TT>& enoDyPlus);
+	static void ENO3rdDxMinus(const Field2D<TT>& ipField, Array2D<TT>& enoDxMinus);
+	static void ENO3rdDxPlus(const Field2D<TT>& ipField, Array2D<TT>& enoDxPlus);
+	static void ENO3rdDyMinus(const Field2D<TT>& ipField, Array2D<TT>& enoDyMinus);
+	static void ENO3rdDyPlus(const Field2D<TT>& ipField, Array2D<TT>& enoDyPlus);
 	static TT ENOD1x(const Field2D<TT>& ipField, const int& i, const int& j);
 	static TT ENOD2x(const Field2D<TT>& ipField, const int& i, const int& j);
 	static TT ENOD3x(const Field2D<TT>& ipField, const int& i, const int& j);
@@ -38,12 +38,12 @@ public:
 	static TT ENOD2y(const Field2D<TT>& ipField, const int& i, const int& j);
 	static TT ENOD3y(const Field2D<TT>& ipField, const int& i, const int& j);
 
-	static void WENO5thDerivation(const Field2D<TT>& ipField, Field2D<TT>& wenoXMinus, Field2D<TT>& wenoXPlus, Field2D<TT>& wenoYMinus, Field2D<TT>& wenoYPlus);
+	static void WENO5thDerivation(const Field2D<TT>& ipField, Array2D<TT>& wenoXMinus, Array2D<TT>& wenoXPlus, Array2D<TT>& wenoYMinus, Array2D<TT>& wenoYPlus);
 	static void WENO5th(const TT& v1, const TT& v2, const TT& v3, const TT& v4, const TT& v5, TT& constant);
-	static void WENO5thDxMinus(const Field2D<TT>& ipField, Field2D<TT>& wenoXMinus);
-	static void WENO5thDxPlus(const Field2D<TT>& ipField, Field2D<TT>& wenoXPlus);
-	static void WENO5thDyMinus(const Field2D<TT>& ipField, Field2D<TT>& wenoYMinus);
-	static void WENO5thDyPlus(const Field2D<TT>& ipField, Field2D<TT>& wenoYPlus);
+	static void WENO5thDxMinus(const Field2D<TT>& ipField, Array2D<TT>& wenoXMinus);
+	static void WENO5thDxPlus(const Field2D<TT>& ipField, Array2D<TT>& wenoXPlus);
+	static void WENO5thDyMinus(const Field2D<TT>& ipField, Array2D<TT>& wenoYMinus);
+	static void WENO5thDyPlus(const Field2D<TT>& ipField, Array2D<TT>& wenoYPlus);
 
 	static void LSReinitializationTVDRK3(LS& levelSet, const double& dt);
 	static TT ReinitialGodunov(const TT& dxPlus, const TT& dxMinus, const TT& dyPlus, const TT& dyMinus, const TT& phi);
@@ -66,11 +66,11 @@ public:
 	static void LLSPropagatingTVDRK3(LS& levelSet, const FD& velocity, const double& dt);
 	static void LLSPropagatingTVDRK3(LS& levelSet, const FD& velocityX, const FD& velocityY, const double& dt);
 
-	static void LLSWENO5thDerivation(const LS& levelSet, const Field2D<TT>& ipField, Field2D<TT>& wenoXMinus, Field2D<TT>& wenoXPlus, Field2D<TT>& wenoYMinus, Field2D<TT>& wenoYPlus);
-	static void LLSWENO5thDxMinus(const LS& levelSet, const Field2D<TT>& ipField, Field2D<TT>& wenoXMinus);
-	static void LLSWENO5thDxPlus(const LS& levelSet, const Field2D<TT>& ipField, Field2D<TT>& wenoXPlus);
-	static void LLSWENO5thDyMinus(const LS& levelSet, const Field2D<TT>& ipField, Field2D<TT>& wenoYMinus);
-	static void LLSWENO5thDyPlus(const LS& levelSet, const Field2D<TT>& ipField, Field2D<TT>& wenoYPlus);
+	static void LLSWENO5thDerivation(const LS& levelSet, const Field2D<TT>& ipField, Array2D<TT>& wenoXMinus, Array2D<TT>& wenoXPlus, Array2D<TT>& wenoYMinus, Array2D<TT>& wenoYPlus);
+	static void LLSWENO5thDxMinus(const LS& levelSet, const Field2D<TT>& ipField, Array2D<TT>& wenoXMinus);
+	static void LLSWENO5thDxPlus(const LS& levelSet, const Field2D<TT>& ipField, Array2D<TT>& wenoXPlus);
+	static void LLSWENO5thDyMinus(const LS& levelSet, const Field2D<TT>& ipField, Array2D<TT>& wenoYMinus);
+	static void LLSWENO5thDyPlus(const LS& levelSet, const Field2D<TT>& ipField, Array2D<TT>& wenoYPlus);
 
 	static void LLSReinitializationTVDRK3(LS& levelSet, const double& dt);
 	static void LLSReinitializationTVDRK3(LS& levelSet, const double& dt, const int& iter);
@@ -209,7 +209,7 @@ inline TT AdvectionMethod2D<TT>::Minus(const TT & constant)
 }
 
 template<class TT>
-inline void AdvectionMethod2D<TT>::ENO3rdDerivation(const Field2D<TT>& ipField, Field2D<TT>& enoDxMinus, Field2D<TT>& enoDxPlus, Field2D<TT>& enoDyMinus, Field2D<TT>& enoDyPlus)
+inline void AdvectionMethod2D<TT>::ENO3rdDerivation(const Field2D<TT>& ipField, Array2D<TT>& enoDxMinus, Array2D<TT>& enoDxPlus, Array2D<TT>& enoDyMinus, Array2D<TT>& enoDyPlus)
 {
 	ENO3rdDxMinus(ipField, enoDxMinus);
 	ENO3rdDxPlus(ipField, enoDxPlus);
@@ -218,7 +218,7 @@ inline void AdvectionMethod2D<TT>::ENO3rdDerivation(const Field2D<TT>& ipField, 
 }
 
 template<class TT>
-inline void AdvectionMethod2D<TT>::ENO3rdDxMinus(const Field2D<TT>& ipField, Field2D<TT>& enoDxMinus)
+inline void AdvectionMethod2D<TT>::ENO3rdDxMinus(const Field2D<TT>& ipField, Array2D<TT>& enoDxMinus)
 {
 	double Q1, Q2, Q3, c1, c2;
 	int k;
@@ -270,7 +270,7 @@ inline void AdvectionMethod2D<TT>::ENO3rdDxMinus(const Field2D<TT>& ipField, Fie
 }
 
 template<class TT>
-inline void AdvectionMethod2D<TT>::ENO3rdDxPlus(const Field2D<TT>& ipField, Field2D<TT>& enoDxPlus)
+inline void AdvectionMethod2D<TT>::ENO3rdDxPlus(const Field2D<TT>& ipField, Array2D<TT>& enoDxPlus)
 {
 	double Q1, Q2, Q3, c1, c2;
 	int k;
@@ -324,7 +324,7 @@ inline void AdvectionMethod2D<TT>::ENO3rdDxPlus(const Field2D<TT>& ipField, Fiel
 }
 
 template<class TT>
-inline void AdvectionMethod2D<TT>::ENO3rdDyMinus(const Field2D<TT>& ipField, Field2D<TT>& enoDyMinus)
+inline void AdvectionMethod2D<TT>::ENO3rdDyMinus(const Field2D<TT>& ipField, Array2D<TT>& enoDyMinus)
 {
 	double Q1, Q2, Q3, c1, c2;
 	int k;
@@ -376,7 +376,7 @@ inline void AdvectionMethod2D<TT>::ENO3rdDyMinus(const Field2D<TT>& ipField, Fie
 }
 
 template<class TT>
-inline void AdvectionMethod2D<TT>::ENO3rdDyPlus(const Field2D<TT>& ipField, Field2D<TT>& enoDyPlus)
+inline void AdvectionMethod2D<TT>::ENO3rdDyPlus(const Field2D<TT>& ipField, Array2D<TT>& enoDyPlus)
 {
 	double Q1, Q2, Q3, c1, c2;
 	int k;
@@ -465,7 +465,7 @@ inline TT AdvectionMethod2D<TT>::ENOD3y(const Field2D<TT>& ipField, const int& i
 }
 
 template<class TT>
-inline void AdvectionMethod2D<TT>::WENO5thDerivation(const Field2D<TT>& ipField, Field2D<TT>& wenoXMinus, Field2D<TT>& wenoXPlus, Field2D<TT>& wenoYMinus, Field2D<TT>& wenoYPlus)
+inline void AdvectionMethod2D<TT>::WENO5thDerivation(const Field2D<TT>& ipField, Array2D<TT>& wenoXMinus, Array2D<TT>& wenoXPlus, Array2D<TT>& wenoYMinus, Array2D<TT>& wenoYPlus)
 {
 	WENO5thDxMinus(ipField, wenoXMinus);
 	WENO5thDxPlus(ipField, wenoXPlus);
@@ -497,7 +497,7 @@ inline void AdvectionMethod2D<TT>::WENO5th(const TT & v1, const TT & v2, const T
 
 
 template<class TT>
-inline void AdvectionMethod2D<TT>::WENO5thDxMinus(const Field2D<TT>& ipField, Field2D<TT>& wenoXMinus)
+inline void AdvectionMethod2D<TT>::WENO5thDxMinus(const Field2D<TT>& ipField, Array2D<TT>& wenoXMinus)
 {
 	TT v1, v2, v3, v4, v5;
 #pragma omp parallel for private(v1,v2,v3,v4,v5)
@@ -524,7 +524,7 @@ inline void AdvectionMethod2D<TT>::WENO5thDxMinus(const Field2D<TT>& ipField, Fi
 }
 
 template<class TT>
-inline void AdvectionMethod2D<TT>::WENO5thDxPlus(const Field2D<TT>& ipField, Field2D<TT>& wenoXPlus)
+inline void AdvectionMethod2D<TT>::WENO5thDxPlus(const Field2D<TT>& ipField, Array2D<TT>& wenoXPlus)
 {
 	TT v1, v2, v3, v4, v5;
 #pragma omp parallel for private(v1,v2,v3,v4,v5)
@@ -551,7 +551,7 @@ inline void AdvectionMethod2D<TT>::WENO5thDxPlus(const Field2D<TT>& ipField, Fie
 }
 
 template<class TT>
-inline void AdvectionMethod2D<TT>::WENO5thDyMinus(const Field2D<TT>& ipField, Field2D<TT>& wenoYMinus)
+inline void AdvectionMethod2D<TT>::WENO5thDyMinus(const Field2D<TT>& ipField, Array2D<TT>& wenoYMinus)
 {
 	TT v1, v2, v3, v4, v5;
 #pragma omp parallel for private(v1,v2,v3,v4,v5)
@@ -578,7 +578,7 @@ inline void AdvectionMethod2D<TT>::WENO5thDyMinus(const Field2D<TT>& ipField, Fi
 }
 
 template<class TT>
-inline void AdvectionMethod2D<TT>::WENO5thDyPlus(const Field2D<TT>& ipField, Field2D<TT>& wenoYPlus)
+inline void AdvectionMethod2D<TT>::WENO5thDyPlus(const Field2D<TT>& ipField, Array2D<TT>& wenoYPlus)
 {
 	TT v1, v2, v3, v4, v5;
 #pragma omp parallel for private(v1,v2,v3,v4,v5)
@@ -609,14 +609,14 @@ inline void AdvectionMethod2D<TT>::LSReinitializationTVDRK3(LS& levelSet, const 
 {
 	LS originLevelSet = levelSet;
 
-	Field2D<TT> k1(levelSet.grid);
-	Field2D<TT> k2(levelSet.grid);
-	Field2D<TT> k3(levelSet.grid);
+	Array2D<TT>& k1 = levelSet.phi.K1;
+	Array2D<TT>& k2 = levelSet.phi.K2;
+	Array2D<TT>& k3 = levelSet.phi.K3;
 
-	Field2D<TT> wenoXMinus(levelSet.grid);
-	Field2D<TT> wenoXPlus(levelSet.grid);
-	Field2D<TT> wenoYMinus(levelSet.grid);
-	Field2D<TT> wenoYPlus(levelSet.grid);
+	Array2D<TT>& wenoXMinus = levelSet.phi.dfdxM;
+	Array2D<TT>& wenoXPlus = levelSet.phi.dfdxP;
+	Array2D<TT>& wenoYMinus = levelSet.phi.dfdyM;
+	Array2D<TT>& wenoYPlus = levelSet.phi.dfdyP;
 
 
 	WENO5thDerivation(levelSet.phi, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
@@ -681,16 +681,16 @@ template<class TT>
 inline void AdvectionMethod2D<TT>::LSPropagatingTVDRK3(LS & levelSet, const double & dt)
 {
 	LS originLevelSet = levelSet;
-	LS tempLevelSet(originLevelSet.grid);
 
-	Field2D<TT> k1(levelSet.grid);
-	Field2D<TT> k2(levelSet.grid);
-	Field2D<TT> k3(levelSet.grid);
+	Array2D<TT>& k1 = levelSet.phi.K1;
+	Array2D<TT>& k2 = levelSet.phi.K2;
+	Array2D<TT>& k3 = levelSet.phi.K3;
 
-	Field2D<TT> wenoXMinus(levelSet.grid);
-	Field2D<TT> wenoXPlus(levelSet.grid);
-	Field2D<TT> wenoYMinus(levelSet.grid);
-	Field2D<TT> wenoYPlus(levelSet.grid);
+	Array2D<TT>& wenoXMinus = levelSet.phi.dfdxM;
+	Array2D<TT>& wenoXPlus = levelSet.phi.dfdxP;
+	Array2D<TT>& wenoYMinus = levelSet.phi.dfdyM;
+	Array2D<TT>& wenoYPlus = levelSet.phi.dfdyP;
+
 	clock_t before = clock();
 	WENO5thDerivation(levelSet.phi, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
 #pragma omp parallel for
@@ -733,16 +733,15 @@ template<class TT>
 inline void AdvectionMethod2D<TT>::LSPropagatingTVDRK3(LS & levelSet, const FD& velocity, const double & dt)
 {
 	LS originLevelSet = levelSet;
-	LS tempLevelSet(originLevelSet.grid);
 
-	Field2D<TT> k1(levelSet.grid);
-	Field2D<TT> k2(levelSet.grid);
-	Field2D<TT> k3(levelSet.grid);
+	Array2D<TT>& k1 = levelSet.phi.K1;
+	Array2D<TT>& k2 = levelSet.phi.K2;
+	Array2D<TT>& k3 = levelSet.phi.K3;
 
-	Field2D<TT> wenoXMinus(levelSet.grid);
-	Field2D<TT> wenoXPlus(levelSet.grid);
-	Field2D<TT> wenoYMinus(levelSet.grid);
-	Field2D<TT> wenoYPlus(levelSet.grid);
+	Array2D<TT>& wenoXMinus = levelSet.phi.dfdxM;
+	Array2D<TT>& wenoXPlus = levelSet.phi.dfdxP;
+	Array2D<TT>& wenoYMinus = levelSet.phi.dfdyM;
+	Array2D<TT>& wenoYPlus = levelSet.phi.dfdyP;
 
 	WENO5thDerivation(levelSet.phi, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
 #pragma omp parallel for
@@ -782,16 +781,15 @@ template<class TT>
 inline void AdvectionMethod2D<TT>::LSPropagatingTVDRK3(LS & levelSet, const FD& velocityX, const FD& velocityY, const double& dt)
 {
 	LS originLevelSet = levelSet;
-	LS tempLevelSet(originLevelSet.grid);
 
-	Field2D<TT> k1(levelSet.grid);
-	Field2D<TT> k2(levelSet.grid);
-	Field2D<TT> k3(levelSet.grid);
+	Array2D<TT>& k1 = levelSet.phi.K1;
+	Array2D<TT>& k2 = levelSet.phi.K2;
+	Array2D<TT>& k3 = levelSet.phi.K3;
 
-	Field2D<TT> wenoXMinus(levelSet.grid);
-	Field2D<TT> wenoXPlus(levelSet.grid);
-	Field2D<TT> wenoYMinus(levelSet.grid);
-	Field2D<TT> wenoYPlus(levelSet.grid);
+	Array2D<TT>& wenoXMinus = levelSet.phi.dfdxM;
+	Array2D<TT>& wenoXPlus = levelSet.phi.dfdxP;
+	Array2D<TT>& wenoYMinus = levelSet.phi.dfdyM;
+	Array2D<TT>& wenoYPlus = levelSet.phi.dfdyP;
 
 
 
@@ -891,16 +889,15 @@ template<class TT>
 inline void AdvectionMethod2D<TT>::LSPropagatingTVDRK3PeriodicX(LS & levelSet, const FD& velocityX, const FD& velocityY, const double & dt)
 {
 	LS originLevelSet = levelSet;
-	LS tempLevelSet(originLevelSet.grid);
 
-	Field2D<TT> k1(levelSet.grid);
-	Field2D<TT> k2(levelSet.grid);
-	Field2D<TT> k3(levelSet.grid);
+	Array2D<TT>& k1 = levelSet.phi.K1;
+	Array2D<TT>& k2 = levelSet.phi.K2;
+	Array2D<TT>& k3 = levelSet.phi.K3;
 
-	Field2D<TT> wenoXMinus(levelSet.grid);
-	Field2D<TT> wenoXPlus(levelSet.grid);
-	Field2D<TT> wenoYMinus(levelSet.grid);
-	Field2D<TT> wenoYPlus(levelSet.grid);
+	Array2D<TT>& wenoXMinus = levelSet.phi.dfdxM;
+	Array2D<TT>& wenoXPlus = levelSet.phi.dfdxP;
+	Array2D<TT>& wenoYMinus = levelSet.phi.dfdyM;
+	Array2D<TT>& wenoYPlus = levelSet.phi.dfdyP;
 
 
 
@@ -1018,10 +1015,10 @@ inline void AdvectionMethod2D<TT>::LSPropagatingEuler(LS & levelSet, const FD& v
 {
 	LS tempLevelSet(levelSet.grid);
 
-	Field2D<TT> wenoXMinus(levelSet.grid);
-	Field2D<TT> wenoXPlus(levelSet.grid);
-	Field2D<TT> wenoYMinus(levelSet.grid);
-	Field2D<TT> wenoYPlus(levelSet.grid);
+	Array2D<TT>& wenoXMinus = levelSet.phi.dfdxM;
+	Array2D<TT>& wenoXPlus = levelSet.phi.dfdxP;
+	Array2D<TT>& wenoYMinus = levelSet.phi.dfdyM;
+	Array2D<TT>& wenoYPlus = levelSet.phi.dfdyP;
 
 	WENO5thDxMinus(levelSet.phi, wenoXMinus);
 	WENO5thDxPlus(levelSet.phi, wenoXPlus);
@@ -1066,14 +1063,14 @@ inline void AdvectionMethod2D<TT>::LLSPropagatingTVDRK3(LS & levelSet, const dou
 {
 	LS originLevelSet = levelSet;
 
-	Field2D<TT> k1(levelSet.grid);
-	Field2D<TT> k2(levelSet.grid);
-	Field2D<TT> k3(levelSet.grid);
+	Array2D<TT>& k1 = levelSet.phi.K1;
+	Array2D<TT>& k2 = levelSet.phi.K2;
+	Array2D<TT>& k3 = levelSet.phi.K3;
 
-	Field2D<TT> wenoXMinus(levelSet.grid);
-	Field2D<TT> wenoXPlus(levelSet.grid);
-	Field2D<TT> wenoYMinus(levelSet.grid);
-	Field2D<TT> wenoYPlus(levelSet.grid);
+	Array2D<TT>& wenoXMinus = levelSet.phi.dfdxM;
+	Array2D<TT>& wenoXPlus = levelSet.phi.dfdxP;
+	Array2D<TT>& wenoYMinus = levelSet.phi.dfdyM;
+	Array2D<TT>& wenoYPlus = levelSet.phi.dfdyP;
 	int i, j;
 	LLSWENO5thDerivation(levelSet, levelSet.phi, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
 #pragma omp parallel for private(i, j)
@@ -1114,14 +1111,14 @@ inline void AdvectionMethod2D<TT>::LLSPropagatingTVDRK3(LS & levelSet, const FD&
 {
 	LS originLevelSet = levelSet;
 
-	Field2D<TT> k1(levelSet.grid);
-	Field2D<TT> k2(levelSet.grid);
-	Field2D<TT> k3(levelSet.grid);
+	Array2D<TT>& k1 = levelSet.phi.K1;
+	Array2D<TT>& k2 = levelSet.phi.K2;
+	Array2D<TT>& k3 = levelSet.phi.K3;
 
-	Field2D<TT> wenoXMinus(levelSet.grid);
-	Field2D<TT> wenoXPlus(levelSet.grid);
-	Field2D<TT> wenoYMinus(levelSet.grid);
-	Field2D<TT> wenoYPlus(levelSet.grid);
+	Array2D<TT>& wenoXMinus = levelSet.phi.dfdxM;
+	Array2D<TT>& wenoXPlus = levelSet.phi.dfdxP;
+	Array2D<TT>& wenoYMinus = levelSet.phi.dfdyM;
+	Array2D<TT>& wenoYPlus = levelSet.phi.dfdyP;
 	int i, j;
 
 	LLSWENO5thDerivation(levelSet, levelSet.phi, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
@@ -1167,14 +1164,14 @@ inline void AdvectionMethod2D<TT>::LLSPropagatingTVDRK3(LS & levelSet, const FD&
 {
 	LS originLevelSet = levelSet;
 
-	Field2D<TT> k1(levelSet.grid);
-	Field2D<TT> k2(levelSet.grid);
-	Field2D<TT> k3(levelSet.grid);
+	Array2D<TT>& k1 = levelSet.phi.K1;
+	Array2D<TT>& k2 = levelSet.phi.K2;
+	Array2D<TT>& k3 = levelSet.phi.K3;
 
-	Field2D<TT> wenoXMinus(levelSet.grid);
-	Field2D<TT> wenoXPlus(levelSet.grid);
-	Field2D<TT> wenoYMinus(levelSet.grid);
-	Field2D<TT> wenoYPlus(levelSet.grid);
+	Array2D<TT>& wenoXMinus = levelSet.phi.dfdxM;
+	Array2D<TT>& wenoXPlus = levelSet.phi.dfdxP;
+	Array2D<TT>& wenoYMinus = levelSet.phi.dfdyM;
+	Array2D<TT>& wenoYPlus = levelSet.phi.dfdyP;
 
 	LLSWENO5thDerivation(levelSet, levelSet.phi, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
 
@@ -1267,7 +1264,7 @@ inline void AdvectionMethod2D<TT>::LLSPropagatingTVDRK3(LS & levelSet, const FD&
 }
 
 template<class TT>
-inline void AdvectionMethod2D<TT>::LLSWENO5thDerivation(const LS& levelSet, const Field2D<TT>& ipField, Field2D<TT>& wenoXMinus, Field2D<TT>& wenoXPlus, Field2D<TT>& wenoYMinus, Field2D<TT>& wenoYPlus)
+inline void AdvectionMethod2D<TT>::LLSWENO5thDerivation(const LS& levelSet, const Field2D<TT>& ipField, Array2D<TT>& wenoXMinus, Array2D<TT>& wenoXPlus, Array2D<TT>& wenoYMinus, Array2D<TT>& wenoYPlus)
 {
 	LLSWENO5thDxMinus(levelSet, ipField, wenoXMinus);
 	LLSWENO5thDxPlus(levelSet, ipField, wenoXPlus);
@@ -1276,7 +1273,7 @@ inline void AdvectionMethod2D<TT>::LLSWENO5thDerivation(const LS& levelSet, cons
 }
 
 template<class TT>
-inline void AdvectionMethod2D<TT>::LLSWENO5thDxMinus(const LS & levelSet, const Field2D<TT>& ipField, Field2D<TT>& wenoXMinus)
+inline void AdvectionMethod2D<TT>::LLSWENO5thDxMinus(const LS & levelSet, const Field2D<TT>& ipField, Array2D<TT>& wenoXMinus)
 {
 	TT v1, v2, v3, v4, v5;
 	int i, j;
@@ -1303,7 +1300,7 @@ inline void AdvectionMethod2D<TT>::LLSWENO5thDxMinus(const LS & levelSet, const 
 }
 
 template<class TT>
-inline void AdvectionMethod2D<TT>::LLSWENO5thDxPlus(const LS & levelSet, const Field2D<TT>& ipField, Field2D<TT>& wenoXPlus)
+inline void AdvectionMethod2D<TT>::LLSWENO5thDxPlus(const LS & levelSet, const Field2D<TT>& ipField, Array2D<TT>& wenoXPlus)
 {
 	TT v1, v2, v3, v4, v5;
 	int i, j;
@@ -1331,7 +1328,7 @@ inline void AdvectionMethod2D<TT>::LLSWENO5thDxPlus(const LS & levelSet, const F
 }
 
 template<class TT>
-inline void AdvectionMethod2D<TT>::LLSWENO5thDyMinus(const LS & levelSet, const Field2D<TT>& ipField, Field2D<TT>& wenoYMinus)
+inline void AdvectionMethod2D<TT>::LLSWENO5thDyMinus(const LS & levelSet, const Field2D<TT>& ipField, Array2D<TT>& wenoYMinus)
 {
 	TT v1, v2, v3, v4, v5;
 	int i, j;
@@ -1359,7 +1356,7 @@ inline void AdvectionMethod2D<TT>::LLSWENO5thDyMinus(const LS & levelSet, const 
 }
 
 template<class TT>
-inline void AdvectionMethod2D<TT>::LLSWENO5thDyPlus(const LS & levelSet, const Field2D<TT>& ipField, Field2D<TT>& wenoYPlus)
+inline void AdvectionMethod2D<TT>::LLSWENO5thDyPlus(const LS & levelSet, const Field2D<TT>& ipField, Array2D<TT>& wenoYPlus)
 {
 	TT v1, v2, v3, v4, v5;
 	int i, j;
@@ -1391,14 +1388,14 @@ inline void AdvectionMethod2D<TT>::LLSReinitializationTVDRK3(LS & levelSet, cons
 {
 	LS originLevelSet = levelSet;
 
-	Field2D<TT> k1(levelSet.grid);
-	Field2D<TT> k2(levelSet.grid);
-	Field2D<TT> k3(levelSet.grid);
+	Array2D<TT>& k1 = levelSet.phi.K1;
+	Array2D<TT>& k2 = levelSet.phi.K2;
+	Array2D<TT>& k3 = levelSet.phi.K3;
 
-	Field2D<TT> wenoXMinus(levelSet.grid);
-	Field2D<TT> wenoXPlus(levelSet.grid);
-	Field2D<TT> wenoYMinus(levelSet.grid);
-	Field2D<TT> wenoYPlus(levelSet.grid);
+	Array2D<TT>& wenoXMinus = levelSet.phi.dfdxM;
+	Array2D<TT>& wenoXPlus = levelSet.phi.dfdxP;
+	Array2D<TT>& wenoYMinus = levelSet.phi.dfdyM;
+	Array2D<TT>& wenoYPlus = levelSet.phi.dfdyP;
 
 	int i, j;
 
@@ -1436,14 +1433,14 @@ inline void AdvectionMethod2D<TT>::LLSReinitializationTVDRK3(LS & levelSet, cons
 {
 	LS originLevelSet = levelSet;
 
-	Field2D<TT> k1(levelSet.grid);
-	Field2D<TT> k2(levelSet.grid);
-	Field2D<TT> k3(levelSet.grid);
+	Array2D<TT>& k1 = levelSet.phi.K1;
+	Array2D<TT>& k2 = levelSet.phi.K2;
+	Array2D<TT>& k3 = levelSet.phi.K3;
 
-	Field2D<TT> wenoXMinus(levelSet.grid);
-	Field2D<TT> wenoXPlus(levelSet.grid);
-	Field2D<TT> wenoYMinus(levelSet.grid);
-	Field2D<TT> wenoYPlus(levelSet.grid);
+	Array2D<TT>& wenoXMinus = levelSet.phi.dfdxM;
+	Array2D<TT>& wenoXPlus = levelSet.phi.dfdxP;
+	Array2D<TT>& wenoYMinus = levelSet.phi.dfdyM;
+	Array2D<TT>& wenoYPlus = levelSet.phi.dfdyP;
 
 	int i, j;
 	for (int l = 1; l <= iter; l++)

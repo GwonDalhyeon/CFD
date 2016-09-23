@@ -29,7 +29,7 @@ void main()
 	MATLAB.Command("clc; clear all; close all;");
 	MATLAB.Command("workspace");
 
-	int problem = 12;
+	int problem = 13;
 	int example = 1;
 	if (problem == 0) //// GMRES test :: example 1,2,3,4
 	{

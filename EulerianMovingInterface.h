@@ -22,7 +22,7 @@ public:
 
 	int ExamNum;
 
-
+	VectorND<double> vectorB;
 	Array2D<double>A;
 	// CG solver 1
 	CSR<double> Acsr;
@@ -46,7 +46,7 @@ public:
 	inline void OneStepSemiImplicit(const int&example);
 	inline void TwoStepSemiImplicit(const int&example);
 
-	inline void SurfactantNormalTerm(const FD& ipField, LS& ipLevelSet, Array2D<double>& term);
+	inline void SurfactantNormalTerm(FD& ipField, LS& ipLevelSet, Array2D<double>& term);
 	inline double ExactSurfactant(const double& x, const double& y, const double& time);
 	inline void GenerateLinearSystem1(Array2D<double>& matrixA, const double & scaling);
 	inline void GenerateLinearSystem1(VectorND<double>& vectorB, const double & scaling);
@@ -111,6 +111,7 @@ inline void MovingInterface::InitialCondition(const int & example)
 
 		AdvectionMethod2D<double>::alpha = 1.5*grid.dx;
 
+		vectorB = VectorND<double>((grid.iRes - 2)*(grid.jRes - 2));
 		A = Array2D<double>(1, (grid.iRes - 2)*(grid.jRes - 2), 1, (grid.iRes - 2)*(grid.jRes - 2));
 		dt = grid.dx / 4.0;
 		maxIteration = 80;
@@ -347,7 +348,6 @@ inline void MovingInterface::OneStepSemiImplicit(const int&example)
 	//SurfactantOld = Surfactant;
 
 	//// Linear Equation
-	VectorND<double> vectorB((grid.iRes - 2)*(grid.jRes - 2));
 	GenerateLinearSystem1(vectorB, 1);
 	//vectorB.Variable("vectorB");
 
@@ -410,7 +410,6 @@ inline void MovingInterface::TwoStepSemiImplicit(const int&example)
 	SurfactantOld = Surfactant;
 
 	//// Linear Equation
-	VectorND<double> vectorB((grid.iRes - 2)*(grid.jRes - 2));
 	GenerateLinearSystem2(vectorB, 1);
 	//vectorB.Variable("vectorB");
 
@@ -464,24 +463,25 @@ inline void MovingInterface::TwoStepSemiImplicit(const int&example)
 	//levelSet.phi.Variable("phi");
 }
 
-inline void MovingInterface::SurfactantNormalTerm(const FD& ipField, LS& ipLevelSet, Array2D<double>& term)
+inline void MovingInterface::SurfactantNormalTerm(FD& ipField, LS& ipLevelSet, Array2D<double>& term)
 {
 	ipLevelSet.ComputeMeanCurvature();
 	ipLevelSet.ComputeNormal();
-
-	FV gradientF(FD::Gradient(ipField));
-	//FV Normal(grid);
+	ipField.Gradient();
+	Array2D<Vector2D<double>>& gradientF = ipField.gradient;
 	VT normal;
 	Array2D<double> Hessian(2, 2);
 
-	FD wenoDxMinus(grid);
-	FD wenoDxPlus(grid);
-	FD wenoDyMinus(grid);
-	FD wenoDyPlus(grid);
+	Array2D<double>& wenoDxMinus = levelSet.phi.dfdxM;
+	Array2D<double>& wenoDxPlus = levelSet.phi.dfdxP;
+	Array2D<double>& wenoDyMinus = levelSet.phi.dfdyM;
+	Array2D<double>& wenoDyPlus = levelSet.phi.dfdyP;
 	AdvectionMethod2D<double>::WENO5thDerivation(ipField, wenoDxMinus, wenoDxPlus, wenoDyMinus, wenoDyPlus);
 
-	FV gradientU(FD::Gradient(U));
-	FV gradientV(FD::Gradient(V));
+	U.Gradient();
+	V.Gradient();
+	Array2D<Vector2D<double>>& gradientU = U.gradient;
+	Array2D<Vector2D<double>>& gradientV = V.gradient;
 
 	double curvatureThreshold = 3.0;
 	double curvature;
@@ -828,15 +828,17 @@ inline void MovingInterface::GenerateLinearSystem2(VectorND<double>& vectorB, co
 
 inline void MovingInterface::SurfactantExtension(const LS & ipLevelSet, FD& ipField, const int& width)
 {
+	
 	VT normal;
-	FD k1(ipField.grid);
-	FD k2(ipField.grid);
-	FD k3(ipField.grid);
 
-	FD wenoXMinus(ipField.grid);
-	FD wenoXPlus(ipField.grid);
-	FD wenoYMinus(ipField.grid);
-	FD wenoYPlus(ipField.grid);
+	Array2D<double>& k1 = levelSet.phi.K1;
+	Array2D<double>& k2 = levelSet.phi.K2;
+	Array2D<double>& k3 = levelSet.phi.K3;
+
+	Array2D<double>& wenoXMinus = levelSet.phi.dfdxM;
+	Array2D<double>& wenoXPlus = levelSet.phi.dfdxP;
+	Array2D<double>& wenoYMinus = levelSet.phi.dfdyM;
+	Array2D<double>& wenoYPlus = levelSet.phi.dfdyP;
 
 	Array2D<VT> Normal(ipField.grid);
 

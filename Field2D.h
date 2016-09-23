@@ -11,6 +11,16 @@ public:
 	Grid2D ghostGrid;
 	Array2D<TT> dataArray;
 	Array2D<TT> ghostDataArray;
+	// TVDRK3 Variable
+	Array2D<TT> K1;
+	Array2D<TT> K2;
+	Array2D<TT> K3;
+	// WENO Derivation Variable
+	Array2D<TT> dfdxM;
+	Array2D<TT> dfdxP;
+	Array2D<TT> dfdyM;
+	Array2D<TT> dfdyP;
+	Array2D<Vector2D<double>> gradient;
 
 	int ghostWidth; // Default value is 1.
 	int iRes, jRes;
@@ -110,7 +120,7 @@ public:
 	inline Vector2D<int> containedCell(const double& x, const double& y) const;
 
 	inline Vector2D<double> Gradient(const int& i, const int& j);
-	static Field2D<Vector2D<double>> Gradient(const Field2D<double>& ipField);
+	inline void Gradient();
 
 	inline TT minmod(const TT& constant1, const TT constant2) const;
 
@@ -186,6 +196,16 @@ inline void Field2D<TT>::initialize(const Grid2D & ipGrid)
 {
 	initialize(ipGrid.xMin, ipGrid.xMax, ipGrid.iStart, ipGrid.iRes, ipGrid.yMin, ipGrid.yMax, ipGrid.jStart, ipGrid.jRes);
 	dataArray = Array2D<TT>(grid);
+	if (sizeof(TT) == 8)
+	{
+		K1 = Array2D<TT>(grid);
+		K2 = Array2D<TT>(grid);
+		K3 = Array2D<TT>(grid);
+		dfdxM = Array2D<TT>(grid);
+		dfdxP = Array2D<TT>(grid);
+		dfdyM = Array2D<TT>(grid);
+		dfdyP = Array2D<TT>(grid);
+	}
 }
 
 template<class TT>
@@ -248,12 +268,22 @@ inline void Field2D<TT>::initialize(const int & ipGhostWidth, const Grid2D & ipG
 
 	initialize(ipGrid.xMin, ipGrid.xMax, ipGrid.iStart, ipGrid.iRes, ipGrid.yMin, ipGrid.yMax, ipGrid.jStart, ipGrid.jRes);
 	dataArray = Array2D<TT>(ipGrid);
-
+	if (sizeof(TT) == 8)
+	{
+		K1 = Array2D<TT>(ipGrid);
+		K2 = Array2D<TT>(ipGrid);
+		K3 = Array2D<TT>(ipGrid);
+		dfdxM = Array2D<TT>(ipGrid);
+		dfdxP = Array2D<TT>(ipGrid);
+		dfdyM = Array2D<TT>(ipGrid);
+		dfdyP = Array2D<TT>(ipGrid);
+	}
 	double widthX = double(ghostWidth)*(ipGrid.xMax - ipGrid.xMin) / double(ipGrid.iRes - 1);
 	double widthY = double(ghostWidth)*(ipGrid.yMax - ipGrid.yMin) / double(ipGrid.jRes - 1);
 
 	ghostGrid.initialize(ipGrid.xMin - widthX, ipGrid.xMax + widthX, ipGrid.iStart - ghostWidth, ipGrid.iRes + 2 * ghostWidth, ipGrid.yMin - widthY, ipGrid.yMax + widthY, ipGrid.jStart - ghostWidth, ipGrid.jRes + 2 * ghostWidth);
 	ghostDataArray = Array2D<TT>(ghostGrid);
+
 }
 
 
@@ -374,6 +404,16 @@ inline void Field2D<TT>::operator=(const Field2D<TT>& ipField)
 	ghostGrid = ipField.ghostGrid;
 	dataArray = ipField.dataArray;
 	ghostDataArray = ipField.ghostDataArray;
+	if (sizeof(TT) == 8)
+	{
+		K1 = ipField.K1;
+		K2 = ipField.K2;
+		K3 = ipField.K3;
+		dfdxM = ipField.dfdxM;
+		dfdxP = ipField.dfdxP;
+		dfdyM = ipField.dfdyM;
+		dfdyP = ipField.dfdyP;
+	}
 
 	ghostWidth = ipField.ghostWidth;
 	iRes = ipField.iRes;
@@ -714,18 +754,18 @@ inline Vector2D<double> Field2D<TT>::Gradient(const int & i, const int & j)
 }
 
 template<class TT>
-inline Field2D<Vector2D<double>> Field2D<TT>::Gradient(const Field2D<double>& ipField)
+inline void Field2D<TT>::Gradient()
 {
-	Field2D<Vector2D<double>> gradient(ipField.grid);
+	gradient = Array2D<Vector2D<double>>(grid);
 #pragma omp parallel for
 	for (int i = gradient.iStart; i <= gradient.iEnd; i++)
 	{
 		for (int j = gradient.jStart; j <= gradient.jEnd; j++)
 		{
-			gradient(i, j) = Vector2D<double>(ipField.dxPhi(i, j), ipField.dyPhi(i, j));
+			gradient(i, j).i = dxPhi(i, j);
+			gradient(i, j).j = dyPhi(i, j);
 		}
 	}
-	return gradient;
 }
 
 template<class TT>
