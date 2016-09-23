@@ -17,6 +17,7 @@ public:
 	Grid2D grid;
 
 	FD phi;
+	FD phiOld;
 	FV normal;
 	FV unitNormal;
 	FV tangential;
@@ -125,6 +126,7 @@ inline LevelSet2D::LevelSet2D(const Grid2D & ipGrid)
 {
 	grid = ipGrid;
 	phi = FD(ipGrid);
+	phiOld = FD(ipGrid);
 	normal = FV(ipGrid);
 	unitNormal = FV(ipGrid);
 	tangential = FV(ipGrid);
@@ -143,6 +145,7 @@ inline LevelSet2D::LevelSet2D(const Grid2D & ipGrid, const double & ipGamma)
 {
 	grid = ipGrid;
 	phi = FD(ipGrid);
+	phiOld = FD(ipGrid);
 	normal = FV(ipGrid);
 	unitNormal = FV(ipGrid);
 	tangential = FV(ipGrid);
@@ -161,6 +164,7 @@ inline LevelSet2D::LevelSet2D(const Grid2D & ipGrid, const double & ipGamma1, co
 {
 	grid = ipGrid;
 	phi = FD(ipGrid);
+	phiOld = FD(ipGrid);
 	normal = FV(ipGrid);
 	unitNormal = FV(ipGrid);
 	tangential = FV(ipGrid);
@@ -177,6 +181,7 @@ inline LevelSet2D::LevelSet2D(const LevelSet2D & ipLevelSet, const double & ipGa
 {
 	grid = ipLevelSet.grid;
 	phi = FD(grid);
+	phiOld = FD(grid);
 	normal = FV(grid);
 	unitNormal = FV(grid);
 	tangential = FV(grid);
@@ -193,6 +198,7 @@ inline LevelSet2D::LevelSet2D(const LevelSet2D & ipLevelSet, const double & ipGa
 {
 	grid = ipLevelSet.grid;
 	phi = FD(grid);
+	phiOld = FD(grid);
 	normal = FV(grid);
 	unitNormal = FV(grid);
 	tangential = FV(grid);
@@ -259,11 +265,12 @@ inline void LevelSet2D::operator=(const LevelSet2D & ipLevelSet)
 {
 	grid = ipLevelSet.grid;
 	phi = ipLevelSet.phi;
+	phiOld = ipLevelSet.phiOld;
 	normal = ipLevelSet.normal;
 	unitNormal = ipLevelSet.unitNormal;
 	tangential = ipLevelSet.tangential;
 	meanCurvature = ipLevelSet.meanCurvature;
-	
+
 	Tube = ipLevelSet.Tube;
 	TubeIndex = ipLevelSet.TubeIndex;
 	numTube = ipLevelSet.numTube;
@@ -527,7 +534,7 @@ inline double LevelSet2D::interpolation(const double & x, const double & y)
 		{
 			return phi(cell.i, cell.j + 1);
 		}
-		if (distance11<grid.dx / 2)
+		if (distance11 < grid.dx / 2)
 		{
 			return phi(cell.i + 1, cell.j + 1);
 		}
@@ -780,11 +787,11 @@ inline double LevelSet2D::dxyPhi(const int & i, const int & j)
 inline double LevelSet2D::Cutoff(const double & constant)
 {
 	double absConst = abs(constant);
-	if (gamma2<absConst)
+	if (gamma2 < absConst)
 	{
 		return 0.0;
 	}
-	else if (gamma1<absConst && absConst <= gamma2)
+	else if (gamma1 < absConst && absConst <= gamma2)
 	{
 		return (absConst - gamma2)*(absConst - gamma2)*(2.0*absConst + gamma2 - 3.0*gamma1) / pow(gamma2 - gamma1, 3.0);
 	}
@@ -802,11 +809,11 @@ inline double LevelSet2D::Cutoff(const int & i, const int & j)
 inline double LevelSet2D::Cutoff23(const double & constant)
 {
 	double absConst = abs(constant);
-	if (gamma3<absConst)
+	if (gamma3 < absConst)
 	{
 		return 0.0;
 	}
-	else if (gamma2<absConst && absConst <= gamma3)
+	else if (gamma2 < absConst && absConst <= gamma3)
 	{
 		return (absConst - gamma3)*(absConst - gamma3)*(2.0*absConst + gamma3 - 3.0*gamma1) / pow(gamma3 - gamma1, 3.0);
 	}
@@ -830,41 +837,37 @@ inline void LevelSet2D::InitialTube()
 		for (int j = phi.grid.iStart; j <= phi.grid.jEnd; j++)
 		{
 			absConst = abs(phi(i, j));
-			//if (absConst<gamma3)
+			if (absConst < gamma3)
 			{
-				//Tube(i, j) = 3;
-				//numTube += 1;
-				//TubeIndex(numTube) = VI(i, j);
-				//if (absConst<gamma2)
+				Tube(i, j) = 3;
+				numTube += 1;
+				TubeIndex(numTube) = VI(i, j);
+				if (absConst < gamma2)
 				{
-					//Tube(i, j) = 2;
-					if (absConst<gamma1)
+					Tube(i, j) = 2;
+					if (absConst < gamma1)
 					{
 						Tube(i, j) = 1;
-						numTube += 1;
-						TubeIndex(numTube) = VI(i, j);
+						//numTube += 1;
+						//TubeIndex(numTube) = VI(i, j);
 					}
 				}
 			}
 		}
 	}
-	int i, j;
-	int tempNumTube = numTube;
-	int bdryWidth = 4;
-	for (int k = 1; k <= tempNumTube; k++)
+
+	double threshold = gamma2;
+	for (int i = phi.grid.iStart; i <= phi.grid.iEnd; i++)
 	{
-		i = TubeIndex(k).i;
-		j = TubeIndex(k).j;
-		for (int ii = -bdryWidth; ii <= bdryWidth; ii++)
+		for (int j = phi.grid.iStart; j <= phi.grid.jEnd; j++)
 		{
-			for (int jj = -bdryWidth; jj <= bdryWidth; jj++)
+			if (phi(i, j) < -threshold)
 			{
-				if (Tube(i + ii, j + jj) == 0)
-				{
-					Tube(i + ii, j + jj) = 2;
-					numTube += 1;
-					TubeIndex(numTube) = VI(i + ii, j + jj);
-				}
+				phi(i, j) = -(threshold);
+			}
+			else if (phi(i, j) > threshold)
+			{
+				phi(i, j) = threshold;
 			}
 		}
 	}
@@ -898,19 +901,19 @@ inline void LevelSet2D::UpdateInterface(const double & ipGamma1, const double & 
 		i = TubeIndex(k).i;
 		j = TubeIndex(k).j;
 		absConst = abs(phi(i, j));
-		//if (absConst<gamma3)
+		//if (absConst < gamma3 && Tube(i, j) == 0)
 		{
 			//Tube(i, j) = 3;
 			//numTube += 1;
 			//TubeIndex(numTube) = VI(i, j);
-			//if (absConst<gamma2)
+			if (absConst < gamma2 && Tube(i, j) == 0)
 			{
-				//Tube(i, j) = 2;
-				if (absConst<=gamma1 && Tube(i, j) == 0)
+				Tube(i, j) = 2;
+				numTube += 1;
+				TubeIndex(numTube) = VI(i, j);
+				if (absConst <= gamma1)
 				{
 					Tube(i, j) = 1;
-					numTube += 1;
-					TubeIndex(numTube) = VI(i, j);
 				}
 			}
 		}
@@ -920,23 +923,26 @@ inline void LevelSet2D::UpdateInterface(const double & ipGamma1, const double & 
 	//MATLAB.Command("subplot(1,2,1)");
 	//MATLAB.Command("surf(X, Y, Tube1);grid on;axis([-1 1 -1 1]);axis equal;");
 	tempNumTube = numTube;
-	int bdryWidth = 4;
+	int bdryWidth = 3;
 	for (int k = 1; k <= tempNumTube; k++)
 	{
 		i = TubeIndex(k).i;
 		j = TubeIndex(k).j;
-		for (int ii = -bdryWidth; ii <= bdryWidth; ii++)
+		if (Tube(i, j) == 2)
 		{
-			for (int jj = -bdryWidth; jj <= bdryWidth; jj++)
+			for (int ii = -bdryWidth; ii <= bdryWidth; ii++)
 			{
-				if (Tube(i + ii, j + jj) == 0)
+				for (int jj = -bdryWidth; jj <= bdryWidth; jj++)
 				{
-					Tube(i + ii, j + jj) = 2;
-					numTube += 1;
-					TubeIndex(numTube) = VI(i + ii, j + jj);
+					if (Tube(i + ii, j + jj) == 0)
+					{
+						Tube(i + ii, j + jj) = 3;
+						numTube += 1;
+						TubeIndex(numTube) = VI(i + ii, j + jj);
+					}
 				}
 			}
-		}	
+		}
 	}
 
 	//Tube.Variable("Tube2");
@@ -949,19 +955,19 @@ inline void LevelSet2D::UpdateLLS()
 {
 	double threshold = gamma2;
 	int i, j;
-	int bdryWidth = 3;
+	int bdryWidth = 2;
 #pragma omp parallel for private(i, j)
 	for (int k = 1; k <= numTube; k++)
 	{
 		i = TubeIndex(k).i;
 		j = TubeIndex(k).j;
-		if (Tube(i, j) == 2)
+		if (Tube(i, j) == 3)
 		{
 			for (int ii = -bdryWidth; ii <= bdryWidth; ii++)
 			{
 				for (int jj = -bdryWidth; jj <= bdryWidth; jj++)
 				{
-					if (Tube(i + ii, j + jj) == 0)
+					if (Tube(i + ii, j + jj) == 0 || Tube(i + ii, j + jj) == 3)
 					{
 						if (phi(i + ii, j + jj) < -threshold)
 						{

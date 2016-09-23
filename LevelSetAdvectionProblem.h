@@ -340,6 +340,8 @@ inline void LevelSetAdvection::AdvectionSolver(const int & example)
 	//MATLAB.Command("figure('units','normalized','outerposition',[0 0 1/2 1])");
 	//MATLAB.Command("v = VideoWriter('newfile.avi');");
 	//MATLAB.Command("open(v)");
+	clock_t before;
+	double  result;
 	for (int i = 1; i <= maxIteration; i++)
 	{
 		cout << "Level set advection : " << i << endl;
@@ -347,7 +349,10 @@ inline void LevelSetAdvection::AdvectionSolver(const int & example)
 		if (isVelocity)
 		{
 			dt = AdaptiveTimeStep(velocityX, velocityY);
+			before = clock();
 			AdvectionMethod2D<double>::LSPropagatingTVDRK3(levelSet, velocityX, velocityY, dt);
+			result = (double)(clock() - before) / CLOCKS_PER_SEC;
+			cout << result << endl;
 			levelSet.phi.Variable("phi");
 			MATLAB.Command("contour(X, Y, phi0, [0 0],'b');hold on, grid on,axis([-1 1 -1 1]);axis equal;contour(X, Y, phi, [0 0],'r');hold off");
 		}

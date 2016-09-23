@@ -607,7 +607,8 @@ inline void AdvectionMethod2D<TT>::WENO5thDyPlus(const Field2D<TT>& ipField, Arr
 template<class TT>
 inline void AdvectionMethod2D<TT>::LSReinitializationTVDRK3(LS& levelSet, const double& dt)
 {
-	LS originLevelSet = levelSet;
+	levelSet.phiOld.dataArray = levelSet.phi.dataArray;
+	Array2D<TT>& originLevelSet = levelSet.phiOld.dataArray;
 
 	Array2D<TT>& k1 = levelSet.phi.K1;
 	Array2D<TT>& k2 = levelSet.phi.K2;
@@ -680,7 +681,8 @@ inline TT AdvectionMethod2D<TT>::ReinitialGodunov(const TT& dxPlus, const TT& dx
 template<class TT>
 inline void AdvectionMethod2D<TT>::LSPropagatingTVDRK3(LS & levelSet, const double & dt)
 {
-	LS originLevelSet = levelSet;
+	levelSet.phiOld.dataArray = levelSet.phi.dataArray;
+	Array2D<TT>& originLevelSet = levelSet.phiOld.dataArray;
 
 	Array2D<TT>& k1 = levelSet.phi.K1;
 	Array2D<TT>& k2 = levelSet.phi.K2;
@@ -732,7 +734,8 @@ inline void AdvectionMethod2D<TT>::LSPropagatingTVDRK3(LS & levelSet, const doub
 template<class TT>
 inline void AdvectionMethod2D<TT>::LSPropagatingTVDRK3(LS & levelSet, const FD& velocity, const double & dt)
 {
-	LS originLevelSet = levelSet;
+	levelSet.phiOld.dataArray = levelSet.phi.dataArray;
+	Array2D<TT>& originLevelSet = levelSet.phiOld.dataArray;
 
 	Array2D<TT>& k1 = levelSet.phi.K1;
 	Array2D<TT>& k2 = levelSet.phi.K2;
@@ -780,7 +783,8 @@ inline void AdvectionMethod2D<TT>::LSPropagatingTVDRK3(LS & levelSet, const FD& 
 template<class TT>
 inline void AdvectionMethod2D<TT>::LSPropagatingTVDRK3(LS & levelSet, const FD& velocityX, const FD& velocityY, const double& dt)
 {
-	LS originLevelSet = levelSet;
+	levelSet.phiOld.dataArray = levelSet.phi.dataArray;
+	Array2D<TT>& originLevelSet = levelSet.phiOld.dataArray;
 
 	Array2D<TT>& k1 = levelSet.phi.K1;
 	Array2D<TT>& k2 = levelSet.phi.K2;
@@ -888,7 +892,8 @@ inline void AdvectionMethod2D<TT>::LSPropagatingTVDRK3(LS & levelSet, const FD& 
 template<class TT>
 inline void AdvectionMethod2D<TT>::LSPropagatingTVDRK3PeriodicX(LS & levelSet, const FD& velocityX, const FD& velocityY, const double & dt)
 {
-	LS originLevelSet = levelSet;
+	levelSet.phiOld.dataArray = levelSet.phi.dataArray;
+	Array2D<TT>& originLevelSet = levelSet.phiOld.dataArray;
 
 	Array2D<TT>& k1 = levelSet.phi.K1;
 	Array2D<TT>& k2 = levelSet.phi.K2;
@@ -1013,8 +1018,6 @@ inline void AdvectionMethod2D<TT>::LSPropagatingTVDRK3PeriodicX(LS & levelSet, c
 template<class TT>
 inline void AdvectionMethod2D<TT>::LSPropagatingEuler(LS & levelSet, const FD& velocity, const double & dt)
 {
-	LS tempLevelSet(levelSet.grid);
-
 	Array2D<TT>& wenoXMinus = levelSet.phi.dfdxM;
 	Array2D<TT>& wenoXPlus = levelSet.phi.dfdxP;
 	Array2D<TT>& wenoYMinus = levelSet.phi.dfdyM;
@@ -1061,7 +1064,8 @@ inline TT AdvectionMethod2D<TT>::PropagatingGodunov(const TT & dxPlus, const TT 
 template<class TT>
 inline void AdvectionMethod2D<TT>::LLSPropagatingTVDRK3(LS & levelSet, const double & dt)
 {
-	LS originLevelSet = levelSet;
+	levelSet.phiOld.dataArray = levelSet.phi.dataArray;
+	Array2D<TT>& originLevelSet = levelSet.phiOld.dataArray;
 
 	Array2D<TT>& k1 = levelSet.phi.K1;
 	Array2D<TT>& k2 = levelSet.phi.K2;
@@ -1109,7 +1113,8 @@ inline void AdvectionMethod2D<TT>::LLSPropagatingTVDRK3(LS & levelSet, const dou
 template<class TT>
 inline void AdvectionMethod2D<TT>::LLSPropagatingTVDRK3(LS & levelSet, const FD& velocity, const double & dt)
 {
-	LS originLevelSet = levelSet;
+	levelSet.phiOld.dataArray = levelSet.phi.dataArray;
+	Array2D<TT>& originLevelSet = levelSet.phiOld.dataArray;
 
 	Array2D<TT>& k1 = levelSet.phi.K1;
 	Array2D<TT>& k2 = levelSet.phi.K2;
@@ -1162,7 +1167,8 @@ inline void AdvectionMethod2D<TT>::LLSPropagatingTVDRK3(LS & levelSet, const FD&
 template<class TT>
 inline void AdvectionMethod2D<TT>::LLSPropagatingTVDRK3(LS & levelSet, const FD& velocityX, const FD& velocityY, const double & dt)
 {
-	LS originLevelSet = levelSet;
+	levelSet.phiOld.dataArray = levelSet.phi.dataArray;
+	Array2D<TT>& originLevelSet = levelSet.phiOld.dataArray;
 
 	Array2D<TT>& k1 = levelSet.phi.K1;
 	Array2D<TT>& k2 = levelSet.phi.K2;
@@ -1256,11 +1262,12 @@ inline void AdvectionMethod2D<TT>::LLSPropagatingTVDRK3(LS & levelSet, const FD&
 		k3(i, j) = -velocityX(i, j)*dt*tempDxPhi - velocityY(i, j)*dt*tempDyPhi;
 		levelSet(i, j) = 1.0 / 3.0*originLevelSet(i, j) + 2.0 / 3.0*(levelSet(i, j) + levelSet.Cutoff(i, j)*k3(i, j));
 	}
-
+	
 	int reinitialIter = int(levelSet.gamma1 / min(levelSet.phi.dx, levelSet.phi.dy));
 	LLSReinitializationTVDRK3(levelSet, dt,reinitialIter);
-	levelSet.UpdateInterface();	
+	levelSet.UpdateInterface();
 	levelSet.UpdateLLS();
+
 }
 
 template<class TT>
@@ -1386,7 +1393,8 @@ inline void AdvectionMethod2D<TT>::LLSWENO5thDyPlus(const LS & levelSet, const F
 template<class TT>
 inline void AdvectionMethod2D<TT>::LLSReinitializationTVDRK3(LS & levelSet, const double & dt)
 {
-	LS originLevelSet = levelSet;
+	levelSet.phiOld.dataArray = levelSet.phi.dataArray;
+	Array2D<TT>& originLevelSet = levelSet.phiOld.dataArray;
 
 	Array2D<TT>& k1 = levelSet.phi.K1;
 	Array2D<TT>& k2 = levelSet.phi.K2;
@@ -1431,7 +1439,8 @@ inline void AdvectionMethod2D<TT>::LLSReinitializationTVDRK3(LS & levelSet, cons
 template<class TT>
 inline void AdvectionMethod2D<TT>::LLSReinitializationTVDRK3(LS & levelSet, const double & dt, const int & iter)
 {
-	LS originLevelSet = levelSet;
+	levelSet.phiOld.dataArray = levelSet.phi.dataArray;
+	Array2D<TT>& originLevelSet = levelSet.phiOld.dataArray;
 
 	Array2D<TT>& k1 = levelSet.phi.K1;
 	Array2D<TT>& k2 = levelSet.phi.K2;
