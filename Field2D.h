@@ -11,6 +11,8 @@ public:
 	Grid2D ghostGrid;
 	Array2D<TT> dataArray;
 	Array2D<TT> ghostDataArray;
+	Array2D<TT> dataArrayOld;
+	Array2D<TT> ghostDataArrayOld;
 	// TVDRK3 Variable
 	Array2D<TT> K1;
 	Array2D<TT> K2;
@@ -150,6 +152,9 @@ public:
 	static Field2D<double> Divegence(const Field2D<Vector2D<double>>& ipField);
 	inline Array2D<double> Hessian(const int& i, const int& j) const;
 	//static Array2D<double> Hessian(const Field2D<double>& ipField);
+
+	inline void SaveOld();
+	inline void SaveOld(Array2D<TT>& copyArray);
 private:
 
 };
@@ -196,6 +201,9 @@ inline void Field2D<TT>::initialize(const Grid2D & ipGrid)
 {
 	initialize(ipGrid.xMin, ipGrid.xMax, ipGrid.iStart, ipGrid.iRes, ipGrid.yMin, ipGrid.yMax, ipGrid.jStart, ipGrid.jRes);
 	dataArray = Array2D<TT>(grid);
+	dataArrayOld = Array2D<TT>(grid);
+	ghostDataArray = Array2D<TT>(grid);
+	ghostDataArrayOld = Array2D<TT>(grid);
 	if (sizeof(TT) == 8)
 	{
 		K1 = Array2D<TT>(grid);
@@ -268,6 +276,9 @@ inline void Field2D<TT>::initialize(const int & ipGhostWidth, const Grid2D & ipG
 
 	initialize(ipGrid.xMin, ipGrid.xMax, ipGrid.iStart, ipGrid.iRes, ipGrid.yMin, ipGrid.yMax, ipGrid.jStart, ipGrid.jRes);
 	dataArray = Array2D<TT>(ipGrid);
+	dataArrayOld = Array2D<TT>(ipGrid);
+	ghostDataArray = Array2D<TT>(ipGrid);
+	ghostDataArrayOld = Array2D<TT>(ipGrid);
 	if (sizeof(TT) == 8)
 	{
 		K1 = Array2D<TT>(ipGrid);
@@ -404,6 +415,8 @@ inline void Field2D<TT>::operator=(const Field2D<TT>& ipField)
 	ghostGrid = ipField.ghostGrid;
 	dataArray = ipField.dataArray;
 	ghostDataArray = ipField.ghostDataArray;
+	dataArrayOld = ipField.dataArrayOld;
+	ghostDataArrayOld = ipField.ghostDataArrayOld;
 	if (sizeof(TT) == 8)
 	{
 		K1 = ipField.K1;
@@ -1028,6 +1041,12 @@ inline Array2D<double> Field2D<TT>::Hessian(const int & i, const int & j) const
 	hessian(1, 0) = dxyPhi(i, j);
 	hessian(1, 1) = dyyPhi(i, j);
 	return hessian;
+}
+
+template<class TT>
+inline void Field2D<TT>::SaveOld()
+{
+	dataArrayOld = dataArray;
 }
 
 

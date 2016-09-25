@@ -38,6 +38,13 @@ public:
 	static TT ENOD2y(const Field2D<TT>& ipField, const int& i, const int& j);
 	static TT ENOD3y(const Field2D<TT>& ipField, const int& i, const int& j);
 
+	static void WENO3rdDerivation(const Field2D<TT>& ipField, Array2D<TT>& wenoXMinus, Array2D<TT>& wenoXPlus, Array2D<TT>& wenoYMinus, Array2D<TT>& wenoYPlus);
+	static void WENO3rd(const TT& v1, const TT& v2, const TT& v3, TT& constant);
+	static void WENO3rdDxMinus(const Field2D<TT>& ipField, Array2D<TT>& wenoXMinus);
+	static void WENO3rdDxPlus(const Field2D<TT>& ipField, Array2D<TT>& wenoXPlus);
+	static void WENO3rdDyMinus(const Field2D<TT>& ipField, Array2D<TT>& wenoYMinus);
+	static void WENO3rdDyPlus(const Field2D<TT>& ipField, Array2D<TT>& wenoYPlus);
+
 	static void WENO5thDerivation(const Field2D<TT>& ipField, Array2D<TT>& wenoXMinus, Array2D<TT>& wenoXPlus, Array2D<TT>& wenoYMinus, Array2D<TT>& wenoYPlus);
 	static void WENO5th(const TT& v1, const TT& v2, const TT& v3, const TT& v4, const TT& v5, TT& constant);
 	static void WENO5thDxMinus(const Field2D<TT>& ipField, Array2D<TT>& wenoXMinus);
@@ -65,6 +72,12 @@ public:
 	static void LLSPropagatingTVDRK3(LS& levelSet, const double& dt);
 	static void LLSPropagatingTVDRK3(LS& levelSet, const FD& velocity, const double& dt);
 	static void LLSPropagatingTVDRK3(LS& levelSet, const FD& velocityX, const FD& velocityY, const double& dt);
+
+	static void LLSWENO3rdDerivation(const LS& levelSet, const Field2D<TT>& ipField, Array2D<TT>& wenoXMinus, Array2D<TT>& wenoXPlus, Array2D<TT>& wenoYMinus, Array2D<TT>& wenoYPlus);
+	static void LLSWENO3rdDxMinus(const LS& levelSet, const Field2D<TT>& ipField, Array2D<TT>& wenoXMinus);
+	static void LLSWENO3rdDxPlus(const LS& levelSet, const Field2D<TT>& ipField, Array2D<TT>& wenoXPlus);
+	static void LLSWENO3rdDyMinus(const LS& levelSet, const Field2D<TT>& ipField, Array2D<TT>& wenoYMinus);
+	static void LLSWENO3rdDyPlus(const LS& levelSet, const Field2D<TT>& ipField, Array2D<TT>& wenoYPlus);
 
 	static void LLSWENO5thDerivation(const LS& levelSet, const Field2D<TT>& ipField, Array2D<TT>& wenoXMinus, Array2D<TT>& wenoXPlus, Array2D<TT>& wenoYMinus, Array2D<TT>& wenoYPlus);
 	static void LLSWENO5thDxMinus(const LS& levelSet, const Field2D<TT>& ipField, Array2D<TT>& wenoXMinus);
@@ -465,6 +478,139 @@ inline TT AdvectionMethod2D<TT>::ENOD3y(const Field2D<TT>& ipField, const int& i
 }
 
 template<class TT>
+inline void AdvectionMethod2D<TT>::WENO3rdDerivation(const Field2D<TT>& ipField, Array2D<TT>& wenoXMinus, Array2D<TT>& wenoXPlus, Array2D<TT>& wenoYMinus, Array2D<TT>& wenoYPlus)
+{
+	WENO3rdDxMinus(ipField, wenoXMinus);
+	WENO3rdDxPlus(ipField, wenoXPlus);
+	WENO3rdDyMinus(ipField, wenoYMinus);
+	WENO3rdDyPlus(ipField, wenoYPlus);
+}
+
+template<class TT>
+inline void AdvectionMethod2D<TT>::WENO3rd(const TT & v1, const TT & v2, const TT & v3, TT & constant)
+{
+	TT s1, s2;
+	TT a1, a2;
+	TT w1, w2;
+
+	s1 = (v1 - v2)*(v1 - v2);
+	s2 = (v2 - v3)*(v2 - v3);
+
+	a1 = 1.0 / 3.0 / ((DBL_EPSILON + s1)*(DBL_EPSILON + s1));
+	a2 = 2.0 / 3.0 / ((DBL_EPSILON + s2)*(DBL_EPSILON + s2));
+
+	w1 = a1 / (a1 + a2);
+	w2 = a2 / (a1 + a2);
+
+	constant = w1*(-1.0 / 2.0*v1 + 3.0 / 2.0*v2) + w2*(1.0 / 2.0*v2 + 1.0 / 2.0*v3);
+}
+
+template<class TT>
+inline void AdvectionMethod2D<TT>::WENO3rdDxMinus(const Field2D<TT>& ipField, Array2D<TT>& wenoXMinus)
+{
+	TT v1, v2, v3;
+	int i, j;
+#pragma omp parallel for private(i, j, v1, v2, v3)
+	for (int i = ipField.iStart; i <= ipField.iEnd; i++)
+	{
+		for (int j = ipField.jStart; j <= ipField.jEnd; j++)
+		{
+			if (i < ipField.iStart + 2 || i > ipField.iEnd - 1)
+			{
+				wenoXMinus(i, j) = ipField.dxMinusPhi(i, j);
+			}
+			else
+			{
+				v1 = (ipField(i - 1, j) - ipField(i - 2, j))*ipField.oneOverdx;
+				v2 = (ipField(i, j) - ipField(i - 1, j))*ipField.oneOverdx;
+				v3 = (ipField(i + 1, j) - ipField(i, j))*ipField.oneOverdx;
+
+				WENO3rd(v1, v2, v3, wenoXMinus(i, j));
+			}
+		}
+	}
+}
+
+template<class TT>
+inline void AdvectionMethod2D<TT>::WENO3rdDxPlus(const Field2D<TT>& ipField, Array2D<TT>& wenoXPlus)
+{
+	TT v1, v2, v3;
+	int i, j;
+#pragma omp parallel for private(i, j, v1, v2, v3)
+	for (int i = ipField.iStart; i <= ipField.iEnd; i++)
+	{
+		for (int j = ipField.jStart; j <= ipField.jEnd; j++)
+		{
+			if (i < ipField.iStart + 1 || i > ipField.iEnd - 2)
+			{
+				wenoXPlus(i, j) = ipField.dxPlusPhi(i, j);
+			}
+			else
+			{
+				v1 = (ipField(i + 2, j) - ipField(i + 1, j))*ipField.oneOverdx;
+				v2 = (ipField(i + 1, j) - ipField(i, j))*ipField.oneOverdx;
+				v3 = (ipField(i, j) - ipField(i - 1, j))*ipField.oneOverdx;
+
+				WENO3rd(v1, v2, v3, wenoXPlus(i, j));
+			}
+		}
+	}
+}
+
+template<class TT>
+inline void AdvectionMethod2D<TT>::WENO3rdDyMinus(const Field2D<TT>& ipField, Array2D<TT>& wenoYMinus)
+{
+	TT v1, v2, v3;
+	int i, j;
+#pragma omp parallel for private(i, j, v1, v2, v3)
+	for (int i = ipField.iStart; i <= ipField.iEnd; i++)
+	{
+		for (int j = ipField.jStart; j <= ipField.jEnd; j++)
+		{
+			if (j < ipField.jStart + 2 || j > ipField.jEnd - 1)
+			{
+				wenoYMinus(i, j) = ipField.dyMinusPhi(i, j);
+			}
+			else
+			{
+				v1 = (ipField(i, j - 1) - ipField(i, j - 2))*ipField.oneOverdy;
+				v2 = (ipField(i, j) - ipField(i, j - 1))*ipField.oneOverdy;
+				v3 = (ipField(i, j + 1) - ipField(i, j))*ipField.oneOverdy;
+
+				WENO3rd(v1, v2, v3, wenoYMinus(i, j));
+			}
+		}
+	}
+}
+
+template<class TT>
+inline void AdvectionMethod2D<TT>::WENO3rdDyPlus(const Field2D<TT>& ipField, Array2D<TT>& wenoYPlus)
+{
+	TT v1, v2, v3;
+	int i, j;
+#pragma omp parallel for private(i, j, v1, v2, v3)
+	for (int i = ipField.iStart; i <= ipField.iEnd; i++)
+	{
+		for (int j = ipField.jStart; j <= ipField.jEnd; j++)
+		{
+
+			if (j < ipField.jStart + 1 || j > ipField.jEnd - 2)
+			{
+				wenoYPlus(i, j) = ipField.dyPlusPhi(i, j);
+			}
+			else
+			{
+				v1 = (ipField(i, j + 2) - ipField(i, j + 1))*ipField.oneOverdy;
+				v2 = (ipField(i, j + 1) - ipField(i, j))*ipField.oneOverdy;
+				v3 = (ipField(i, j) - ipField(i, j - 1))*ipField.oneOverdy;
+
+				WENO3rd(v1, v2, v3, wenoYPlus(i, j));
+			}
+		}
+	}
+}
+
+template<class TT>
 inline void AdvectionMethod2D<TT>::WENO5thDerivation(const Field2D<TT>& ipField, Array2D<TT>& wenoXMinus, Array2D<TT>& wenoXPlus, Array2D<TT>& wenoYMinus, Array2D<TT>& wenoYPlus)
 {
 	WENO5thDxMinus(ipField, wenoXMinus);
@@ -607,8 +753,8 @@ inline void AdvectionMethod2D<TT>::WENO5thDyPlus(const Field2D<TT>& ipField, Arr
 template<class TT>
 inline void AdvectionMethod2D<TT>::LSReinitializationTVDRK3(LS& levelSet, const double& dt)
 {
-	levelSet.phiOld.dataArray = levelSet.phi.dataArray;
-	Array2D<TT>& originLevelSet = levelSet.phiOld.dataArray;
+	levelSet.phi.SaveOld();
+	Array2D<TT>& originLevelSet = levelSet.phi.dataArrayOld;
 
 	Array2D<TT>& k1 = levelSet.phi.K1;
 	Array2D<TT>& k2 = levelSet.phi.K2;
@@ -681,8 +827,8 @@ inline TT AdvectionMethod2D<TT>::ReinitialGodunov(const TT& dxPlus, const TT& dx
 template<class TT>
 inline void AdvectionMethod2D<TT>::LSPropagatingTVDRK3(LS & levelSet, const double & dt)
 {
-	levelSet.phiOld.dataArray = levelSet.phi.dataArray;
-	Array2D<TT>& originLevelSet = levelSet.phiOld.dataArray;
+	levelSet.phi.SaveOld();
+	Array2D<TT>& originLevelSet = levelSet.phi.dataArrayOld;
 
 	Array2D<TT>& k1 = levelSet.phi.K1;
 	Array2D<TT>& k2 = levelSet.phi.K2;
@@ -734,8 +880,8 @@ inline void AdvectionMethod2D<TT>::LSPropagatingTVDRK3(LS & levelSet, const doub
 template<class TT>
 inline void AdvectionMethod2D<TT>::LSPropagatingTVDRK3(LS & levelSet, const FD& velocity, const double & dt)
 {
-	levelSet.phiOld.dataArray = levelSet.phi.dataArray;
-	Array2D<TT>& originLevelSet = levelSet.phiOld.dataArray;
+	levelSet.phi.SaveOld();
+	Array2D<TT>& originLevelSet = levelSet.phi.dataArrayOld;
 
 	Array2D<TT>& k1 = levelSet.phi.K1;
 	Array2D<TT>& k2 = levelSet.phi.K2;
@@ -783,8 +929,8 @@ inline void AdvectionMethod2D<TT>::LSPropagatingTVDRK3(LS & levelSet, const FD& 
 template<class TT>
 inline void AdvectionMethod2D<TT>::LSPropagatingTVDRK3(LS & levelSet, const FD& velocityX, const FD& velocityY, const double& dt)
 {
-	levelSet.phiOld.dataArray = levelSet.phi.dataArray;
-	Array2D<TT>& originLevelSet = levelSet.phiOld.dataArray;
+	levelSet.phi.SaveOld();
+	Array2D<TT>& originLevelSet = levelSet.phi.dataArrayOld;
 
 	Array2D<TT>& k1 = levelSet.phi.K1;
 	Array2D<TT>& k2 = levelSet.phi.K2;
@@ -892,8 +1038,8 @@ inline void AdvectionMethod2D<TT>::LSPropagatingTVDRK3(LS & levelSet, const FD& 
 template<class TT>
 inline void AdvectionMethod2D<TT>::LSPropagatingTVDRK3PeriodicX(LS & levelSet, const FD& velocityX, const FD& velocityY, const double & dt)
 {
-	levelSet.phiOld.dataArray = levelSet.phi.dataArray;
-	Array2D<TT>& originLevelSet = levelSet.phiOld.dataArray;
+	levelSet.phi.SaveOld();
+	Array2D<TT>& originLevelSet = levelSet.phi.dataArrayOld;
 
 	Array2D<TT>& k1 = levelSet.phi.K1;
 	Array2D<TT>& k2 = levelSet.phi.K2;
@@ -1064,8 +1210,8 @@ inline TT AdvectionMethod2D<TT>::PropagatingGodunov(const TT & dxPlus, const TT 
 template<class TT>
 inline void AdvectionMethod2D<TT>::LLSPropagatingTVDRK3(LS & levelSet, const double & dt)
 {
-	levelSet.phiOld.dataArray = levelSet.phi.dataArray;
-	Array2D<TT>& originLevelSet = levelSet.phiOld.dataArray;
+	levelSet.phi.SaveOld();
+	Array2D<TT>& originLevelSet = levelSet.phi.dataArrayOld;
 
 	Array2D<TT>& k1 = levelSet.phi.K1;
 	Array2D<TT>& k2 = levelSet.phi.K2;
@@ -1078,29 +1224,29 @@ inline void AdvectionMethod2D<TT>::LLSPropagatingTVDRK3(LS & levelSet, const dou
 	int i, j;
 	LLSWENO5thDerivation(levelSet, levelSet.phi, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
 #pragma omp parallel for private(i, j)
-	for (int k = 1; k < levelSet.numTube; k++)
+	for (int k = 1; k <= levelSet.numTube; k++)
 	{
-		i = levelSet.TubeIndex(k).i;
-		j = levelSet.TubeIndex(k).j;
+		i = levelSet.tubeIndex(k).i;
+		j = levelSet.tubeIndex(k).j;
 		k1(i, j) = -dt*PropagatingGodunov(wenoXPlus(i, j), wenoXMinus(i, j), wenoYPlus(i, j), wenoYMinus(i, j), 1);
 		levelSet(i, j) = originLevelSet(i, j) + levelSet.Cutoff(i, j)*k1(i, j);
 
 	}
 	LLSWENO5thDerivation(levelSet, levelSet.phi, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
 #pragma omp parallel for private(i, j)
-	for (int k = 1; k < levelSet.numTube; k++)
+	for (int k = 1; k <= levelSet.numTube; k++)
 	{
-		i = levelSet.TubeIndex(k).i;
-		j = levelSet.TubeIndex(k).j;
+		i = levelSet.tubeIndex(k).i;
+		j = levelSet.tubeIndex(k).j;
 		k2(i, j) = -dt*PropagatingGodunov(wenoXPlus(i, j), wenoXMinus(i, j), wenoYPlus(i, j), wenoYMinus(i, j), 1);
 		levelSet(i, j) = 3.0 / 4.0*originLevelSet(i, j) + 1.0 / 4.0*(levelSet(i, j) + levelSet.Cutoff(i, j)*k2(i, j));
 	}
 	LLSWENO5thDerivation(levelSet, levelSet.phi, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
 #pragma omp parallel for private(i, j)
-	for (int k = 1; k < levelSet.numTube; k++)
+	for (int k = 1; k <= levelSet.numTube; k++)
 	{
-		i = levelSet.TubeIndex(k).i;
-		j = levelSet.TubeIndex(k).j;
+		i = levelSet.tubeIndex(k).i;
+		j = levelSet.tubeIndex(k).j;
 		k3(i, j) = -dt*PropagatingGodunov(wenoXPlus(i, j), wenoXMinus(i, j), wenoYPlus(i, j), wenoYMinus(i, j), 1);
 		levelSet(i, j) = 1.0 / 3.0*originLevelSet(i, j) + 2.0 / 3.0*(levelSet(i, j) + levelSet.Cutoff(i, j)*k3(i, j));
 	}
@@ -1113,8 +1259,8 @@ inline void AdvectionMethod2D<TT>::LLSPropagatingTVDRK3(LS & levelSet, const dou
 template<class TT>
 inline void AdvectionMethod2D<TT>::LLSPropagatingTVDRK3(LS & levelSet, const FD& velocity, const double & dt)
 {
-	levelSet.phiOld.dataArray = levelSet.phi.dataArray;
-	Array2D<TT>& originLevelSet = levelSet.phiOld.dataArray;
+	levelSet.phi.SaveOld();
+	Array2D<TT>& originLevelSet = levelSet.phi.dataArrayOld;
 
 	Array2D<TT>& k1 = levelSet.phi.K1;
 	Array2D<TT>& k2 = levelSet.phi.K2;
@@ -1128,20 +1274,20 @@ inline void AdvectionMethod2D<TT>::LLSPropagatingTVDRK3(LS & levelSet, const FD&
 
 	LLSWENO5thDerivation(levelSet, levelSet.phi, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
 #pragma omp parallel for private(i, j)
-	for (int k = 1; k < levelSet.numTube; k++)
+	for (int k = 1; k <= levelSet.numTube; k++)
 	{
-		i = levelSet.TubeIndex(k).i;
-		j = levelSet.TubeIndex(k).j;
+		i = levelSet.tubeIndex(k).i;
+		j = levelSet.tubeIndex(k).j;
 		k1(i, j) = -dt*velocity(i, j)*PropagatingGodunov(wenoXPlus(i, j), wenoXMinus(i, j), wenoYPlus(i, j), wenoYMinus(i, j), -1);
 		levelSet(i, j) = originLevelSet(i, j) + levelSet.Cutoff(i, j)*k1(i, j);
 	}
 
 	LLSWENO5thDerivation(levelSet, levelSet.phi, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
 #pragma omp parallel for private(i, j)
-	for (int k = 1; k < levelSet.numTube; k++)
+	for (int k = 1; k <= levelSet.numTube; k++)
 	{
-		i = levelSet.TubeIndex(k).i;
-		j = levelSet.TubeIndex(k).j;
+		i = levelSet.tubeIndex(k).i;
+		j = levelSet.tubeIndex(k).j;
 		k2(i, j) = -dt*velocity(i, j)*PropagatingGodunov(wenoXPlus(i, j), wenoXMinus(i, j), wenoYPlus(i, j), wenoYMinus(i, j), -1);
 		levelSet(i, j) = 3.0 / 4.0*originLevelSet(i, j) + 1.0 / 4.0*(levelSet(i, j) + levelSet.Cutoff(i, j)*k2(i, j));
 
@@ -1149,10 +1295,10 @@ inline void AdvectionMethod2D<TT>::LLSPropagatingTVDRK3(LS & levelSet, const FD&
 
 	LLSWENO5thDerivation(levelSet, levelSet.phi, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
 #pragma omp parallel for private(i, j)
-	for (int k = 1; k < levelSet.numTube; k++)
+	for (int k = 1; k <= levelSet.numTube; k++)
 	{
-		i = levelSet.TubeIndex(k).i;
-		j = levelSet.TubeIndex(k).j;
+		i = levelSet.tubeIndex(k).i;
+		j = levelSet.tubeIndex(k).j;
 		k3(i, j) = -dt*velocity(i, j)*PropagatingGodunov(wenoXPlus(i, j), wenoXMinus(i, j), wenoYPlus(i, j), wenoYMinus(i, j), -1);
 		levelSet(i, j) = 1.0 / 3.0*originLevelSet(i, j) + 2.0 / 3.0*(levelSet(i, j) + levelSet.Cutoff(i, j)*k3(i, j));
 
@@ -1167,8 +1313,8 @@ inline void AdvectionMethod2D<TT>::LLSPropagatingTVDRK3(LS & levelSet, const FD&
 template<class TT>
 inline void AdvectionMethod2D<TT>::LLSPropagatingTVDRK3(LS & levelSet, const FD& velocityX, const FD& velocityY, const double & dt)
 {
-	levelSet.phiOld.dataArray = levelSet.phi.dataArray;
-	Array2D<TT>& originLevelSet = levelSet.phiOld.dataArray;
+	levelSet.phi.SaveOld();
+	Array2D<TT>& originLevelSet = levelSet.phi.dataArrayOld;
 
 	Array2D<TT>& k1 = levelSet.phi.K1;
 	Array2D<TT>& k2 = levelSet.phi.K2;
@@ -1186,8 +1332,8 @@ inline void AdvectionMethod2D<TT>::LLSPropagatingTVDRK3(LS & levelSet, const FD&
 #pragma omp parallel for private(i, j, tempDxPhi, tempDyPhi)
 	for (int k = 1; k <= levelSet.numTube; k++)
 	{
-		i = levelSet.TubeIndex(k).i;
-		j = levelSet.TubeIndex(k).j;
+		i = levelSet.tubeIndex(k).i;
+		j = levelSet.tubeIndex(k).j;
 
 		if (velocityX(i, j) >= 0)
 		{
@@ -1214,8 +1360,8 @@ inline void AdvectionMethod2D<TT>::LLSPropagatingTVDRK3(LS & levelSet, const FD&
 #pragma omp parallel for private(i, j, tempDxPhi, tempDyPhi)
 	for (int k = 1; k <= levelSet.numTube; k++)
 	{
-		i = levelSet.TubeIndex(k).i;
-		j = levelSet.TubeIndex(k).j;
+		i = levelSet.tubeIndex(k).i;
+		j = levelSet.tubeIndex(k).j;
 
 		if (velocityX(i, j) >= 0)
 		{
@@ -1241,8 +1387,8 @@ inline void AdvectionMethod2D<TT>::LLSPropagatingTVDRK3(LS & levelSet, const FD&
 #pragma omp parallel for private(i, j, tempDxPhi, tempDyPhi)
 	for (int k = 1; k <= levelSet.numTube; k++)
 	{
-		i = levelSet.TubeIndex(k).i;
-		j = levelSet.TubeIndex(k).j;
+		i = levelSet.tubeIndex(k).i;
+		j = levelSet.tubeIndex(k).j;
 		if (velocityX(i, j) >= 0)
 		{
 			tempDxPhi = wenoXMinus(i, j);
@@ -1271,6 +1417,119 @@ inline void AdvectionMethod2D<TT>::LLSPropagatingTVDRK3(LS & levelSet, const FD&
 }
 
 template<class TT>
+inline void AdvectionMethod2D<TT>::LLSWENO3rdDerivation(const LS& levelSet, const Field2D<TT>& ipField, Array2D<TT>& wenoXMinus, Array2D<TT>& wenoXPlus, Array2D<TT>& wenoYMinus, Array2D<TT>& wenoYPlus)
+{
+	LLSWENO3rdDxMinus(levelSet, ipField, wenoXMinus);
+	LLSWENO3rdDxPlus(levelSet, ipField, wenoXPlus);
+	LLSWENO3rdDyMinus(levelSet, ipField, wenoYMinus);
+	LLSWENO3rdDyPlus(levelSet, ipField, wenoYPlus);
+}
+
+template<class TT>
+inline void AdvectionMethod2D<TT>::LLSWENO3rdDxMinus(const LS & levelSet, const Field2D<TT>& ipField, Array2D<TT>& wenoXMinus)
+{
+	TT v1, v2, v3;
+	int i, j;
+#pragma omp parallel for private(i, j, v1, v2, v3)
+	for (int k = 1; k <= levelSet.numTube; k++)
+	{
+		i = levelSet.tubeIndex(k).i;
+		j = levelSet.tubeIndex(k).j;
+		if (i < ipField.iStart + 2 || i > ipField.iEnd - 1)
+		{
+			wenoXMinus(i, j) = ipField.dxMinusPhi(i, j);
+		}
+		else
+		{
+			v1 = (ipField(i - 1, j) - ipField(i - 2, j))*ipField.oneOverdx;
+			v2 = (ipField(i, j) - ipField(i - 1, j))*ipField.oneOverdx;
+			v3 = (ipField(i + 1, j) - ipField(i, j))*ipField.oneOverdx;
+
+			WENO3rd(v1, v2, v3, wenoXMinus(i, j));
+		}
+	}
+}
+
+template<class TT>
+inline void AdvectionMethod2D<TT>::LLSWENO3rdDxPlus(const LS & levelSet, const Field2D<TT>& ipField, Array2D<TT>& wenoXPlus)
+{
+	TT v1, v2, v3;
+	int i, j;
+#pragma omp parallel for private(i, j, v1, v2, v3)
+	for (int k = 1; k <= levelSet.numTube; k++)
+	{
+		i = levelSet.tubeIndex(k).i;
+		j = levelSet.tubeIndex(k).j;
+
+		if (i < ipField.iStart + 1 || i > ipField.iEnd - 2)
+		{
+			wenoXPlus(i, j) = ipField.dxPlusPhi(i, j);
+		}
+		else
+		{
+			v1 = (ipField(i + 2, j) - ipField(i + 1, j))*ipField.oneOverdx;
+			v2 = (ipField(i + 1, j) - ipField(i, j))*ipField.oneOverdx;
+			v3 = (ipField(i, j) - ipField(i - 1, j))*ipField.oneOverdx;
+
+			WENO3rd(v1, v2, v3, wenoXPlus(i, j));
+		}
+	}
+}
+
+template<class TT>
+inline void AdvectionMethod2D<TT>::LLSWENO3rdDyMinus(const LS & levelSet, const Field2D<TT>& ipField, Array2D<TT>& wenoYMinus)
+{
+	TT v1, v2, v3;
+	int i, j;
+#pragma omp parallel for private(i, j, v1, v2, v3)
+	for (int k = 1; k <= levelSet.numTube; k++)
+	{
+		i = levelSet.tubeIndex(k).i;
+		j = levelSet.tubeIndex(k).j;
+
+		if (j < ipField.jStart + 2 || j > ipField.jEnd - 1)
+		{
+			wenoYMinus(i, j) = ipField.dyMinusPhi(i, j);
+		}
+		else
+		{
+			v1 = (ipField(i, j - 1) - ipField(i, j - 2))*ipField.oneOverdy;
+			v2 = (ipField(i, j) - ipField(i, j - 1))*ipField.oneOverdy;
+			v3 = (ipField(i, j + 1) - ipField(i, j))*ipField.oneOverdy;
+
+			WENO3rd(v1, v2, v3, wenoYMinus(i, j));
+		}
+	}
+}
+
+template<class TT>
+inline void AdvectionMethod2D<TT>::LLSWENO3rdDyPlus(const LS & levelSet, const Field2D<TT>& ipField, Array2D<TT>& wenoYPlus)
+{
+	TT v1, v2, v3;
+	int i, j;
+#pragma omp parallel for private(i, j, v1, v2, v3)
+	for (int k = 1; k <= levelSet.numTube; k++)
+	{
+		i = levelSet.tubeIndex(k).i;
+		j = levelSet.tubeIndex(k).j;
+
+		if (j < ipField.jStart + 1 || j > ipField.jEnd - 2)
+		{
+			wenoYPlus(i, j) = ipField.dyPlusPhi(i, j);
+		}
+		else
+		{
+			v1 = (ipField(i, j + 2) - ipField(i, j + 1))*ipField.oneOverdy;
+			v2 = (ipField(i, j + 1) - ipField(i, j))*ipField.oneOverdy;
+			v3 = (ipField(i, j) - ipField(i, j - 1))*ipField.oneOverdy;
+
+			WENO3rd(v1, v2, v3, wenoYPlus(i, j));
+		}
+	}
+}
+
+
+template<class TT>
 inline void AdvectionMethod2D<TT>::LLSWENO5thDerivation(const LS& levelSet, const Field2D<TT>& ipField, Array2D<TT>& wenoXMinus, Array2D<TT>& wenoXPlus, Array2D<TT>& wenoYMinus, Array2D<TT>& wenoYPlus)
 {
 	LLSWENO5thDxMinus(levelSet, ipField, wenoXMinus);
@@ -1287,8 +1546,8 @@ inline void AdvectionMethod2D<TT>::LLSWENO5thDxMinus(const LS & levelSet, const 
 #pragma omp parallel for private(i, j, v1, v2, v3, v4, v5)
 	for (int k = 1; k <= levelSet.numTube; k++)
 	{
-		i = levelSet.TubeIndex(k).i;
-		j = levelSet.TubeIndex(k).j;
+		i = levelSet.tubeIndex(k).i;
+		j = levelSet.tubeIndex(k).j;
 		if (i < ipField.iStart + 3 || i > ipField.iEnd - 2)
 		{
 			wenoXMinus(i, j) = ipField.dxMinusPhi(i, j);
@@ -1314,8 +1573,8 @@ inline void AdvectionMethod2D<TT>::LLSWENO5thDxPlus(const LS & levelSet, const F
 #pragma omp parallel for private(i, j, v1, v2, v3, v4, v5)
 	for (int k = 1; k <= levelSet.numTube; k++)
 	{
-		i = levelSet.TubeIndex(k).i;
-		j = levelSet.TubeIndex(k).j;
+		i = levelSet.tubeIndex(k).i;
+		j = levelSet.tubeIndex(k).j;
 
 		if (i < ipField.iStart + 2 || i > ipField.iEnd - 3)
 		{
@@ -1342,8 +1601,8 @@ inline void AdvectionMethod2D<TT>::LLSWENO5thDyMinus(const LS & levelSet, const 
 #pragma omp parallel for private(i, j, v1, v2, v3, v4, v5)
 	for (int k = 1; k <= levelSet.numTube; k++)
 	{
-		i = levelSet.TubeIndex(k).i;
-		j = levelSet.TubeIndex(k).j;
+		i = levelSet.tubeIndex(k).i;
+		j = levelSet.tubeIndex(k).j;
 
 		if (j < ipField.jStart + 3 || j > ipField.jEnd - 2)
 		{
@@ -1370,8 +1629,8 @@ inline void AdvectionMethod2D<TT>::LLSWENO5thDyPlus(const LS & levelSet, const F
 #pragma omp parallel for private(i, j, v1, v2, v3, v4, v5)
 	for (int k = 1; k <= levelSet.numTube; k++)
 	{
-		i = levelSet.TubeIndex(k).i;
-		j = levelSet.TubeIndex(k).j;
+		i = levelSet.tubeIndex(k).i;
+		j = levelSet.tubeIndex(k).j;
 
 		if (j < ipField.jStart + 2 || j > ipField.jEnd - 3)
 		{
@@ -1393,8 +1652,8 @@ inline void AdvectionMethod2D<TT>::LLSWENO5thDyPlus(const LS & levelSet, const F
 template<class TT>
 inline void AdvectionMethod2D<TT>::LLSReinitializationTVDRK3(LS & levelSet, const double & dt)
 {
-	levelSet.phiOld.dataArray = levelSet.phi.dataArray;
-	Array2D<TT>& originLevelSet = levelSet.phiOld.dataArray;
+	levelSet.phi.SaveOld();
+	Array2D<TT>& originLevelSet = levelSet.phi.dataArrayOld;
 
 	Array2D<TT>& k1 = levelSet.phi.K1;
 	Array2D<TT>& k2 = levelSet.phi.K2;
@@ -1409,10 +1668,10 @@ inline void AdvectionMethod2D<TT>::LLSReinitializationTVDRK3(LS & levelSet, cons
 
 	LLSWENO5thDerivation(levelSet, levelSet.phi, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
 #pragma omp parallel for private(i,j)
-	for (int k = levelSet.TubeIndex.iStart; k <= levelSet.numTube; k++)
+	for (int k = levelSet.tubeIndex.iStart; k <= levelSet.numTube; k++)
 	{
-		i = levelSet.TubeIndex(k).i;
-		j = levelSet.TubeIndex(k).j;
+		i = levelSet.tubeIndex(k).i;
+		j = levelSet.tubeIndex(k).j;
 		k1(i, j) = -sign(originLevelSet(i, j))*dt*ReinitialGodunov(wenoXPlus(i, j), wenoXMinus(i, j), wenoYPlus(i, j), wenoYMinus(i, j), originLevelSet(i, j));
 		levelSet(i, j) = originLevelSet(i, j) + k1(i, j);
 	}
@@ -1420,8 +1679,8 @@ inline void AdvectionMethod2D<TT>::LLSReinitializationTVDRK3(LS & levelSet, cons
 #pragma omp parallel for private(i,j)
 	for (int k = 1; k <= levelSet.numTube; k++)
 	{
-		i = levelSet.TubeIndex(k).i;
-		j = levelSet.TubeIndex(k).j;
+		i = levelSet.tubeIndex(k).i;
+		j = levelSet.tubeIndex(k).j;
 		k2(i, j) = -sign(originLevelSet(i, j))*dt*ReinitialGodunov(wenoXPlus(i, j), wenoXMinus(i, j), wenoYPlus(i, j), wenoYMinus(i, j), originLevelSet(i, j));
 		levelSet(i, j) = 3.0 / 4.0*originLevelSet(i, j) + 1.0 / 4.0*(levelSet(i, j) + k2(i, j));
 	}
@@ -1429,8 +1688,8 @@ inline void AdvectionMethod2D<TT>::LLSReinitializationTVDRK3(LS & levelSet, cons
 #pragma omp parallel for private(i,j)
 	for (int k = 1; k <= levelSet.numTube; k++)
 	{
-		i = levelSet.TubeIndex(k).i;
-		j = levelSet.TubeIndex(k).j;
+		i = levelSet.tubeIndex(k).i;
+		j = levelSet.tubeIndex(k).j;
 		k3(i, j) = -sign(originLevelSet(i, j))*dt*ReinitialGodunov(wenoXPlus(i, j), wenoXMinus(i, j), wenoYPlus(i, j), wenoYMinus(i, j), originLevelSet(i, j));
 		levelSet(i, j) = 1.0 / 3.0*originLevelSet(i, j) + 2.0 / 3.0*(levelSet(i, j) + k3(i, j));
 	}
@@ -1439,8 +1698,8 @@ inline void AdvectionMethod2D<TT>::LLSReinitializationTVDRK3(LS & levelSet, cons
 template<class TT>
 inline void AdvectionMethod2D<TT>::LLSReinitializationTVDRK3(LS & levelSet, const double & dt, const int & iter)
 {
-	levelSet.phiOld.dataArray = levelSet.phi.dataArray;
-	Array2D<TT>& originLevelSet = levelSet.phiOld.dataArray;
+	levelSet.phi.SaveOld();
+	Array2D<TT>& originLevelSet = levelSet.phi.dataArrayOld;
 
 	Array2D<TT>& k1 = levelSet.phi.K1;
 	Array2D<TT>& k2 = levelSet.phi.K2;
@@ -1456,10 +1715,10 @@ inline void AdvectionMethod2D<TT>::LLSReinitializationTVDRK3(LS & levelSet, cons
 	{
 		LLSWENO5thDerivation(levelSet, levelSet.phi, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
 #pragma omp parallel for private(i,j)
-		for (int k = levelSet.TubeIndex.iStart; k <= levelSet.numTube; k++)
+		for (int k = levelSet.tubeIndex.iStart; k <= levelSet.numTube; k++)
 		{
-			i = levelSet.TubeIndex(k).i;
-			j = levelSet.TubeIndex(k).j;
+			i = levelSet.tubeIndex(k).i;
+			j = levelSet.tubeIndex(k).j;
 			k1(i, j) = -sign(originLevelSet(i, j))*dt*ReinitialGodunov(wenoXPlus(i, j), wenoXMinus(i, j), wenoYPlus(i, j), wenoYMinus(i, j), originLevelSet(i, j));
 			levelSet(i, j) = originLevelSet(i, j) + k1(i, j);
 		}
@@ -1467,8 +1726,8 @@ inline void AdvectionMethod2D<TT>::LLSReinitializationTVDRK3(LS & levelSet, cons
 #pragma omp parallel for private(i,j)
 		for (int k = 1; k <= levelSet.numTube; k++)
 		{
-			i = levelSet.TubeIndex(k).i;
-			j = levelSet.TubeIndex(k).j;
+			i = levelSet.tubeIndex(k).i;
+			j = levelSet.tubeIndex(k).j;
 			k2(i, j) = -sign(originLevelSet(i, j))*dt*ReinitialGodunov(wenoXPlus(i, j), wenoXMinus(i, j), wenoYPlus(i, j), wenoYMinus(i, j), originLevelSet(i, j));
 			levelSet(i, j) = 3.0 / 4.0*originLevelSet(i, j) + 1.0 / 4.0*(levelSet(i, j) + k2(i, j));
 		}
@@ -1476,8 +1735,8 @@ inline void AdvectionMethod2D<TT>::LLSReinitializationTVDRK3(LS & levelSet, cons
 #pragma omp parallel for private(i,j)
 		for (int k = 1; k <= levelSet.numTube; k++)
 		{
-			i = levelSet.TubeIndex(k).i;
-			j = levelSet.TubeIndex(k).j;
+			i = levelSet.tubeIndex(k).i;
+			j = levelSet.tubeIndex(k).j;
 			k3(i, j) = -sign(originLevelSet(i, j))*dt*ReinitialGodunov(wenoXPlus(i, j), wenoXMinus(i, j), wenoYPlus(i, j), wenoYMinus(i, j), originLevelSet(i, j));
 			levelSet(i, j) = 1.0 / 3.0*originLevelSet(i, j) + 2.0 / 3.0*(levelSet(i, j) + k3(i, j));
 		}

@@ -30,7 +30,7 @@ void main()
 	MATLAB.Command("workspace");
 
 	int problem = 13;
-	int example = 1;
+	int example = 3;
 	if (problem == 0) //// GMRES test :: example 1,2,3,4
 	{
 		switch (example)
@@ -115,7 +115,14 @@ void main()
 	else if (problem == 13) // Local Level Set Problem Solver : Example 1,2
 	{
 		LocalLevelSetAdvection LLS;
-		LLS.AdvectionSolver(example);
+		if (example == 1 || example == 2)
+		{
+			LLS.AdvectionSolver(example);
+		}
+		else if (example == 3)
+		{
+			LLS.QuantityExtensionSolver(example);
+		}
 	}
 
 	system("pause");

@@ -17,7 +17,6 @@ public:
 	Grid2D grid;
 
 	FD phi;
-	FD phiOld;
 	FV normal;
 	FV unitNormal;
 	FV tangential;
@@ -25,8 +24,8 @@ public:
 
 
 	// Local Level Set Variables
-	Array2D<int> Tube;
-	VectorND<VI> TubeIndex;
+	Array2D<int> tube;
+	VectorND<VI> tubeIndex;
 	int numTube;
 	double gamma1;
 	double gamma2;
@@ -57,6 +56,7 @@ public:
 	inline void operator = (const LevelSet2D& ipLevelSet);
 
 	inline void ComputeNormal();
+	inline void LComputeNormal();
 	inline VT ComputeNormal(const int& i, const int& j);
 	inline VT ComputeNormal(const VI ipVector);
 
@@ -104,6 +104,7 @@ public:
 
 	inline void UpdateLLS();
 
+	inline void TubeIndex(const int&k, int&i, int& j);
 private:
 
 };
@@ -126,15 +127,14 @@ inline LevelSet2D::LevelSet2D(const Grid2D & ipGrid)
 {
 	grid = ipGrid;
 	phi = FD(ipGrid);
-	phiOld = FD(ipGrid);
 	normal = FV(ipGrid);
 	unitNormal = FV(ipGrid);
 	tangential = FV(ipGrid);
 	meanCurvature = FD(ipGrid);
 
-	Tube = Array2D<int>(ipGrid);
+	tube = Array2D<int>(ipGrid);
 
-	TubeIndex = VectorND<VI>(1, grid.iRes*grid.jRes);
+	tubeIndex = VectorND<VI>(1, grid.iRes*grid.jRes);
 
 	gamma1 = 3.0*max(ipGrid.dx, ipGrid.dy);
 	gamma2 = 2.0*gamma1;
@@ -145,15 +145,14 @@ inline LevelSet2D::LevelSet2D(const Grid2D & ipGrid, const double & ipGamma)
 {
 	grid = ipGrid;
 	phi = FD(ipGrid);
-	phiOld = FD(ipGrid);
 	normal = FV(ipGrid);
 	unitNormal = FV(ipGrid);
 	tangential = FV(ipGrid);
 	meanCurvature = FD(ipGrid);
 
-	Tube = Array2D<int>(ipGrid);
+	tube = Array2D<int>(ipGrid);
 
-	TubeIndex = VectorND<VI>(1, grid.iRes*grid.jRes);
+	tubeIndex = VectorND<VI>(1, grid.iRes*grid.jRes);
 
 	gamma1 = ipGamma;
 	gamma2 = 2.0*gamma1;
@@ -164,14 +163,13 @@ inline LevelSet2D::LevelSet2D(const Grid2D & ipGrid, const double & ipGamma1, co
 {
 	grid = ipGrid;
 	phi = FD(ipGrid);
-	phiOld = FD(ipGrid);
 	normal = FV(ipGrid);
 	unitNormal = FV(ipGrid);
 	tangential = FV(ipGrid);
 	meanCurvature = FD(ipGrid);
 
-	Tube = Array2D<int>(ipGrid);
-	TubeIndex = VectorND<VI>(1, grid.iRes*grid.jRes);
+	tube = Array2D<int>(ipGrid);
+	tubeIndex = VectorND<VI>(1, grid.iRes*grid.jRes);
 	gamma1 = ipGamma1;
 	gamma2 = 2.0*gamma1;
 	gamma3 = 3.0*gamma1;
@@ -181,14 +179,13 @@ inline LevelSet2D::LevelSet2D(const LevelSet2D & ipLevelSet, const double & ipGa
 {
 	grid = ipLevelSet.grid;
 	phi = FD(grid);
-	phiOld = FD(grid);
 	normal = FV(grid);
 	unitNormal = FV(grid);
 	tangential = FV(grid);
 	meanCurvature = FD(grid);
 
-	Tube = Array2D<int>(grid);
-	TubeIndex = VectorND<VI>(1, grid.iRes*grid.jRes);
+	tube = Array2D<int>(grid);
+	tubeIndex = VectorND<VI>(1, grid.iRes*grid.jRes);
 	gamma1 = ipGamma;
 	gamma2 = 2.0*gamma1;
 	gamma3 = 3.0*gamma1;
@@ -198,14 +195,13 @@ inline LevelSet2D::LevelSet2D(const LevelSet2D & ipLevelSet, const double & ipGa
 {
 	grid = ipLevelSet.grid;
 	phi = FD(grid);
-	phiOld = FD(grid);
 	normal = FV(grid);
 	unitNormal = FV(grid);
 	tangential = FV(grid);
 	meanCurvature = FD(grid);
 
-	Tube = Array2D<int>(grid);
-	TubeIndex = VectorND<VI>(1, grid.iRes*grid.jRes);
+	tube = Array2D<int>(grid);
+	tubeIndex = VectorND<VI>(1, grid.iRes*grid.jRes);
 	gamma1 = ipGamma1;
 	gamma2 = ipGamma2;
 	gamma3 = ipGamma3;
@@ -265,14 +261,13 @@ inline void LevelSet2D::operator=(const LevelSet2D & ipLevelSet)
 {
 	grid = ipLevelSet.grid;
 	phi = ipLevelSet.phi;
-	phiOld = ipLevelSet.phiOld;
 	normal = ipLevelSet.normal;
 	unitNormal = ipLevelSet.unitNormal;
 	tangential = ipLevelSet.tangential;
 	meanCurvature = ipLevelSet.meanCurvature;
 
-	Tube = ipLevelSet.Tube;
-	TubeIndex = ipLevelSet.TubeIndex;
+	tube = ipLevelSet.tube;
+	tubeIndex = ipLevelSet.tubeIndex;
 	numTube = ipLevelSet.numTube;
 	gamma1 = ipLevelSet.gamma1;
 	gamma2 = ipLevelSet.gamma2;
@@ -288,6 +283,18 @@ inline void LevelSet2D::ComputeNormal()
 		{
 			normal.dataArray(i, j) = ComputeNormal(i, j);
 		}
+	}
+}
+
+inline void LevelSet2D::LComputeNormal()
+{
+	int i, j;
+#pragma omp parallel for private(i, j)
+	for (int k = 1; k <= numTube; k++)
+	{
+		i = tubeIndex(k).i;
+		j = tubeIndex(k).j;
+		normal.dataArray(i, j) = ComputeNormal(i, j);
 	}
 }
 
@@ -371,7 +378,7 @@ inline VT LevelSet2D::ComputeNormal(const int & i, const int & j)
 		assert(j >= phi.jStart && j <= phi.jEnd);
 	}
 
-
+	normal /= sqrt(normal.x * normal.x + normal.y * normal.y + DBL_EPSILON);
 	return normal;
 }
 
@@ -839,17 +846,17 @@ inline void LevelSet2D::InitialTube()
 			absConst = abs(phi(i, j));
 			if (absConst < gamma3)
 			{
-				Tube(i, j) = 3;
+				tube(i, j) = 3;
 				numTube += 1;
-				TubeIndex(numTube) = VI(i, j);
+				tubeIndex(numTube) = VI(i, j);
 				if (absConst < gamma2)
 				{
-					Tube(i, j) = 2;
+					tube(i, j) = 2;
 					if (absConst < gamma1)
 					{
-						Tube(i, j) = 1;
+						tube(i, j) = 1;
 						//numTube += 1;
-						//TubeIndex(numTube) = VI(i, j);
+						//tubeIndex(numTube) = VI(i, j);
 					}
 				}
 			}
@@ -892,28 +899,28 @@ inline void LevelSet2D::UpdateInterface(const double & ipGamma1, const double & 
 	gamma2 = ipGamma2;
 	gamma3 = ipGamma3;
 	int tempNumTube = numTube;
-	Tube = 0;
+	tube = 0;
 	numTube = 0;
 	int i, j;
 	double absConst;
 	for (int k = 1; k <= tempNumTube; k++)
 	{
-		i = TubeIndex(k).i;
-		j = TubeIndex(k).j;
+		i = tubeIndex(k).i;
+		j = tubeIndex(k).j;
 		absConst = abs(phi(i, j));
 		//if (absConst < gamma3 && Tube(i, j) == 0)
 		{
 			//Tube(i, j) = 3;
 			//numTube += 1;
-			//TubeIndex(numTube) = VI(i, j);
-			if (absConst < gamma2 && Tube(i, j) == 0)
+			//tubeIndex(numTube) = VI(i, j);
+			if (absConst < gamma2 && tube(i, j) == 0)
 			{
-				Tube(i, j) = 2;
+				tube(i, j) = 2;
 				numTube += 1;
-				TubeIndex(numTube) = VI(i, j);
+				tubeIndex(numTube) = VI(i, j);
 				if (absConst <= gamma1)
 				{
-					Tube(i, j) = 1;
+					tube(i, j) = 1;
 				}
 			}
 		}
@@ -926,19 +933,19 @@ inline void LevelSet2D::UpdateInterface(const double & ipGamma1, const double & 
 	int bdryWidth = 3;
 	for (int k = 1; k <= tempNumTube; k++)
 	{
-		i = TubeIndex(k).i;
-		j = TubeIndex(k).j;
-		if (Tube(i, j) == 2)
+		i = tubeIndex(k).i;
+		j = tubeIndex(k).j;
+		if (tube(i, j) == 2)
 		{
 			for (int ii = -bdryWidth; ii <= bdryWidth; ii++)
 			{
 				for (int jj = -bdryWidth; jj <= bdryWidth; jj++)
 				{
-					if (Tube(i + ii, j + jj) == 0)
+					if (tube(i + ii, j + jj) == 0)
 					{
-						Tube(i + ii, j + jj) = 3;
+						tube(i + ii, j + jj) = 3;
 						numTube += 1;
-						TubeIndex(numTube) = VI(i + ii, j + jj);
+						tubeIndex(numTube) = VI(i + ii, j + jj);
 					}
 				}
 			}
@@ -959,15 +966,15 @@ inline void LevelSet2D::UpdateLLS()
 #pragma omp parallel for private(i, j)
 	for (int k = 1; k <= numTube; k++)
 	{
-		i = TubeIndex(k).i;
-		j = TubeIndex(k).j;
-		if (Tube(i, j) == 3)
+		i = tubeIndex(k).i;
+		j = tubeIndex(k).j;
+		if (tube(i, j) == 3)
 		{
 			for (int ii = -bdryWidth; ii <= bdryWidth; ii++)
 			{
 				for (int jj = -bdryWidth; jj <= bdryWidth; jj++)
 				{
-					if (Tube(i + ii, j + jj) == 0 || Tube(i + ii, j + jj) == 3)
+					if (tube(i + ii, j + jj) == 0 || tube(i + ii, j + jj) == 3)
 					{
 						if (phi(i + ii, j + jj) < -threshold)
 						{
@@ -982,6 +989,12 @@ inline void LevelSet2D::UpdateLLS()
 			}
 		}
 	}
+}
+
+inline void LevelSet2D::TubeIndex(const int & k, int & i, int & j)
+{
+	i = tubeIndex(k).i;
+	j = tubeIndex(k).j;
 }
 
 typedef LevelSet2D LS;
