@@ -29,8 +29,8 @@ void main()
 	MATLAB.Command("clc; clear all; close all;");
 	MATLAB.Command("workspace");
 
-	int problem = 13;
-	int example = 3;
+	int problem = 12;
+	int example = 4;
 	if (problem == 0) //// GMRES test :: example 1,2,3,4
 	{
 		switch (example)
@@ -110,7 +110,18 @@ void main()
 	else if (problem == 12)  // Eulerian Moving Interface.(JJ Xu, HK Zhao) : Example 1
 	{
 		MovingInterface Eulerian;
-		Eulerian.MovingInterfaceSolver(example);
+		if (example <= 2)
+		{
+			Eulerian.SurfactantDiffusionSolver(example);
+		}
+		else if (example == 3)
+		{
+			Eulerian.LSurfactantDiffusionSolver(example);
+		}
+		else if (example == 4)
+		{
+			Eulerian.EulerianMovingInterfaceSolver(example);
+		}
 	}
 	else if (problem == 13) // Local Level Set Problem Solver : Example 1,2
 	{

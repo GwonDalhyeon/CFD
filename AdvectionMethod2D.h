@@ -88,7 +88,12 @@ public:
 	static void LLSReinitializationTVDRK3(LS& levelSet, const double& dt);
 	static void LLSReinitializationTVDRK3(LS& levelSet, const double& dt, const int& iter);
 
-	static void LLSQuantityExtension(const LS& levelSet, FD & ipField);
+	static void LLSQuantityExtension(LS& ipLS, FD& ipQuantity, const int & timeOrder, const int & spacialOrder);
+	static void LLSQuantityExtension(LS& ipLS, FD& ipQuantity, const int & timeOrder, const int & spacialOrder, const int & iter);
+
+	// Adaptive time step functions.
+	static double AdaptiveTimeStep(const FD& velocity1, const double & cflCondition);
+	static double AdaptiveTimeStep(const FD& velocity1, const FD& velocity2, const double & cflCondition);
 
 private:
 
@@ -1250,10 +1255,6 @@ inline void AdvectionMethod2D<TT>::LLSPropagatingTVDRK3(LS & levelSet, const dou
 		k3(i, j) = -dt*PropagatingGodunov(wenoXPlus(i, j), wenoXMinus(i, j), wenoYPlus(i, j), wenoYMinus(i, j), 1);
 		levelSet(i, j) = 1.0 / 3.0*originLevelSet(i, j) + 2.0 / 3.0*(levelSet(i, j) + levelSet.Cutoff(i, j)*k3(i, j));
 	}
-	int reinitialIter = int(levelSet.gamma1 / min(levelSet.phi.dx, levelSet.phi.dy));
-	LLSReinitializationTVDRK3(levelSet, dt, reinitialIter);
-	levelSet.UpdateInterface();
-	levelSet.UpdateLLS();
 }
 
 template<class TT>
@@ -1303,11 +1304,6 @@ inline void AdvectionMethod2D<TT>::LLSPropagatingTVDRK3(LS & levelSet, const FD&
 		levelSet(i, j) = 1.0 / 3.0*originLevelSet(i, j) + 2.0 / 3.0*(levelSet(i, j) + levelSet.Cutoff(i, j)*k3(i, j));
 
 	}
-
-	int reinitialIter = int(levelSet.gamma1 / min(levelSet.phi.dx, levelSet.phi.dy));
-	LLSReinitializationTVDRK3(levelSet, dt, reinitialIter);
-	levelSet.UpdateInterface();
-	levelSet.UpdateLLS();
 }
 
 template<class TT>
@@ -1352,7 +1348,7 @@ inline void AdvectionMethod2D<TT>::LLSPropagatingTVDRK3(LS & levelSet, const FD&
 			tempDyPhi = wenoYPlus(i, j);
 		}
 
-		k1(i, j) = -velocityX(i, j)*dt*tempDxPhi - velocityY(i, j)*dt*tempDyPhi;
+		k1(i, j) = -dt*(velocityX(i, j)*tempDxPhi + velocityY(i, j)*tempDyPhi);
 		levelSet(i, j) = originLevelSet(i, j) + levelSet.Cutoff(i, j)*k1(i, j);
 	}
 
@@ -1379,7 +1375,7 @@ inline void AdvectionMethod2D<TT>::LLSPropagatingTVDRK3(LS & levelSet, const FD&
 		{
 			tempDyPhi = wenoYPlus(i, j);
 		}
-		k2(i, j) = -velocityX(i, j)*dt*tempDxPhi - velocityY(i, j)*dt*tempDyPhi;
+		k2(i, j) = -dt*(velocityX(i, j)*tempDxPhi + velocityY(i, j)*tempDyPhi);
 		levelSet(i, j) = 3.0 / 4.0*originLevelSet(i, j) + 1.0 / 4.0*(levelSet(i, j) + levelSet.Cutoff(i, j)*k2(i, j));
 	}
 
@@ -1405,15 +1401,9 @@ inline void AdvectionMethod2D<TT>::LLSPropagatingTVDRK3(LS & levelSet, const FD&
 		{
 			tempDyPhi = wenoYPlus(i, j);
 		}
-		k3(i, j) = -velocityX(i, j)*dt*tempDxPhi - velocityY(i, j)*dt*tempDyPhi;
+		k3(i, j) = -dt*(velocityX(i, j)*tempDxPhi + velocityY(i, j)*tempDyPhi);
 		levelSet(i, j) = 1.0 / 3.0*originLevelSet(i, j) + 2.0 / 3.0*(levelSet(i, j) + levelSet.Cutoff(i, j)*k3(i, j));
 	}
-	
-	int reinitialIter = int(levelSet.gamma1 / min(levelSet.phi.dx, levelSet.phi.dy));
-	LLSReinitializationTVDRK3(levelSet, dt,reinitialIter);
-	levelSet.UpdateInterface();
-	levelSet.UpdateLLS();
-
 }
 
 template<class TT>
@@ -1744,6 +1734,192 @@ inline void AdvectionMethod2D<TT>::LLSReinitializationTVDRK3(LS & levelSet, cons
 }
 
 template<class TT>
-inline void AdvectionMethod2D<TT>::LLSQuantityExtension(const LS & levelSet, FD & ipField)
+inline void AdvectionMethod2D<TT>::LLSQuantityExtension(LS & ipLS, FD & ipQuantity, const int & timeOrder, const int & spacialOrder)
 {
+	ipQuantity.SaveOld();
+	Array2D<double>& originQuantity = ipQuantity.dataArrayOld;
+
+	Array2D<double>& k1 = ipQuantity.K1;
+	Array2D<double>& k2 = ipQuantity.K2;
+	Array2D<double>& k3 = ipQuantity.K3;
+
+	Array2D<double>& wenoXMinus = ipQuantity.dfdxM;
+	Array2D<double>& wenoXPlus = ipQuantity.dfdxP;
+	Array2D<double>& wenoYMinus = ipQuantity.dfdyM;
+	Array2D<double>& wenoYPlus = ipQuantity.dfdyP;
+
+	ipLS.LComputeNormal();
+	
+	VT normal;
+	double signPhi;
+	double tempDxPhi, tempDyPhi;
+	int i, j;
+	int updatedRegion = 2;
+	double cflCondition = 0.2;
+	double dt = cflCondition * min(ipLS.grid.dx, ipLS.grid.dy);
+
+	if (spacialOrder == 3)
+	{
+		AdvectionMethod2D<double>::LLSWENO3rdDerivation(ipLS, ipQuantity, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
+	}
+	else if (spacialOrder == 5)
+	{
+		AdvectionMethod2D<double>::LLSWENO5thDerivation(ipLS, ipQuantity, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
+	}
+#pragma omp parallel for private(i, j, normal, signPhi, tempDxPhi, tempDyPhi)
+	for (int k = 1; k <= ipLS.numTube; k++)
+	{
+		ipLS.TubeIndex(k, i, j);
+		if (ipLS.tube(i, j) == updatedRegion)
+		{
+			normal = ipLS.normal(i, j);
+			signPhi = AdvectionMethod2D<double>::sign(ipLS(i, j));
+			if (signPhi*normal.i >= 0)
+			{
+				tempDxPhi = wenoXMinus(i, j);
+			}
+			else
+			{
+				tempDxPhi = wenoXPlus(i, j);
+			}
+			if (signPhi*normal.j >= 0)
+			{
+				tempDyPhi = wenoYMinus(i, j);
+			}
+			else
+			{
+				tempDyPhi = wenoYPlus(i, j);
+			}
+			k1(i, j) = -dt*signPhi*(normal.x*tempDxPhi + normal.y*tempDyPhi);
+			ipQuantity(i, j) = originQuantity(i, j) + k1(i, j);
+		}
+	}
+
+	if (timeOrder == 3)
+	{
+		if (spacialOrder == 3)
+		{
+			AdvectionMethod2D<double>::LLSWENO3rdDerivation(ipLS, ipQuantity, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
+		}
+		else if (spacialOrder == 5)
+		{
+			AdvectionMethod2D<double>::LLSWENO5thDerivation(ipLS, ipQuantity, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
+		}
+#pragma omp parallel for private(i, j, normal, signPhi, tempDxPhi, tempDyPhi)
+		for (int k = 1; k <= ipLS.numTube; k++)
+		{
+			ipLS.TubeIndex(k, i, j);
+			if (ipLS.tube(i, j) == updatedRegion)
+			{
+				normal = ipLS.normal(i, j);
+				signPhi = AdvectionMethod2D<double>::sign(ipLS(i, j));
+				if (signPhi*normal.i >= 0)
+				{
+					tempDxPhi = wenoXMinus(i, j);
+				}
+				else
+				{
+					tempDxPhi = wenoXPlus(i, j);
+				}
+				if (signPhi*normal.j >= 0)
+				{
+					tempDyPhi = wenoYMinus(i, j);
+				}
+				else
+				{
+					tempDyPhi = wenoYPlus(i, j);
+				}
+				k2(i, j) = -dt*signPhi*(normal.x*tempDxPhi + normal.y*tempDyPhi);
+				ipQuantity(i, j) = 3.0 / 4.0*originQuantity(i, j) + 1.0 / 4.0*(ipQuantity(i, j) + k2(i, j));
+			}
+		}
+
+		if (spacialOrder == 3)
+		{
+			AdvectionMethod2D<double>::LLSWENO3rdDerivation(ipLS, ipQuantity, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
+		}
+		else if (spacialOrder == 5)
+		{
+			AdvectionMethod2D<double>::LLSWENO5thDerivation(ipLS, ipQuantity, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
+		}
+#pragma omp parallel for private(i, j, normal, signPhi, tempDxPhi, tempDyPhi)
+		for (int k = 1; k <= ipLS.numTube; k++)
+		{
+			ipLS.TubeIndex(k, i, j);
+			if (ipLS.tube(i, j) == updatedRegion)
+			{
+				normal = ipLS.normal(i, j);
+				signPhi = AdvectionMethod2D<double>::sign(ipLS(i, j));
+				if (signPhi*normal.i >= 0)
+				{
+					tempDxPhi = wenoXMinus(i, j);
+				}
+				else
+				{
+					tempDxPhi = wenoXPlus(i, j);
+				}
+				if (signPhi*normal.j >= 0)
+				{
+					tempDyPhi = wenoYMinus(i, j);
+				}
+				else
+				{
+					tempDyPhi = wenoYPlus(i, j);
+				}
+				k3(i, j) = -dt*signPhi*(normal.x*tempDxPhi + normal.y*tempDyPhi);
+				ipQuantity(i, j) = 1.0 / 3.0*originQuantity(i, j) + 2.0 / 3.0*(ipQuantity(i, j) + k3(i, j));
+			}
+		}
+	}
+}
+
+template<class TT>
+inline void AdvectionMethod2D<TT>::LLSQuantityExtension(LS & ipLS, FD & ipQuantity, const int & timeOrder, const int & spacialOrder, const int & iter)
+{
+	for (int m = 1;  m <= iter;  m++)
+	{
+		LLSQuantityExtension(ipLS, ipQuantity, timeOrder, spacialOrder);
+	}
+}
+
+
+template<class TT>
+inline double AdvectionMethod2D<TT>::AdaptiveTimeStep(const FD & velocity1, const double & cflCondition)
+{
+	double maxVel1 = 0;
+
+	for (int i = velocity1.grid.iStart; i <= velocity1.grid.iEnd; i++)
+	{
+		for (int j = velocity1.grid.jStart; j <= velocity1.grid.jEnd; j++)
+		{
+			if (abs(velocity1(i, j)) > maxVel1)
+			{
+				maxVel1 = abs(velocity1(i, j));
+			}
+		}
+	}
+	return cflCondition*max(velocity1.grid.dx, velocity1.grid.dy) / (maxVel1 + DBL_EPSILON);
+}
+
+template<class TT>
+inline double AdvectionMethod2D<TT>::AdaptiveTimeStep(const FD & velocity1, const FD & velocity2, const double & cflCondition)
+{
+	double maxVel1 = 0;
+	double maxVel2 = 0;
+
+	for (int i = velocity1.grid.iStart; i <= velocity1.grid.iEnd; i++)
+	{
+		for (int j = velocity1.grid.jStart; j <= velocity1.grid.jEnd; j++)
+		{
+			if (abs(velocity1(i, j)) > maxVel1)
+			{
+				maxVel1 = abs(velocity1(i, j));
+			}
+			if (abs(velocity2(i, j)) > maxVel2)
+			{
+				maxVel2 = abs(velocity2(i, j));
+			}
+		}
+	}
+	return cflCondition*(velocity1.grid.dx / (maxVel1 + DBL_EPSILON) + velocity1.grid.dy / (maxVel2 + DBL_EPSILON));
 }

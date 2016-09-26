@@ -33,16 +33,9 @@ public:
 	void AdvectionSolver(const int & example);
 	
 	void QuantityExtensionSolver(const int & example);
-	void ExtendQuantity(LS& ipLS, FD& ipQuantity, const int & timeOrder, const int & spacialOrder);
 
 	double Distance2Data(const int& i, const int& j);
 	void ExactDistance();
-
-	// Adaptive time step functions.
-	double AdaptiveTimeStep();
-	double AdaptiveTimeStep(const FD& velocity1);
-	double AdaptiveTimeStep(const FD& velocity1, const FD& velocity2);
-
 private:
 
 };
@@ -66,7 +59,7 @@ inline void LocalLevelSetAdvection::InitialCondition(const int & example)
 
 		grid = Grid2D(-1, 1, 201, -1, 1, 201);
 
-		LLS = LS(grid, 3*grid.dx);
+		LLS = LS(grid);
 #pragma omp parallel for
 		for (int i = grid.iStart; i <= grid.iEnd; i++)
 		{
@@ -119,7 +112,7 @@ inline void LocalLevelSetAdvection::InitialCondition(const int & example)
 		cflCondition = 0.5;
 
 		//dt = grid.dx*grid.dy;
-		maxIteration = 1000;
+		maxIteration = 100;
 		writeIter = 10;
 	}
 	else if (example == 3)
@@ -206,7 +199,7 @@ inline void LocalLevelSetAdvection::AdvectionSolver(const int & example)
 	//MATLAB.Command("open(v)");
 	clock_t before;
 	double  result;
-	
+	int reinitialIter;
 	double totalT = 0;
 	for (int i = 1; i <= maxIteration; i++)
 	{
@@ -216,10 +209,15 @@ inline void LocalLevelSetAdvection::AdvectionSolver(const int & example)
 
 		if (isVelocity)
 		{
-			dt = AdaptiveTimeStep(velocityX, velocityY);
+			dt = AdvectionMethod2D<double>::AdaptiveTimeStep(velocityX, velocityY, cflCondition);
 			totalT += dt;
 			before = clock();
 			AdvectionMethod2D<double>::LLSPropagatingTVDRK3(LLS, velocityX, velocityY, dt);
+			reinitialIter = int(LLS.gamma1 / min(LLS.phi.dx, LLS.phi.dy));
+			AdvectionMethod2D<double>::LLSReinitializationTVDRK3(LLS, dt, reinitialIter);
+			LLS.UpdateInterface();
+			LLS.UpdateLLS();
+
 			result = (double)(clock() - before) / CLOCKS_PER_SEC;
 			cout << result << endl;
 			LLS.tube.Variable("Tube");
@@ -237,9 +235,14 @@ inline void LocalLevelSetAdvection::AdvectionSolver(const int & example)
 		}
 		else
 		{
-			dt = AdaptiveTimeStep();
+			dt = cflCondition*min(grid.dx, grid.dy);
 			before = clock();
 			AdvectionMethod2D<double>::LLSPropagatingTVDRK3(LLS, dt);
+			reinitialIter = int(LLS.gamma1 / min(LLS.phi.dx, LLS.phi.dy));
+			AdvectionMethod2D<double>::LLSReinitializationTVDRK3(LLS, dt, reinitialIter);
+			LLS.UpdateInterface();
+			LLS.UpdateLLS();
+
 			result = (double)(clock() - before) / CLOCKS_PER_SEC;
 			cout << result << endl;
 			LLS.phi.Variable("phi");
@@ -260,7 +263,7 @@ inline void LocalLevelSetAdvection::AdvectionSolver(const int & example)
 			for (int j = 0; j < reinitialIter; j++)
 			{
 				cout << "Reinitialization : " << i << "-" << j + 1 << endl;
-				dt = AdaptiveTimeStep();
+				dt = cflCondition*min(grid.dx, grid.dy);
 				AdvectionMethod2D<double>::LLSReinitializationTVDRK3(LLS, dt);
 			}
 		}
@@ -271,6 +274,8 @@ inline void LocalLevelSetAdvection::AdvectionSolver(const int & example)
 			LLS.phi.WriteFile(str);
 		}
 	}
+	result = (double)(clock() - before) / CLOCKS_PER_SEC;
+	cout << result << endl;
 	//MATLAB.Command("close(v)");
 
 }
@@ -281,7 +286,7 @@ inline void LocalLevelSetAdvection::QuantityExtensionSolver(const int & example)
 	string str;
 	const char*cmd;
 	int timeAdvectionOrder = 3; // 1 or 3
-	int spacialOrder = 5; // 3 or 5
+	int spacialOrder = 3; // 3 or 5
 	InitialCondition(example);
 
 	grid.Variable();
@@ -290,166 +295,26 @@ inline void LocalLevelSetAdvection::QuantityExtensionSolver(const int & example)
 	quantity.Variable("quantity0");
 	
 	MATLAB.Command("figure('units','normalized','outerposition',[0 0 1 1])");
-	//MATLAB.Command("subplot(1,2,1)");
-	//MATLAB.Command("contour(X, Y, Tube);grid on;axis([-1 1 -1 1]);axis equal;");
-	//MATLAB.Command("subplot(1,2,2)");
 	MATLAB.Command("surf(X,Y,quantity0);hold on;contour(X, Y, Tube);hold off");
 	clock_t before = clock();
 	double  result;
-	double totalT = 0;
 	for (int i = 1; i <= maxIteration; i++)
 	{
 		cout << endl;
 		cout << "********************************" << endl;
 		cout << "Quantity Extension : " << i << endl;
-		totalT += dt;
-		ExtendQuantity(LLS, quantity, timeAdvectionOrder, spacialOrder);
-		//quantity.Variable("quantity");
-		////MATLAB.Command("subplot(1,2,1)");
-		//MATLAB.Command("surf(X,Y,quantity);%hold on;%contour(X, Y, Tube);");
-		//str = string("title(['iteration : ', num2str(") + to_string(i) + string(")]);");
-		//cmd = str.c_str();
-		//MATLAB.Command(cmd);
+		AdvectionMethod2D<double>::LLSQuantityExtension(LLS, quantity, timeAdvectionOrder, spacialOrder);
+		quantity.Variable("quantity");
+		//MATLAB.Command("subplot(1,2,1)");
+		MATLAB.Command("surf(X,Y,quantity);%hold on;%contour(X, Y, Tube);");
+		str = string("title(['iteration : ', num2str(") + to_string(i) + string(")]);");
+		cmd = str.c_str();
+		MATLAB.Command(cmd);
 		//MATLAB.Command("subplot(1,2,2)");
 		//MATLAB.Command("surf(X,Y,quantity-quantity0);%hold on;contour(X, Y, Tube);");
 	}
 	result = (double)(clock() - before) / CLOCKS_PER_SEC;
 	cout << result << endl;
-}
-
-inline void LocalLevelSetAdvection::ExtendQuantity(LS & ipLS, FD & ipQuantity, const int & timeOrder, const int & spacialOrder)
-{
-	ipQuantity.SaveOld();
-	Array2D<double>& originQuantity = ipQuantity.dataArrayOld;
-
-	Array2D<double>& k1 = ipQuantity.K1;
-	Array2D<double>& k2 = ipQuantity.K2;
-	Array2D<double>& k3 = ipQuantity.K3;
-
-	Array2D<double>& wenoXMinus = ipQuantity.dfdxM;
-	Array2D<double>& wenoXPlus = ipQuantity.dfdxP;
-	Array2D<double>& wenoYMinus = ipQuantity.dfdyM;
-	Array2D<double>& wenoYPlus = ipQuantity.dfdyP;
-	
-	ipLS.LComputeNormal();
-	VT normal;
-	double signPhi;
-	double tempDxPhi, tempDyPhi;
-	int i, j;
-	int updatedRegion = 2;
-	if (spacialOrder==3)
-	{
-		AdvectionMethod2D<double>::LLSWENO3rdDerivation(ipLS, ipQuantity, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
-	}
-	else if (spacialOrder==5)
-	{
-		AdvectionMethod2D<double>::LLSWENO5thDerivation(ipLS, ipQuantity, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
-	}
-#pragma omp parallel for private(i, j, normal, signPhi, tempDxPhi, tempDyPhi)
-	for (int k = 1; k <= ipLS.numTube; k++)
-	{
-		ipLS.TubeIndex(k, i, j);
-		if (ipLS.tube(i, j) == updatedRegion)
-		{
-			normal = ipLS.normal(i, j);
-			signPhi = AdvectionMethod2D<double>::sign(ipLS(i, j));
-			if (signPhi*normal.i >= 0)
-			{
-				tempDxPhi = wenoXMinus(i, j);
-			}
-			else
-			{
-				tempDxPhi = wenoXPlus(i, j);
-			}
-			if (signPhi*normal.j >= 0)
-			{
-				tempDyPhi = wenoYMinus(i, j);
-			}
-			else
-			{
-				tempDyPhi = wenoYPlus(i, j);
-			}
-			k1(i, j) = -dt*signPhi*(normal.x*tempDxPhi + normal.y*tempDyPhi);
-			ipQuantity(i, j) = originQuantity(i, j) + k1(i, j);
-		}
-	}
-
-	if (timeOrder == 3)
-	{
-		if (spacialOrder == 3)
-		{
-			AdvectionMethod2D<double>::LLSWENO3rdDerivation(ipLS, ipQuantity, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
-		}
-		else if (spacialOrder == 5)
-		{
-			AdvectionMethod2D<double>::LLSWENO5thDerivation(ipLS, ipQuantity, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
-		}
-#pragma omp parallel for private(i, j, normal, signPhi, tempDxPhi, tempDyPhi)
-		for (int k = 1; k <= ipLS.numTube; k++)
-		{
-			ipLS.TubeIndex(k, i, j);
-			if (ipLS.tube(i, j) == updatedRegion)
-			{
-				normal = ipLS.normal(i, j);
-				signPhi = AdvectionMethod2D<double>::sign(ipLS(i, j));
-				if (signPhi*normal.i >= 0)
-				{
-					tempDxPhi = wenoXMinus(i, j);
-				}
-				else
-				{
-					tempDxPhi = wenoXPlus(i, j);
-				}
-				if (signPhi*normal.j >= 0)
-				{
-					tempDyPhi = wenoYMinus(i, j);
-				}
-				else
-				{
-					tempDyPhi = wenoYPlus(i, j);
-				}
-				k2(i, j) = -dt*signPhi*(normal.x*tempDxPhi + normal.y*tempDyPhi);
-				ipQuantity(i, j) = 3.0 / 4.0*originQuantity(i, j) + 1.0 / 4.0*(ipQuantity(i, j) + k2(i, j));
-			}
-		}
-
-		if (spacialOrder == 3)
-		{
-			AdvectionMethod2D<double>::LLSWENO3rdDerivation(ipLS, ipQuantity, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
-		}
-		else if (spacialOrder == 5)
-		{
-			AdvectionMethod2D<double>::LLSWENO5thDerivation(ipLS, ipQuantity, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
-		}
-#pragma omp parallel for private(i, j, normal, signPhi, tempDxPhi, tempDyPhi)
-		for (int k = 1; k <= ipLS.numTube; k++)
-		{
-			ipLS.TubeIndex(k, i, j);
-			if (ipLS.tube(i, j) == updatedRegion)
-			{
-				normal = ipLS.normal(i, j);
-				signPhi = AdvectionMethod2D<double>::sign(ipLS(i, j));
-				if (signPhi*normal.i >= 0)
-				{
-					tempDxPhi = wenoXMinus(i, j);
-				}
-				else
-				{
-					tempDxPhi = wenoXPlus(i, j);
-				}
-				if (signPhi*normal.j >= 0)
-				{
-					tempDyPhi = wenoYMinus(i, j);
-				}
-				else
-				{
-					tempDyPhi = wenoYPlus(i, j);
-				}
-				k3(i, j) = -dt*signPhi*(normal.x*tempDxPhi + normal.y*tempDyPhi);
-				ipQuantity(i, j) = 1.0 / 3.0*originQuantity(i, j) + 2.0 / 3.0*(ipQuantity(i, j) + k3(i, j));
-			}
-		}
-	}
 }
 
 inline double LocalLevelSetAdvection::Distance2Data(const int & i, const int & j)
@@ -482,46 +347,3 @@ inline void LocalLevelSetAdvection::ExactDistance()
 }
 
 
-inline double LocalLevelSetAdvection::AdaptiveTimeStep()
-{
-	return cflCondition*max(grid.dx, grid.dy);
-}
-
-inline double LocalLevelSetAdvection::AdaptiveTimeStep(const FD& velocity1)
-{
-	double maxVel1 = 0;
-
-	for (int i = grid.iStart; i <= grid.iEnd; i++)
-	{
-		for (int j = grid.jStart; j <= grid.jEnd; j++)
-		{
-			if (abs(velocity1(i, j)) > maxVel1)
-			{
-				maxVel1 = abs(velocity1(i, j));
-			}
-		}
-	}
-	return cflCondition*max(grid.dx, grid.dy) / maxVel1;
-}
-
-inline double LocalLevelSetAdvection::AdaptiveTimeStep(const FD& velocity1, const FD& velocity2)
-{
-	double maxVel1 = 0;
-	double maxVel2 = 0;
-
-	for (int i = grid.iStart; i <= grid.iEnd; i++)
-	{
-		for (int j = grid.jStart; j <= grid.jEnd; j++)
-		{
-			if (abs(velocity1(i, j)) > maxVel1)
-			{
-				maxVel1 = abs(velocity1(i, j));
-			}
-			if (abs(velocity2(i, j)) > maxVel2)
-			{
-				maxVel2 = abs(velocity2(i, j));
-			}
-		}
-	}
-	return cflCondition*(grid.dx / maxVel1 + grid.dy / maxVel2);
-}

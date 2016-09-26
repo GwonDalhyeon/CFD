@@ -25,8 +25,12 @@ public:
 
 	// Local Level Set Variables
 	Array2D<int> tube;
+	Array2D<int> tube1;
 	VectorND<VI> tubeIndex;
+	VectorND<VI> tube1Index;
+	Array2D<int> tubeIJ2K;
 	int numTube;
+	int numTube1;
 	double gamma1;
 	double gamma2;
 	double gamma3;
@@ -133,9 +137,10 @@ inline LevelSet2D::LevelSet2D(const Grid2D & ipGrid)
 	meanCurvature = FD(ipGrid);
 
 	tube = Array2D<int>(ipGrid);
-
+	tube1 = Array2D<int>(ipGrid);
 	tubeIndex = VectorND<VI>(1, grid.iRes*grid.jRes);
-
+	tube1Index = VectorND<VI>(1, grid.iRes*grid.jRes);
+	tubeIJ2K = Array2D<int>(ipGrid);
 	gamma1 = 3.0*max(ipGrid.dx, ipGrid.dy);
 	gamma2 = 2.0*gamma1;
 	gamma3 = 3.0*gamma1;
@@ -151,8 +156,10 @@ inline LevelSet2D::LevelSet2D(const Grid2D & ipGrid, const double & ipGamma)
 	meanCurvature = FD(ipGrid);
 
 	tube = Array2D<int>(ipGrid);
-
+	tube1 = Array2D<int>(ipGrid);
 	tubeIndex = VectorND<VI>(1, grid.iRes*grid.jRes);
+	tube1Index = VectorND<VI>(1, grid.iRes*grid.jRes);
+	tubeIJ2K = Array2D<int>(ipGrid);
 
 	gamma1 = ipGamma;
 	gamma2 = 2.0*gamma1;
@@ -169,7 +176,10 @@ inline LevelSet2D::LevelSet2D(const Grid2D & ipGrid, const double & ipGamma1, co
 	meanCurvature = FD(ipGrid);
 
 	tube = Array2D<int>(ipGrid);
+	tube1 = Array2D<int>(ipGrid);
 	tubeIndex = VectorND<VI>(1, grid.iRes*grid.jRes);
+	tube1Index = VectorND<VI>(1, grid.iRes*grid.jRes);
+	tubeIJ2K = Array2D<int>(ipGrid);
 	gamma1 = ipGamma1;
 	gamma2 = 2.0*gamma1;
 	gamma3 = 3.0*gamma1;
@@ -185,7 +195,10 @@ inline LevelSet2D::LevelSet2D(const LevelSet2D & ipLevelSet, const double & ipGa
 	meanCurvature = FD(grid);
 
 	tube = Array2D<int>(grid);
+	tube1 = Array2D<int>(grid);
 	tubeIndex = VectorND<VI>(1, grid.iRes*grid.jRes);
+	tube1Index = VectorND<VI>(1, grid.iRes*grid.jRes);
+	tubeIJ2K = Array2D<int>(grid);
 	gamma1 = ipGamma;
 	gamma2 = 2.0*gamma1;
 	gamma3 = 3.0*gamma1;
@@ -201,7 +214,10 @@ inline LevelSet2D::LevelSet2D(const LevelSet2D & ipLevelSet, const double & ipGa
 	meanCurvature = FD(grid);
 
 	tube = Array2D<int>(grid);
+	tube1 = Array2D<int>(grid);
 	tubeIndex = VectorND<VI>(1, grid.iRes*grid.jRes);
+	tube1Index = VectorND<VI>(1, grid.iRes*grid.jRes);
+	tubeIJ2K = Array2D<int>(grid);
 	gamma1 = ipGamma1;
 	gamma2 = ipGamma2;
 	gamma3 = ipGamma3;
@@ -267,8 +283,12 @@ inline void LevelSet2D::operator=(const LevelSet2D & ipLevelSet)
 	meanCurvature = ipLevelSet.meanCurvature;
 
 	tube = ipLevelSet.tube;
+	tube1 = ipLevelSet.tube;
 	tubeIndex = ipLevelSet.tubeIndex;
+	tube1Index = ipLevelSet.tubeIndex;
+	tubeIJ2K = ipLevelSet.tubeIJ2K;
 	numTube = ipLevelSet.numTube;
+	numTube1 = ipLevelSet.numTube1;
 	gamma1 = ipLevelSet.gamma1;
 	gamma2 = ipLevelSet.gamma2;
 	gamma3 = ipLevelSet.gamma3;
@@ -838,6 +858,7 @@ inline double LevelSet2D::Cutoff23(const int & i, const int & j)
 inline void LevelSet2D::InitialTube()
 {
 	numTube = 0;
+	numTube1 = 0;
 	double absConst;
 	for (int i = phi.grid.iStart; i <= phi.grid.iEnd; i++)
 	{
@@ -849,17 +870,30 @@ inline void LevelSet2D::InitialTube()
 				tube(i, j) = 3;
 				numTube += 1;
 				tubeIndex(numTube) = VI(i, j);
+				tubeIJ2K(i, j) = numTube;
 				if (absConst < gamma2)
 				{
 					tube(i, j) = 2;
 					if (absConst < gamma1)
 					{
 						tube(i, j) = 1;
-						//numTube += 1;
-						//tubeIndex(numTube) = VI(i, j);
+						numTube1 += 1;
+						tube1Index(numTube1) = VI(i, j);
+						tube1(i, j) = numTube1;
+					}
+					else
+					{
+						tube1Index(numTube1 + 1) = 0;
+						tube1(i, j) = 0;
 					}
 				}
 			}
+			else
+			{
+				tubeIndex(numTube + 1) = 0;
+				tubeIJ2K(i, j) = 0;
+			}
+
 		}
 	}
 
@@ -901,6 +935,7 @@ inline void LevelSet2D::UpdateInterface(const double & ipGamma1, const double & 
 	int tempNumTube = numTube;
 	tube = 0;
 	numTube = 0;
+	numTube1 = 0;
 	int i, j;
 	double absConst;
 	for (int k = 1; k <= tempNumTube; k++)
@@ -917,10 +952,16 @@ inline void LevelSet2D::UpdateInterface(const double & ipGamma1, const double & 
 			{
 				tube(i, j) = 2;
 				numTube += 1;
-				tubeIndex(numTube) = VI(i, j);
+				tubeIndex(numTube) = VI(i, j); 
+				tubeIJ2K(i, j) = numTube;
+				tube1Index(numTube) = 0;
+				tube1(i, j) = 0;
 				if (absConst <= gamma1)
 				{
 					tube(i, j) = 1;
+					numTube1 += 1;
+					tube1Index(numTube1) = VI(i, j);
+					tube1(i, j) = numTube1;
 				}
 			}
 		}
@@ -941,12 +982,17 @@ inline void LevelSet2D::UpdateInterface(const double & ipGamma1, const double & 
 			{
 				for (int jj = -bdryWidth; jj <= bdryWidth; jj++)
 				{
-					if (tube(i + ii, j + jj) == 0)
+					if (i+ii>=grid.iStart && i+ii<=grid.iEnd && j+jj>=grid.jStart && j+jj<=grid.jEnd)
 					{
-						tube(i + ii, j + jj) = 3;
-						numTube += 1;
-						tubeIndex(numTube) = VI(i + ii, j + jj);
+						if (tube(i + ii, j + jj) == 0)
+						{
+							tube(i + ii, j + jj) = 3;
+							numTube += 1;
+							tubeIndex(numTube) = VI(i + ii, j + jj);
+							tubeIJ2K(i + ii, j + jj) = numTube;
+						}
 					}
+					
 				}
 			}
 		}
@@ -974,15 +1020,18 @@ inline void LevelSet2D::UpdateLLS()
 			{
 				for (int jj = -bdryWidth; jj <= bdryWidth; jj++)
 				{
-					if (tube(i + ii, j + jj) == 0 || tube(i + ii, j + jj) == 3)
+					if (i + ii >= grid.iStart && i + ii <= grid.iEnd && j + jj >= grid.jStart && j + jj <= grid.jEnd)
 					{
-						if (phi(i + ii, j + jj) < -threshold)
+						if (tube(i + ii, j + jj) == 0 || tube(i + ii, j + jj) == 3)
 						{
-							phi(i + ii, j + jj) = -(threshold);
-						}
-						else if (phi(i + ii, j + jj) > threshold)
-						{
-							phi(i + ii, j + jj) = threshold;
+							if (phi(i + ii, j + jj) < -threshold)
+							{
+								phi(i + ii, j + jj) = -(threshold);
+							}
+							else if (phi(i + ii, j + jj) > threshold)
+							{
+								phi(i + ii, j + jj) = threshold;
+							}
 						}
 					}
 				}
