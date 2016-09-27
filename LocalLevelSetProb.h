@@ -175,10 +175,16 @@ inline void LocalLevelSetAdvection::AdvectionSolver(const int & example)
 	LLS.phi.Variable("phi");
 	LLS.tube.Variable("Tube");
 	MATLAB.Command("figure('units','normalized','outerposition',[0 0 1 1])");
-	MATLAB.Command("subplot(1,2,1)");
+	MATLAB.Command("subplot(1,3,1)");
 	MATLAB.Command("surf(X, Y, Tube);grid on;axis([-1 1 -1 1]);axis equal;");
-	MATLAB.Command("subplot(1,2,2)");
-	MATLAB.Command("surf(X,Y,phi);");
+	MATLAB.Command("subplot(1,3,2)");
+	//MATLAB.Command("contour(X, Y, Tube);hold on;grid on;axis([-1 1 -1 1]);axis equal;");
+	MATLAB.Command("surf(X,Y,phi);hold off;");
+	str = string("title(['iteration : ', num2str(") + to_string(0) + string("),', time : ', num2str(") + to_string(0) + string(")]);");
+	cmd = str.c_str();
+	MATLAB.Command(cmd);
+	MATLAB.Command("subplot(1,3,3)");
+	MATLAB.Command("contour(X, Y, phi0, [0 0],'b'),grid on;axis([-1 1 -1 1]);axis equal;");
 
 	if (writeFile)
 	{
@@ -295,7 +301,7 @@ inline void LocalLevelSetAdvection::QuantityExtensionSolver(const int & example)
 	quantity.Variable("quantity0");
 	
 	MATLAB.Command("figure('units','normalized','outerposition',[0 0 1 1])");
-	MATLAB.Command("surf(X,Y,quantity0);hold on;contour(X, Y, Tube);hold off");
+	MATLAB.Command("surf(X,Y,quantity0);hold on;contour(X, Y, Tube);hold off,");
 	clock_t before = clock();
 	double  result;
 	for (int i = 1; i <= maxIteration; i++)

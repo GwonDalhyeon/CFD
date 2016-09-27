@@ -1921,5 +1921,5 @@ inline double AdvectionMethod2D<TT>::AdaptiveTimeStep(const FD & velocity1, cons
 			}
 		}
 	}
-	return cflCondition*(velocity1.grid.dx / (maxVel1 + DBL_EPSILON) + velocity1.grid.dy / (maxVel2 + DBL_EPSILON));
+	return cflCondition*min(velocity1.grid.dx / (maxVel1 + DBL_EPSILON),velocity1.grid.dy / (maxVel2 + DBL_EPSILON));
 }
