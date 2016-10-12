@@ -304,7 +304,7 @@ inline void MovingInterface::InitialCondition(const int & example)
 			}
 		}
 
-		levelSet = LS(grid, 5*grid.dx);
+		levelSet = LS(grid, 3*grid.dx);
 		double radius = 1.0;
 #pragma omp parallel for
 		for (int i = grid.iStart; i <= grid.iEnd; i++)
@@ -337,6 +337,137 @@ inline void MovingInterface::InitialCondition(const int & example)
 		termOld = Array2D<double>(grid);
 		cflCondition = 1.0 / 4.0;
 		dt = AdvectionMethod2D<double>::AdaptiveTimeStep(U, cflCondition);
+		maxIteration = 800;
+		totalT = 0;
+	}
+
+	if (example == 5)
+	{
+		cout << "*************************" << endl;
+		cout << "       An Eulerian Formulation  " << endl;
+		cout << " for Solving PDE along Moving Interface" << endl;
+		cout << "          --JJ Xu, HK Zhao-- " << endl;
+		cout << "               Example 5 " << endl;
+		cout << "*************************" << endl;
+
+		int gridSize = 150;
+		grid = Grid2D(-3, 3, gridSize + 1, -3, 3, gridSize + 1);
+
+		U = FD(grid);
+		V = FD(grid);
+
+#pragma omp parallel for
+		for (int i = grid.iStart; i <= grid.iEnd; i++)
+		{
+			for (int j = grid.jStart; j <= grid.jEnd; j++)
+			{
+				if (grid(i,j).y>=0)
+				{
+					U(i, j) = grid(i, j).y*grid(i, j).y;
+				}
+				else
+				{
+					U(i, j) = -grid(i, j).y*grid(i, j).y;
+				}
+				V(i, j) = 0;
+			}
+		}
+
+		levelSet = LS(grid, 3 * grid.dx);
+		double radius = 1.0;
+#pragma omp parallel for
+		for (int i = grid.iStart; i <= grid.iEnd; i++)
+		{
+			for (int j = grid.jStart; j <= grid.jEnd; j++)
+			{
+				levelSet(i, j) = sqrt(grid(i, j).x*grid(i, j).x + grid(i, j).y*grid(i, j).y) - radius;
+			}
+		}
+		levelSet.InitialTube();
+
+		Surfactant = FD(grid);
+		int i, j;
+#pragma omp parallel for private(i, j)
+		for (int k = 1; k <= levelSet.numTube; k++)
+		{
+			levelSet.TubeIndex(k, i, j);
+			if (levelSet.tube(i, j) <= 1)
+			{
+				Surfactant(i, j) = ExactSurfactant(grid(i, j).x, grid(i, j).y, totalT);
+			}
+		}
+
+		int extensionIter = (int)ceil((levelSet.gamma2 - levelSet.gamma1) / (0.1*min(grid.dx, grid.dy)));
+		AdvectionMethod2D<double>::LLSQuantityExtension(levelSet, Surfactant, 3, 3, extensionIter);
+		AdvectionMethod2D<double>::alpha = 1.5*grid.dx;
+
+		CGsolverNum = 1;
+		term = Array2D<double>(grid);
+		termOld = Array2D<double>(grid);
+		cflCondition = 1.0 / 4.0;
+		dt = cflCondition*min(grid.dx, grid.dy);
+		maxIteration = 800;
+		totalT = 0;
+	}
+
+	if (example == 6)
+	{
+		cout << "*************************" << endl;
+		cout << "       An Eulerian Formulation  " << endl;
+		cout << " for Solving PDE along Moving Interface" << endl;
+		cout << "          --JJ Xu, HK Zhao-- " << endl;
+		cout << "               Example 6 " << endl;
+		cout << "*************************" << endl;
+
+		int gridSize = 200;
+		grid = Grid2D(-2, 6, gridSize + 1, -2, 2, gridSize * 1. / 2. + 1);
+
+		U = FD(grid);
+		V = FD(grid);
+
+#pragma omp parallel for
+		for (int i = grid.iStart; i <= grid.iEnd; i++)
+		{
+			for (int j = grid.jStart; j <= grid.jEnd; j++)
+			{
+				U(i, j) = (grid(i, j).y + 2)*(grid(i, j).y + 2) / 3.0;
+				V(i, j) = 0;
+			}
+		}
+
+		levelSet = LS(grid, 3 * grid.dx);
+		double radius = 1.0;
+#pragma omp parallel for
+		for (int i = grid.iStart; i <= grid.iEnd; i++)
+		{
+			for (int j = grid.jStart; j <= grid.jEnd; j++)
+			{
+				levelSet(i, j) = sqrt(grid(i, j).x*grid(i, j).x + grid(i, j).y*grid(i, j).y) - radius;
+			}
+		}
+		levelSet.InitialTube();
+
+		Surfactant = FD(grid);
+		int i, j;
+#pragma omp parallel for private(i, j)
+		for (int k = 1; k <= levelSet.numTube; k++)
+		{
+			levelSet.TubeIndex(k, i, j);
+			if (levelSet.tube(i, j) <= 1)
+			{
+				Surfactant(i, j) = ExactSurfactant(grid(i, j).x, grid(i, j).y, totalT);
+			}
+		}
+
+		int extensionIter = (int)ceil((levelSet.gamma2 - levelSet.gamma1) / (0.1*min(grid.dx, grid.dy)));
+		AdvectionMethod2D<double>::LLSQuantityExtension(levelSet, Surfactant, 3, 3, extensionIter);
+		AdvectionMethod2D<double>::alpha = 1.5*grid.dx;
+
+		CGsolverNum = 1;
+		term = Array2D<double>(grid);
+		termOld = Array2D<double>(grid);
+		cflCondition = 1.0 / 4.0;
+		dt = cflCondition*min(grid.dx, grid.dy);
 		maxIteration = 800;
 		totalT = 0;
 	}
@@ -932,7 +1063,7 @@ inline void MovingInterface::LSurfactantDiffusionSolver(const int & example)
 	int extensionIter = (int)ceil((levelSet.gamma2 - levelSet.gamma1) / (0.2*min(grid.dx, grid.dy)));;
 	for (int i = 1; i <= maxIteration; i++)
 	{
-		cout << "********************************" << endl;
+		cout << "*******************************************************************" << endl;
 		cout << "       Iteration " << to_string(i) << " : Start" << endl;
 		totalT += dt;
 		cout << "Diffusion Start" << endl;
@@ -998,7 +1129,7 @@ inline void MovingInterface::EulerianMovingInterfaceSolver(const int & example)
 	int extensionIter = (int)ceil((levelSet.gamma2 - levelSet.gamma1) / (0.2*min(grid.dx, grid.dy)));
 	for (int i = 1; i <= maxIteration; i++)
 	{
-		cout << "********************************" << endl;
+		cout << "*******************************************************************" << endl;
 		cout << "       Iteration " << to_string(i) << " : Start" << endl;
 		totalT += dt;
 		cout << "Diffusion Start" << endl;
@@ -1008,24 +1139,50 @@ inline void MovingInterface::EulerianMovingInterfaceSolver(const int & example)
 		Surfactant.Variable("Surfactant");
 		levelSet.tube.Variable("Tube");
 		MATLAB.Command("SurTube1 = Surfactant.*(Tube<=1);");
-		MATLAB.Command("surf(X,Y,SurTube1),axis equal,axis([-2 8 -2 2]), hold on, contour(X,Y,Tube,'r'),hold off;,set(gca,'fontsize',20)");
+		MATLAB.Command("surf(X,Y,SurTube1),axis equal,axis([X(1) X(end) Y(1) Y(end)]), hold on, contour(X,Y,Tube,'r'),hold off;set(gca,'fontsize',20)");
 
-#pragma omp parallel for
-		for (int i = grid.iStart; i <= grid.iEnd; i++)
+		if (ExamNum==4)
 		{
-			for (int j = grid.jStart; j <= grid.jEnd; j++)
+#pragma omp parallel for
+			for (int i = grid.iStart; i <= grid.iEnd; i++)
 			{
-				exact(i, j) = ExactSurfactant(grid(i, j).x, grid(i, j).y, totalT);
+				for (int j = grid.jStart; j <= grid.jEnd; j++)
+				{
+					exact(i, j) = ExactSurfactant(grid(i, j).x, grid(i, j).y, totalT);
+				}
 			}
-		}
 
-		exact.Variable("exact");
-		MATLAB.Command("loss = sum(sum(SurTube1-exact.*(Tube==1)).^2)*(Y(2)-Y(1))*(Y(2)-Y(1));");
-		MATLAB.Variable("i", i);
-		MATLAB.Variable("totalT", totalT);
-		str = string("title(['iteration : ', num2str(i),', time : ', num2str(totalT), ', L2 error  :',num2str(loss)]);");
-		cmd = str.c_str();
-		MATLAB.Command(cmd);
+			exact.Variable("exact");
+			MATLAB.Command("loss = sum(sum(SurTube1-exact.*(Tube==1)).^2)*(Y(2)-Y(1))*(Y(2)-Y(1));");
+			MATLAB.Variable("i", i);
+			MATLAB.Variable("totalT", totalT);
+			str = string("title(['iteration : ', num2str(i),', time : ', num2str(totalT), ', L2 error  :',num2str(loss)]);");
+			cmd = str.c_str();
+			MATLAB.Command(cmd);
+		}
+		else
+		{
+			if (i==1)
+			{
+#pragma omp parallel for
+				for (int i = grid.iStart; i <= grid.iEnd; i++)
+				{
+					for (int j = grid.jStart; j <= grid.jEnd; j++)
+					{
+						exact(i, j) = ExactSurfactant(grid(i, j).x, grid(i, j).y, 0);
+					}
+				}
+				exact.Variable("initial");
+				MATLAB.Command("initialF = sum(sum(initial.*(Tube==1)))*(Y(2)-Y(1))*(Y(2)-Y(1));");
+			}
+			MATLAB.Command("SurIntegral = sum(sum(SurTube1))*(Y(2)-Y(1))*(Y(2)-Y(1));");
+			MATLAB.Variable("i", i);
+			MATLAB.Variable("totalT", totalT);
+			MATLAB.Command("loss=(SurIntegral-initialF)/initialF*100;");
+			str = string("title(['iteration : ', num2str(i),', time : ', num2str(totalT), ', loss(%)  :',num2str(loss)]);");
+			cmd = str.c_str();
+			MATLAB.Command(cmd);
+		}
 
 
 		AdvectionMethod2D<double>::LLSPropagatingTVDRK3(levelSet, U, V, dt);		
@@ -1041,10 +1198,6 @@ inline void MovingInterface::EulerianMovingInterfaceSolver(const int & example)
 		//str = string("title(['iteration : ', num2str(") + to_string(i) + string("),', time : ', num2str(") + to_string(totalT) + string(")]);");
 		//cmd = str.c_str();
 		//MATLAB.Command(cmd);
-		if (i==20)
-		{
-			cout << endl;
-		}
 	}
 
 }

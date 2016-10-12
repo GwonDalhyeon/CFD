@@ -1688,9 +1688,6 @@ inline void AdvectionMethod2D<TT>::LLSReinitializationTVDRK3(LS & levelSet, cons
 template<class TT>
 inline void AdvectionMethod2D<TT>::LLSReinitializationTVDRK3(LS & levelSet, const double & dt, const int & iter)
 {
-	levelSet.phi.SaveOld();
-	Array2D<TT>& originLevelSet = levelSet.phi.dataArrayOld;
-
 	Array2D<TT>& k1 = levelSet.phi.K1;
 	Array2D<TT>& k2 = levelSet.phi.K2;
 	Array2D<TT>& k3 = levelSet.phi.K3;
@@ -1703,6 +1700,9 @@ inline void AdvectionMethod2D<TT>::LLSReinitializationTVDRK3(LS & levelSet, cons
 	int i, j;
 	for (int l = 1; l <= iter; l++)
 	{
+		levelSet.phi.SaveOld();
+		Array2D<TT>& originLevelSet = levelSet.phi.dataArrayOld;
+
 		LLSWENO5thDerivation(levelSet, levelSet.phi, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
 #pragma omp parallel for private(i,j)
 		for (int k = levelSet.tubeIndex.iStart; k <= levelSet.numTube; k++)

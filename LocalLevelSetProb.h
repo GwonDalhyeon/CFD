@@ -229,15 +229,16 @@ inline void LocalLevelSetAdvection::AdvectionSolver(const int & example)
 			LLS.tube.Variable("Tube");
 			LLS.phi.Variable("phi");
 			MATLAB.Command("subplot(1,3,1)");
-			MATLAB.Command("surf(X, Y, Tube);grid on;axis([-1 1 -1 1]);axis equal;");
+			MATLAB.Command("surf(X, Y, Tube);grid on;axis([-1 1 -1 1]);axis equal;set(gca,'fontsize',20)");
 			MATLAB.Command("subplot(1,3,2)");
 			//MATLAB.Command("contour(X, Y, Tube);hold on;grid on;axis([-1 1 -1 1]);axis equal;");
-			MATLAB.Command("surf(X,Y,phi);hold off;");
+			MATLAB.Command("surf(X,Y,phi);hold off;set(gca,'fontsize',20)");
 			str = string("title(['iteration : ', num2str(") + to_string(i) + string("),', time : ', num2str(") + to_string(totalT) + string(")]);");
 			cmd = str.c_str();
 			MATLAB.Command(cmd);
 			MATLAB.Command("subplot(1,3,3)");
-			MATLAB.Command("contour(X, Y, phi0, [0 0],'b');hold on;grid on;contour(X, Y, phi,[0 0],'r');axis([-1 1 -1 1]);axis equal;hold off;");
+			MATLAB.Command("contour(X, Y, phi0, [0 0],'b');hold on;grid on;contour(X, Y, phi,[0 0],'r');axis([-1 1 -1 1]);axis equal;hold off;set(gca,'fontsize',20)");
+
 		}
 		else
 		{
