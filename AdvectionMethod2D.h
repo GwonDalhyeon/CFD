@@ -449,37 +449,37 @@ inline void AdvectionMethod2D<TT>::ENO3rdDyPlus(const Field2D<TT>& ipField, Arra
 template<class TT>
 inline TT AdvectionMethod2D<TT>::ENOD1x(const Field2D<TT>& ipField, const int& i, const int& j)
 {
-	return (ipField(i + 1, j) - ipField(i, j)) / ipField.dx;
+	return (ipField(i + 1, j) - ipField(i, j)) * ipField.oneOverdx;
 }
 
 template<class TT>
 inline TT AdvectionMethod2D<TT>::ENOD2x(const Field2D<TT>& ipField, const int& i, const int& j)
 {
-	return (ENOD1x(ipField, i, j) - ENOD1x(ipField, i - 1, j)) / (2 * ipField.dx);
+	return (ENOD1x(ipField, i, j) - ENOD1x(ipField, i - 1, j)) * ipField.oneOverdx;
 }
 
 template<class TT>
 inline TT AdvectionMethod2D<TT>::ENOD3x(const Field2D<TT>& ipField, const int& i, const int& j)
 {
-	return (ENOD2x(ipField, i + 1, j) - ENOD2x(ipField, i, j)) / (3 * ipField.dx);
+	return (ENOD2x(ipField, i + 1, j) - ENOD2x(ipField, i, j)) * ipField.oneOverdx;
 }
 
 template<class TT>
 inline TT AdvectionMethod2D<TT>::ENOD1y(const Field2D<TT>& ipField, const int& i, const int& j)
 {
-	return (ipField(i, j + 1) - ipField(i, j)) / ipField.dy;
+	return (ipField(i, j + 1) - ipField(i, j)) * ipField.oneOverdy;
 }
 
 template<class TT>
 inline TT AdvectionMethod2D<TT>::ENOD2y(const Field2D<TT>& ipField, const int& i, const int& j)
 {
-	return (ENOD1y(ipField, i, j) - ENOD1y(ipField, i, j - 1)) / (2 * ipField.dy);
+	return (ENOD1y(ipField, i, j) - ENOD1y(ipField, i, j - 1)) * ipField.oneOverdy;
 }
 
 template<class TT>
 inline TT AdvectionMethod2D<TT>::ENOD3y(const Field2D<TT>& ipField, const int& i, const int& j)
 {
-	return (ENOD2y(ipField, i, j + 1) - ENOD2y(ipField, i, j)) / (3 * ipField.dy);
+	return (ENOD2y(ipField, i, j + 1) - ENOD2y(ipField, i, j)) * ipField.oneOverdy;
 }
 
 template<class TT>
