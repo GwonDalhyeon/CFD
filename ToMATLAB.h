@@ -14,7 +14,8 @@ public:
 
 
 	void Command(const char * command);
-	
+	void WriteImage(const char * filename, const int & fileNum, const char * fileFormat);
+
 	template<class TT>
 	void Variable(const char * varName, const TT & values);
 	template<class TT>
@@ -36,6 +37,15 @@ ToMATLAB::~ToMATLAB()
 inline void ToMATLAB::Command(const char * command)
 {
 	engEvalString(ME, command);
+}
+
+inline void ToMATLAB::WriteImage(const char * filename, const int & fileNum, const char * fileFormat)
+{
+	string str;
+	
+	str = string("D:\\Data\\") + (string(filename) + to_string(fileNum) + string(".") + string(fileFormat));
+	str = string("saveas(gcf, '") + str + string("', '") + string(fileFormat) + string("')");
+	engEvalString(ME, str.c_str());
 }
 
 

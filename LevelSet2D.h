@@ -61,14 +61,19 @@ public:
 
 	inline void ComputeNormal();
 	inline void LComputeNormal();
+	inline void LComputeNormal(const int & tubeRange);
 	inline VT ComputeNormal(const int& i, const int& j);
 	inline VT ComputeNormal(const VI ipVector);
 
 	inline void ComputeUnitNormal();
+	inline void LComputeUnitNormal();
+	inline void LComputeUnitNormal(const int & tubeRange);
 	inline VT ComputeUnitNormal(const int& i, const int& j);
 	inline VT ComputeUnitNormal(const VI ipVector);
 
 	inline void ComputeMeanCurvature();
+	inline void LComputeMeanCurvature();
+	inline void LComputeMeanCurvature(const int & tubeRange);
 	inline double ComputeMeanCurvature(const int& i, const int& j);
 	inline double ComputeMeanCurvature(const VI & ipVector);
 
@@ -318,6 +323,26 @@ inline void LevelSet2D::LComputeNormal()
 	}
 }
 
+inline void LevelSet2D::LComputeNormal(const int & tubeRange)
+{
+	int i, j;
+#pragma omp parallel for private(i, j)
+	for (int k = 1; k <= numTube; k++)
+	{
+		i = tubeIndex(k).i;
+		j = tubeIndex(k).j;
+		if (tube(i,j)<=tubeRange)
+		{
+			normal.dataArray(i, j) = ComputeNormal(i, j);
+		}
+		else
+		{
+			normal.dataArray(i, j) = 0;
+		}
+		
+	}
+}
+
 inline VT LevelSet2D::ComputeNormal(const int & i, const int & j)
 {
 	VT normal;
@@ -421,6 +446,37 @@ inline void LevelSet2D::ComputeUnitNormal()
 	}
 }
 
+inline void LevelSet2D::LComputeUnitNormal()
+{
+	int i, j;
+#pragma omp parallel for private(i, j)
+	for (int k = 1; k <= numTube; k++)
+	{
+		i = tubeIndex(k).i;
+		j = tubeIndex(k).j;
+		unitNormal.dataArray(i, j) = ComputeUnitNormal(i, j);
+	}
+}
+
+inline void LevelSet2D::LComputeUnitNormal(const int & tubeRange)
+{
+	int i, j;
+#pragma omp parallel for private(i, j)
+	for (int k = 1; k <= numTube; k++)
+	{
+		i = tubeIndex(k).i;
+		j = tubeIndex(k).j;
+		if (tube(i, j) <= tubeRange)
+		{
+			unitNormal.dataArray(i, j) = ComputeUnitNormal(i, j);
+		}
+		else
+		{
+			unitNormal.dataArray(i, j) = 0;
+		}
+	}
+}
+
 inline VT LevelSet2D::ComputeUnitNormal(const int & i, const int & j)
 {
 	VT normal;
@@ -430,18 +486,18 @@ inline VT LevelSet2D::ComputeUnitNormal(const int & i, const int & j)
 
 		if (i > phi.iStart && i < phi.iEnd)
 		{
-			normal.values[0] = (phi(i + 1, j) - phi(i - 1, j)) / (abs(phi(i + 1, j) - phi(i - 1, j)) + DBL_EPSILON);
-			normal.values[1] = (phi(i, j + 1) - phi(i, j - 1)) / (abs(phi(i, j + 1) - phi(i, j - 1)) + DBL_EPSILON);
+			normal.values[0] = (phi(i + 1, j) - phi(i - 1, j)) * phi.oneOver2dx;
+			normal.values[1] = (phi(i, j + 1) - phi(i, j - 1)) * phi.oneOver2dy;
 		}
 		else if (i == phi.iStart)
 		{
-			normal.values[0] = (phi(i + 1, j) - phi(i, j)) / (abs(phi(i + 1, j) - phi(i, j)) + DBL_EPSILON);
-			normal.values[1] = (phi(i, j + 1) - phi(i, j - 1)) / (abs(phi(i, j + 1) - phi(i, j - 1)) + DBL_EPSILON);
+			normal.values[0] = (phi(i + 1, j) - phi(i, j)) * phi.oneOverdx;
+			normal.values[1] = (phi(i, j + 1) - phi(i, j - 1)) * phi.oneOver2dy;
 		}
 		else if (i == phi.iEnd)
 		{
-			normal.values[0] = (phi(i, j) - phi(i - 1, j)) / (abs(phi(i, j) - phi(i - 1, j)) + DBL_EPSILON);
-			normal.values[1] = (phi(i, j + 1) - phi(i, j - 1)) / (abs(phi(i, j + 1) - phi(i, j - 1)) + DBL_EPSILON);
+			normal.values[0] = (phi(i, j) - phi(i - 1, j)) * phi.oneOverdx;
+			normal.values[1] = (phi(i, j + 1) - phi(i, j - 1)) * phi.oneOver2dy;
 		}
 		else
 		{
@@ -453,18 +509,18 @@ inline VT LevelSet2D::ComputeUnitNormal(const int & i, const int & j)
 
 		if (i > phi.iStart && i < phi.iEnd)
 		{
-			normal.values[0] = (phi(i + 1, j) - phi(i - 1, j)) / (abs(phi(i + 1, j) - phi(i - 1, j)) + DBL_EPSILON);
-			normal.values[1] = (phi(i, j + 1) - phi(i, j)) / (abs(phi(i, j + 1) - phi(i, j)) + DBL_EPSILON);
+			normal.values[0] = (phi(i + 1, j) - phi(i - 1, j))  * phi.oneOver2dx;
+			normal.values[1] = (phi(i, j + 1) - phi(i, j)) * phi.oneOverdy;
 		}
 		else if (i == phi.iStart)
 		{
-			normal.values[0] = (phi(i + 1, j) - phi(i, j)) / (abs(phi(i + 1, j) - phi(i, j)) + DBL_EPSILON);
-			normal.values[1] = (phi(i, j + 1) - phi(i, j)) / (abs(phi(i, j + 1) - phi(i, j)) + DBL_EPSILON);
+			normal.values[0] = (phi(i + 1, j) - phi(i, j)) * phi.oneOverdx;
+			normal.values[1] = (phi(i, j + 1) - phi(i, j)) * phi.oneOverdy;
 		}
 		else if (i == phi.iEnd)
 		{
-			normal.values[0] = (phi(i, j) - phi(i - 1, j)) / (abs(phi(i, j) - phi(i - 1, j)) + DBL_EPSILON);
-			normal.values[1] = (phi(i, j + 1) - phi(i, j)) / (abs(phi(i, j + 1) - phi(i, j)) + DBL_EPSILON);
+			normal.values[0] = (phi(i, j) - phi(i - 1, j)) * phi.oneOverdx;
+			normal.values[1] = (phi(i, j + 1) - phi(i, j)) * phi.oneOverdy;
 		}
 		else
 		{
@@ -477,18 +533,18 @@ inline VT LevelSet2D::ComputeUnitNormal(const int & i, const int & j)
 
 		if (i > phi.iStart && i < phi.iEnd)
 		{
-			normal.values[0] = (phi(i + 1, j) - phi(i - 1, j)) / (abs(phi(i + 1, j) - phi(i - 1, j)) + DBL_EPSILON);
-			normal.values[1] = (phi(i, j) - phi(i, j - 1)) / (abs(phi(i, j) - phi(i, j - 1)) + DBL_EPSILON);
+			normal.values[0] = (phi(i + 1, j) - phi(i - 1, j)) * phi.oneOver2dx;
+			normal.values[1] = (phi(i, j) - phi(i, j - 1)) * phi.oneOverdy;
 		}
 		else if (i == phi.iStart)
 		{
-			normal.values[0] = (phi(i + 1, j) - phi(i, j)) / (abs(phi(i + 1, j) - phi(i, j)) + DBL_EPSILON);
-			normal.values[1] = (phi(i, j) - phi(i, j - 1)) / (abs(phi(i, j) - phi(i, j - 1)) + DBL_EPSILON);
+			normal.values[0] = (phi(i + 1, j) - phi(i, j)) * phi.oneOverdx;
+			normal.values[1] = (phi(i, j) - phi(i, j - 1)) * phi.oneOverdy;
 		}
 		else if (i == phi.iEnd)
 		{
-			normal.values[0] = (phi(i, j) - phi(i - 1, j)) / (abs(phi(i, j) - phi(i - 1, j)) + DBL_EPSILON);
-			normal.values[1] = (phi(i, j) - phi(i, j - 1)) / (abs(phi(i, j) - phi(i, j - 1)) + DBL_EPSILON);
+			normal.values[0] = (phi(i, j) - phi(i - 1, j)) * phi.oneOverdx;
+			normal.values[1] = (phi(i, j) - phi(i, j - 1)) * phi.oneOverdy;
 		}
 		else
 		{
@@ -500,7 +556,7 @@ inline VT LevelSet2D::ComputeUnitNormal(const int & i, const int & j)
 	{
 		assert(j >= phi.jStart && j <= phi.jEnd);
 	}
-
+	normal /= normal.magnitude();
 
 	return normal;
 }
@@ -518,6 +574,37 @@ inline void LevelSet2D::ComputeMeanCurvature()
 		for (int j = grid.iStart; j <= grid.jEnd; j++)
 		{
 			meanCurvature(i, j) = ComputeMeanCurvature(i, j);
+		}
+	}
+}
+
+inline void LevelSet2D::LComputeMeanCurvature()
+{
+	int i, j;
+#pragma omp parallel for private(i, j)
+	for (int k = 1; k <= numTube; k++)
+	{
+		i = tubeIndex(k).i;
+		j = tubeIndex(k).j;
+		meanCurvature(i, j) = ComputeMeanCurvature(i, j);
+	}
+}
+
+inline void LevelSet2D::LComputeMeanCurvature(const int & tubeRange)
+{
+	int i, j;
+#pragma omp parallel for private(i, j)
+	for (int k = 1; k <= numTube; k++)
+	{
+		i = tubeIndex(k).i;
+		j = tubeIndex(k).j;
+		if (tube(i, j) <= tubeRange)
+		{
+			meanCurvature(i, j) = ComputeMeanCurvature(i, j);
+		}
+		else
+		{
+			meanCurvature(i, j) = 0;
 		}
 	}
 }

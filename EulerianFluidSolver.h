@@ -45,8 +45,22 @@ public:
 	VectorND<double> vectorB;
 	VectorND<double> tempP;
 
+	//// Boundary Condition
+	// 0 : No barrier
+	// 1 : Barrier, Bounce
+	int BdryTop;
+	int BdryBottom;
+	int BdryLeft;
+	int BdryRight;
+
 	int iteration;
-	double reynoldNum;
+
+	double reynoldNum = 1;
+	double Ca = 1;
+	double Xi = 1;
+	double El = 1;
+	double Pe = 1;
+
 	double dt;
 	
 	double cflCondition;
@@ -57,6 +71,8 @@ public:
 
 	int maxIteration;
 	int writeOutputIteration;
+
+	bool IsSigularSurfaceForce = false; // Two-Phase flow Jump condition
 
 	EulerianFluidSolver2D();
 	~EulerianFluidSolver2D();
@@ -70,12 +86,15 @@ public:
 	inline void GenerateLinearSystem(VectorND<double>& vectorB, const double & scaling);
 	inline void TVDRK3TimeAdvection();
 	inline void EulerMethod();
+	inline void EulerMethod1();
+	inline void EulerMethod2();
+	inline void EulerMethod3();
 	inline void AdvectionTerm(FD& U, FD& V, FD& TermU, FD& TermV);
 	inline void DiffusionTerm(const FD& U, const FD& V, FD& TermU, FD& TermV);
 
 	inline double AdaptiveTimeStep(const FD& velocity1, const FD& velocity2);
 
-
+	inline void BdryCondVel();
 
 	// Second Order Projection Method
 	FD oldU;
@@ -89,6 +108,7 @@ public:
 	FD advectionU2;
 	FD advectionV2;
 
+	// 'CN' means 'Crank-Nicolson'.
 	Array2D<double> UCNMatrix;
 	// CG solver 1
 	CSR<double> UCN_CSR;
@@ -150,7 +170,7 @@ EulerianFluidSolver2D::~EulerianFluidSolver2D()
 
 inline void EulerianFluidSolver2D::InitialCondition(const int & example)
 {
-	if (example==1)
+	if (example == 1)
 	{
 		cout << "*************************" << endl;
 		cout << "    Navier-Stokes equation" << endl;
@@ -187,6 +207,11 @@ inline void EulerianFluidSolver2D::InitialCondition(const int & example)
 		Ustar = U;
 		Vstar = V;
 
+		BdryTop = 1;
+		BdryBottom = 1;
+		BdryLeft = 1;
+		BdryRight = 1;
+
 #pragma omp parallel for
 		for (int i = Rho.iStart; i <= Rho.iEnd; i++)
 		{
@@ -216,7 +241,7 @@ inline void EulerianFluidSolver2D::InitialCondition(const int & example)
 
 	}
 
-	if (example==2)
+	if (example == 2)
 	{
 		cout << "*************************" << endl;
 		cout << "    Navier-Stokes equation" << endl;
@@ -260,6 +285,11 @@ inline void EulerianFluidSolver2D::InitialCondition(const int & example)
 		oldU = U;
 		oldV = V;
 
+		BdryTop = 1;
+		BdryBottom = 1;
+		BdryLeft = 1;
+		BdryRight = 1;
+
 		advectionU = FD(gridUinner);
 		advectionV = FD(gridVinner);
 		advectionU1 = FD(gridUinner);
@@ -291,6 +321,169 @@ inline void EulerianFluidSolver2D::InitialCondition(const int & example)
 
 		dt = cflCondition*gridP.dx;
 		CGsolverNum = 2;
+	}
+
+	if (example == 3)
+	{
+		/////////////////////////////////////////////////////////
+		/////  A level-set continuum method
+		/////  for two-phase flows with insoluble surfactant
+		/////  --JJ Xu, Y Yang, J Lowengrub--
+		/////  Example 1
+		/////////////////////////////////////////////////////////
+		int numP = gridP.iRes;
+		double ddx = gridP.dx;
+		gridPinner = Grid2D(gridP.xMin + gridP.dx, gridP.xMax - gridP.dx, 1, gridP.iRes - 2,
+			gridP.yMin + gridP.dy, gridP.yMax - gridP.dy, 1, gridP.jRes - 2);
+		gridU = Grid2D(gridP.xMin - gridP.dx / 2, gridP.xMax + gridP.dx / 2, gridP.iRes + 1,
+			gridP.yMin, gridP.yMax, gridP.jRes);
+		gridUinner = Grid2D(gridU.xMin + gridU.dx, gridU.xMax - gridU.dx, 1, gridU.iRes - 2,
+			gridU.yMin + gridU.dy, gridU.yMax - gridU.dy, 1, gridU.jRes - 2);
+		gridV = Grid2D(gridP.xMin, gridP.xMax, gridP.iRes,
+			gridP.yMin - gridP.dy / 2, gridP.yMax + gridP.dy / 2, gridP.jRes + 1);
+		gridVinner = Grid2D(gridV.xMin + gridV.dx, gridV.xMax - gridV.dx, 1, gridV.iRes - 2,
+			gridV.yMin + gridV.dy, gridV.yMax - gridV.dy, 1, gridV.jRes - 2);
+		
+		P = FD(gridP);
+		Rho = FD(gridP);
+#pragma omp parallel for
+		for (int i = Rho.iStart; i <= Rho.iEnd; i++)
+		{
+			for (int j = Rho.jStart; j <= Rho.jEnd; j++)
+			{
+				Rho(i, j) = 1;
+			}
+		}
+
+		Phi = FD(gridP);
+		Phixxyy = FD(gridP);
+		U = FD(gridU);
+		V = FD(gridV);
+
+		originU = FD(gridU);
+		originV = FD(gridV);
+
+		gradientPx = FD(gridUinner);
+		gradientPy = FD(gridVinner);
+
+		Ustar = FD(gridU);;
+		Vstar = FD(gridV);
+
+		oldU = FD(gridU);;
+		oldV = FD(gridV);
+
+		BdryTop = 0;
+		BdryBottom = 0;
+		BdryLeft = 0;
+		BdryRight = 0;
+
+#pragma omp parallel for
+		for (int i = gridU.iStart; i <= gridU.iEnd; i++)
+		{
+			for (int j = gridU.jStart; j <= gridU.jEnd; j++)
+			{
+				U(i, j) = gridU(i, j).y;
+				Ustar(i, j) = U(i, j);
+				oldU(i, j) = U(i, j);
+			}
+		}
+
+		advectionU = FD(gridUinner);
+		advectionV = FD(gridVinner);
+		advectionU1 = FD(gridUinner);
+		advectionV1 = FD(gridVinner);
+		advectionU2 = FD(gridUinner);
+		advectionV2 = FD(gridVinner);
+		diffusionU = FD(gridUinner);
+		diffusionV = FD(gridVinner);
+
+		Ub = VectorND<double>(gridUinner.iRes*gridUinner.jRes);
+		tempU = VectorND<double>(gridUinner.iRes*gridUinner.jRes);
+		UCNMatrix = Array2D<double>(1, gridUinner.iRes*gridUinner.jRes, 1, gridUinner.iRes*gridUinner.jRes);
+
+		Vb = VectorND<double>(gridVinner.iRes*gridVinner.jRes);
+		tempV = VectorND<double>(gridVinner.iRes*gridVinner.jRes);
+		VCNMatrix = Array2D<double>(1, gridVinner.iRes*gridVinner.jRes, 1, gridVinner.iRes*gridVinner.jRes);
+
+		Phib = VectorND<double>(gridPinner.iRes*gridPinner.jRes);
+		tempPhi = VectorND<double>(gridPinner.iRes*gridPinner.jRes);
+		PhiCNMatrix = Array2D<double>(1, gridPinner.iRes*gridPinner.jRes, 1, gridPinner.iRes*gridPinner.jRes);
+
+		CGsolverNum = 2;
+	}
+
+	if (example == 4)
+	{
+		cout << "*************************" << endl;
+		cout << "    Navier-Stokes equation" << endl;
+		cout << "    Chorin's Projection Method" << endl;
+		cout << "    Tube" << endl;
+		cout << "*************************" << endl;
+		cout << endl;
+
+		int numP = 51;
+		double ddx = 0.01;
+		gridP = Grid2D(0, ddx*double(numP - 1), numP, 0, ddx*double(numP - 1), numP);
+		gridPinner = Grid2D(gridP.xMin + gridP.dx, gridP.xMax - gridP.dx, 1, gridP.iRes - 2,
+			gridP.yMin + gridP.dy, gridP.yMax - gridP.dy, 1, gridP.jRes - 2);
+		gridU = Grid2D(gridP.xMin - gridP.dx / 2, gridP.xMax + gridP.dx / 2, gridP.iRes + 1,
+			gridP.yMin, gridP.yMax, gridP.jRes);
+		gridUinner = Grid2D(gridU.xMin + gridU.dx, gridU.xMax - gridU.dx, 1, gridU.iRes - 2,
+			gridU.yMin + gridU.dy, gridU.yMax - gridU.dy, 1, gridU.jRes - 2);
+		gridV = Grid2D(gridP.xMin, gridP.xMax, gridP.iRes,
+			gridP.yMin - gridP.dy / 2, gridP.yMax + gridP.dy / 2, gridP.jRes + 1);
+		gridVinner = Grid2D(gridV.xMin + gridV.dx, gridV.xMax - gridV.dx, 1, gridV.iRes - 2,
+			gridV.yMin + gridV.dy, gridV.yMax - gridV.dy, 1, gridV.jRes - 2);
+		P = FD(gridP);
+		U = FD(gridU);
+		V = FD(gridV);
+
+		Rho = FD(gridP);
+
+		BdryTop = 0;
+		BdryBottom = 0;
+		BdryLeft = 0;
+		BdryRight = 0;
+
+		// initial condition
+#pragma omp parallel for
+		for (int i = gridU.iStart; i <= gridU.iEnd; i++)
+		{
+			for (int j = gridU.jStart; j <= gridU.jEnd; j++)
+			{
+				U(i, j) = 1;
+			}
+		}
+		Ustar = U;
+		Vstar = V;
+
+#pragma omp parallel for
+		for (int i = Rho.iStart; i <= Rho.iEnd; i++)
+		{
+			for (int j = Rho.jStart; j <= Rho.jEnd; j++)
+			{
+				Rho(i, j) = 1;
+			}
+		}
+		advectionU = FD(gridUinner);
+		advectionV = FD(gridVinner);
+
+		diffusionU = FD(gridUinner);
+		diffusionV = FD(gridVinner);
+
+		vectorB = VectorND<double>(gridPinner.iRes*gridPinner.jRes);
+		tempP = VectorND<double>(gridPinner.iRes*gridPinner.jRes);
+		poissonMatrix = Array2D<double>(1, gridPinner.iRes*gridPinner.jRes, 1, gridPinner.iRes*gridPinner.jRes);
+
+		accuracyOrder = 1;
+		reynoldNum = 1000;
+		cflCondition = 0.5;
+
+		dt = cflCondition*gridP.dx;
+		maxIteration = 2000;
+		writeOutputIteration = 10;
+
+
 	}
 }
 
@@ -350,6 +543,12 @@ inline void EulerianFluidSolver2D::FluidSolver(const int & example)
 		cmd = str.c_str();
 		MATLAB.Command(cmd);
 		MATLAB.Command("divU =U(:,2:end)-U(:,1:end-1),divV =V(2:end,:)-V(1:end-1,:);div=divU+divV;");
+
+		if (iteration == 1 || iteration % 1 == 0)
+		{
+			MATLAB.WriteImage("fluid", iteration, "fig");
+			MATLAB.WriteImage("fluid", iteration, "png");
+		}
 
 		if (writeFile && i%writeOutputIteration == 0)
 		{
@@ -621,24 +820,24 @@ inline void EulerianFluidSolver2D::TVDRK3TimeAdvection()
 
 inline void EulerianFluidSolver2D::EulerMethod()
 {
-	//// Boundary : Linear extension.
-#pragma omp parallel for
-	for (int j = gridUinner.jStart; j <= gridUinner.jEnd; j++)
-	{
-		U(gridU.iStart, j) = -U(gridU.iStart + 1, j);
-		U(gridU.iEnd, j) = -U(gridU.iEnd - 1, j);
-	}
-#pragma omp parallel for
-	for (int i = gridVinner.iStart; i <= gridVinner.iEnd; i++)
-	{
-		V(i, gridV.jStart) = -V(i, gridV.jStart + 1);
-		V(i, gridV.jEnd) = -V(i, gridV.jEnd - 1);
-	}
-
 	////////////////////////////////////////////////
 	////     Projection Method 1 : advection    ////
 	////////////////////////////////////////////////
-	
+	EulerMethod1();
+
+	////////////////////////////////////////////////
+	////     Projection Method 2 : Poisson Eq   ////
+	////////////////////////////////////////////////
+	EulerMethod2();
+
+	//////////////////////////////////////////////
+	////     Projection Method 3 : New U,V    ////
+	//////////////////////////////////////////////
+	EulerMethod3();
+}
+
+inline void EulerianFluidSolver2D::EulerMethod1()
+{
 	Array2D<double>& K1U = U.K1;
 	Array2D<double>& K1V = V.K1;
 
@@ -670,37 +869,24 @@ inline void EulerianFluidSolver2D::EulerMethod()
 	//K1U.Variable("k1u");
 	//K1V.Variable("k1v");
 	//// Boundary : Linear extension.
-#pragma omp parallel for
-	for (int j = gridUinner.jStart; j <= gridUinner.jEnd; j++)
-	{
-		U(gridU.iStart, j) = -U(gridU.iStart + 1, j);
-		U(gridU.iEnd, j) = -U(gridU.iEnd - 1, j);
-	}
-#pragma omp parallel for
-	for (int i = gridVinner.iStart; i <= gridVinner.iEnd; i++)
-	{
-		V(i, gridV.jStart) = -V(i, gridV.jStart + 1);
-		V(i, gridV.jEnd) = -V(i, gridV.jEnd - 1);
-	}
+	BdryCondVel();
 
 
-	U.Variable("Ustar");
-	V.Variable("Vstar");
-	MATLAB.Command("divUstar =Ustar(:,2:end)-Ustar(:,1:end-1),divVstar =Vstar(2:end,:)-Vstar(1:end-1,:);divstar=divUstar+divVstar;");
+	//U.Variable("Ustar");
+	//V.Variable("Vstar");
+	//MATLAB.Command("divUstar =Ustar(:,2:end)-Ustar(:,1:end-1),divVstar =Vstar(2:end,:)-Vstar(1:end-1,:);divstar=divUstar+divVstar;");
 	//MATLAB.Command("quiver(Xp,Yp,Ustar(:,1:end-1),Vstar(1:end-1,:)");
+}
 
-
-	////////////////////////////////////////////////
-	////     Projection Method 2 : Poisson Eq   ////
-	////////////////////////////////////////////////
+inline void EulerianFluidSolver2D::EulerMethod2()
+{
 	GenerateLinearSystem(vectorB, -gridP.dx*gridP.dx);
-	vectorB.Variable("vectorB");
-	int solver = 2;
-	if (solver == 1)
+	//vectorB.Variable("vectorB");
+	if (CGsolverNum == 1)
 	{
 		tempP = CGSolver::SolverCSR(poissonCSR, vectorB, gridP.dx*gridP.dy);
 	}
-	else if (solver == 2)
+	else if (CGsolverNum == 2)
 	{
 		CGSolver::SolverSparse(poissonMatrix.iRes, a, row, col, vectorB, tempP);
 	}
@@ -729,12 +915,11 @@ inline void EulerianFluidSolver2D::EulerMethod()
 		P(P.iEnd, j) = P(P.iEnd - 1, j);
 	}
 	P(gridP.iStart, gridP.jEnd - 1) = 1;
-	P.Variable("P");
+	//P.Variable("P");
+}
 
-
-	//////////////////////////////////////////////
-	////     Projection Method 3 : New U,V    ////
-	//////////////////////////////////////////////
+inline void EulerianFluidSolver2D::EulerMethod3()
+{
 #pragma omp parallel for
 	for (int i = gridUinner.iStart; i <= gridUinner.iEnd; i++)
 	{
@@ -752,25 +937,13 @@ inline void EulerianFluidSolver2D::EulerMethod()
 		}
 	}
 	//// Boundary : Linear extension.
-#pragma omp parallel for
-	for (int j = gridUinner.jStart; j <= gridUinner.jEnd; j++)
-	{
-		U(gridU.iStart, j) = -U(gridU.iStart + 1, j);
-		U(gridU.iEnd, j) = -U(gridU.iEnd - 1, j);
-	}
-#pragma omp parallel for
-	for (int i = gridVinner.iStart; i <= gridVinner.iEnd; i++)
-	{
-		V(i, gridV.jStart) = -V(i, gridV.jStart + 1);
-		V(i, gridV.jEnd) = -V(i, gridV.jEnd - 1);
-	}
+	BdryCondVel();
 
-	U.Variable("Unew");
-	V.Variable("Vnew");
-	MATLAB.Command("divUnew =Unew(:,2:end)-Unew(:,1:end-1),divVnew =Vnew(2:end,:)-Vnew(1:end-1,:);divnew=divUnew+divVnew;");
+	//U.Variable("Unew");
+	//V.Variable("Vnew");
+	//MATLAB.Command("divUnew =Unew(:,2:end)-Unew(:,1:end-1),divVnew =Vnew(2:end,:)-Vnew(1:end-1,:);divnew=divUnew+divVnew;");
 	//MATLAB.Command("quiver(Xp,Yp,U(1:end-1,:),V(:,1:end-1)");
 }
-
 
 inline void EulerianFluidSolver2D::AdvectionTerm(FD& U, FD& V, FD& TermU, FD& TermV)
 {
@@ -903,6 +1076,44 @@ inline double EulerianFluidSolver2D::AdaptiveTimeStep(const FD& velocity1, const
 	return cflCondition*min(gridU.dx, gridV.dy) / maxVel;
 }
 
+inline void EulerianFluidSolver2D::BdryCondVel()
+{
+	if (BdryLeft == 1)
+	{
+		//// Boundary : Linear extension.
+#pragma omp parallel for
+		for (int j = gridUinner.jStart; j <= gridUinner.jEnd; j++)
+		{
+			U(gridU.iStart, j) = -U(gridU.iStart + 1, j);
+		}
+	}
+	if (BdryRight == 1)
+	{
+		//// Boundary : Linear extension.
+#pragma omp parallel for
+		for (int j = gridUinner.jStart; j <= gridUinner.jEnd; j++)
+		{
+			U(gridU.iEnd, j) = -U(gridU.iEnd - 1, j);
+		}
+	}
+	if (BdryBottom == 1)
+	{
+#pragma omp parallel for
+		for (int i = gridVinner.iStart; i <= gridVinner.iEnd; i++)
+		{
+			V(i, gridV.jStart) = -V(i, gridV.jStart + 1);
+		}
+	}
+	if (BdryTop == 1)
+	{
+#pragma omp parallel for
+		for (int i = gridVinner.iStart; i <= gridVinner.iEnd; i++)
+		{
+			V(i, gridV.jEnd) = -V(i, gridV.jEnd - 1);
+		}
+	}
+}
+
 //////////////////////////////////////////////////////////////////////////
 //
 // "Accurate Projection Methods for the Incompressible Navier-Stokes Equations "
@@ -927,14 +1138,20 @@ inline void EulerianFluidSolver2D::NSSolver2ndOrder(const int & example)
 	GenerateLinearSystemUV(UCNMatrix, gridUinner, 1);
 	GenerateLinearSystemUV(VCNMatrix, gridVinner, 1);
 	GenerateLinearSystemPhi(PhiCNMatrix, -gridP.dx2 / dt);
-	//// CG solver 1
-	UCN_CSR = CSR<double>(UCNMatrix);
-	VCN_CSR = CSR<double>(VCNMatrix);
-	PhiCN_CSR = CSR<double>(PhiCNMatrix);
-	//// CG solver 2
-	CGSolver::SparseA(UCNMatrix, Ua, Urow, Ucol, UnonzeroNum);
-	CGSolver::SparseA(VCNMatrix, Va, Vrow, Vcol, VnonzeroNum);
-	CGSolver::SparseA(PhiCNMatrix, Phia, Phirow, Phicol, PhinonzeroNum);
+	if (CGsolverNum == 1)
+	{
+		//// CG solver 1
+		UCN_CSR = CSR<double>(UCNMatrix);
+		VCN_CSR = CSR<double>(VCNMatrix);
+		PhiCN_CSR = CSR<double>(PhiCNMatrix);
+	}
+	else if (CGsolverNum == 2)
+	{
+		//// CG solver 2
+		CGSolver::SparseA(UCNMatrix, Ua, Urow, Ucol, UnonzeroNum);
+		CGSolver::SparseA(VCNMatrix, Va, Vrow, Vcol, VnonzeroNum);
+		CGSolver::SparseA(PhiCNMatrix, Phia, Phirow, Phicol, PhinonzeroNum);
+	}
 
 	str = string("quiver(Xp,Yp,U(:,1:end-1)/2+U(:,2:end)/2,V(1:end-1,:)/2+V(2:end,:)/2,2),axis([Xp(1)-(Xp(end)-Xp(1))/10 Xp(end)+(Xp(end)-Xp(1))/10 Yp(1)-(Yp(end)-Yp(1))/10 Yp(end)+(Yp(end)-Yp(1))/10]);");
 	str = str + string("hold on,streamline(Xp,Yp,U(:,1:end-1)/2+U(:,2:end)/2,V(1:end-1,:)/2+V(2:end,:)/2,-100:0.1:100,-100:0.1:100),hold off;");
@@ -990,11 +1207,11 @@ inline void EulerianFluidSolver2D::EulerMethod2ndOrder()
 	////////////////////////////////////////////////
 	////     Projection Method 1 : advection    ////
 	////////////////////////////////////////////////
-	//if (iteration>=2)
-	//{
-	//	EulerMethod2ndOrder1();
-	//}
-	//else
+	if (iteration>=2)
+	{
+		EulerMethod2ndOrder1();
+	}
+	else
 	{
 		EulerMethod2ndOrder1stIteration1();
 	}
@@ -1013,6 +1230,7 @@ inline void EulerianFluidSolver2D::EulerMethod2ndOrder()
 	oldV.dataArray = V.dataArrayOld;
 
 	//MATLAB.Command("VVB = reshape(Vb, 49, 50)';");
+	//advectionV.Variable("advectionV");
 	//MATLAB.Command("figure(2),subplot(1,2,1),plot(Vnew(51,2:end-1),'-o'),grid on, subplot(1,2,2),plot(advectionV(end,:),'-o'),grid on");
 	//MATLAB.Command("figure(2),subplot(2,2,1),surf(Xu(2:end-1,2:end-1),Yu(2:end-1,2:end-1),Unew(2:end-1,2:end-1))");
 	//MATLAB.Command("subplot(2,2,2),surf(Xv(2:end-1,2:end-1),Yv(2:end-1,2:end-1),Vnew(2:end-1,2:end-1))");
@@ -1022,8 +1240,11 @@ inline void EulerianFluidSolver2D::EulerMethod2ndOrder()
 
 inline void EulerianFluidSolver2D::EulerMethod2ndOrder1()
 {
+	advectionU2.dataArray = advectionU1.dataArray;
+	advectionV2.dataArray = advectionV1.dataArray;
+
 	AdvectionTerm(U, V, advectionU1, advectionV1);
-	AdvectionTerm(oldU, oldV, advectionU2, advectionV2);
+	//AdvectionTerm(oldU, oldV, advectionU2, advectionV2);
 	DiffusionTerm(U, V, diffusionU, diffusionV);
 
 	double viscosity = 1;
@@ -1095,18 +1316,7 @@ inline void EulerianFluidSolver2D::EulerMethod2ndOrder1()
 	}
 
 	// Boundary : Linear extension. (But, Dirichlet로 줄 방법은 없나???)
-#pragma omp parallel for
-	for (int j = gridUinner.jStart; j <= gridUinner.jEnd; j++)
-	{
-		U(gridU.iStart, j) = -U(gridU.iStart + 1, j);
-		U(gridU.iEnd, j) = -U(gridU.iEnd - 1, j);
-	}
-#pragma omp parallel for
-	for (int i = gridVinner.iStart; i <= gridVinner.iEnd; i++)
-	{
-		V(i, gridV.jStart) = -V(i, gridV.jStart + 1);
-		V(i, gridV.jEnd) = -V(i, gridV.jEnd - 1);
-	}
+	BdryCondVel();
 
 	//U.Variable("Ustar");
 	//V.Variable("Vstar");
@@ -1170,18 +1380,8 @@ inline void EulerianFluidSolver2D::EulerMethod2ndOrder2()
 			V(i, j) = V(i, j) - dt*(Phi(i, j) - Phi(i, j - 1))*Phi.oneOverdy;
 		}
 	}
-#pragma omp parallel for
-	for (int j = gridUinner.jStart; j <= gridUinner.jEnd; j++)
-	{
-		U(gridU.iStart, j) = -U(gridU.iStart + 1, j);
-		U(gridU.iEnd, j) = -U(gridU.iEnd - 1, j);
-	}
-#pragma omp parallel for
-	for (int i = gridVinner.iStart; i <= gridVinner.iEnd; i++)
-	{
-		V(i, gridV.jStart) = -V(i, gridV.jStart + 1);
-		V(i, gridV.jEnd) = -V(i, gridV.jEnd - 1);
-	}
+
+	BdryCondVel();
 
 	//U.Variable("Unew");
 	//V.Variable("Vnew");
@@ -1233,7 +1433,7 @@ inline void EulerianFluidSolver2D::EulerMethod2ndOrder1stIteration1()
 	DiffusionTerm(U, V, diffusionU, diffusionV);
 
 	double viscosity = 1;
-	// 2nd-order Adams-Bashforth formula
+	//// 2nd-order Adams-Bashforth formula
 	//advectionU.Variable("advectionU");
 	//diffusionU.Variable("diffusionU");
 
@@ -1281,18 +1481,7 @@ inline void EulerianFluidSolver2D::EulerMethod2ndOrder1stIteration1()
 	}
 
 	// Boundary : Linear extension. (But, Dirichlet로 줄 방법은 없나???)
-#pragma omp parallel for
-	for (int j = gridUinner.jStart; j <= gridUinner.jEnd; j++)
-	{
-		U(gridU.iStart, j) = -U(gridU.iStart + 1, j);
-		U(gridU.iEnd, j) = -U(gridU.iEnd - 1, j);
-	}
-#pragma omp parallel for
-	for (int i = gridVinner.iStart; i <= gridVinner.iEnd; i++)
-	{
-		V(i, gridV.jStart) = -V(i, gridV.jStart + 1);
-		V(i, gridV.jEnd) = -V(i, gridV.jEnd - 1);
-	}
+	BdryCondVel();
 
 	//U.Variable("Ustar");
 	//V.Variable("Vstar");
@@ -1424,23 +1613,23 @@ inline void EulerianFluidSolver2D::GenerateLinearSystemUV(VectorND<double>& vect
 		{
 			index = (i - innerIStart) + (j - innerJStart)*innerIRes;
 
-			vectorB(index) = dt*(-gradP(i, j) - advec(i, j) + 1. / 2./reynoldNum*(vel.dxxPhi(i, j) + vel.dyyPhi(i, j)));
+			vectorB(index) = vel(i, j) + dt*(-gradP(i, j) - advec(i, j) + 1. / 2. / reynoldNum*(vel.dxxPhi(i, j) + vel.dyyPhi(i, j)));
 
 			if (i == innerIStart)
 			{
-				vectorB(index) += (2 * vel(i - 1, j) - vel.dataArrayOld(i - 1, i))*ipGrid.oneOverdx2* dt / reynoldNum / 2.;
+				vectorB(index) += (2 * vel(i - 1, j) - vel.dataArrayOld(i - 1, j))*ipGrid.oneOverdx2* dt / (2 * reynoldNum);
 			}
 			if (i == innerIEnd)
 			{
-				vectorB(index) += (2 * vel(i + 1, j) - vel.dataArrayOld(i + 1, j))*ipGrid.oneOverdx2* dt / reynoldNum / 2.;
+				vectorB(index) += (2 * vel(i + 1, j) - vel.dataArrayOld(i + 1, j))*ipGrid.oneOverdx2* dt / (2 * reynoldNum);
 			}
 			if (j == innerJStart)
 			{
-				vectorB(index) += (2 * vel(i, j - 1) - vel.dataArrayOld(i, j - 1))*ipGrid.oneOverdy2* dt / reynoldNum / 2.;
+				vectorB(index) += (2 * vel(i, j - 1) - vel.dataArrayOld(i, j - 1))*ipGrid.oneOverdy2* dt / (2 * reynoldNum);
 			}
 			if (j == innerJEnd)
 			{
-				vectorB(index) += (2 * vel(i, j + 1) - vel.dataArrayOld(i, j + 1))*ipGrid.oneOverdy2* dt / reynoldNum / 2.;
+				vectorB(index) += (2 * vel(i, j + 1) - vel.dataArrayOld(i, j + 1))*ipGrid.oneOverdy2* dt / (2 * reynoldNum);
 			}
 
 			//cout << endl;

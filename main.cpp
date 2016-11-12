@@ -7,6 +7,7 @@
 #include "EulerianFluidSolver.h"
 #include "VortexSheet.h"
 #include "EulerianMovingInterface.h"
+#include "Incompressible2PhasewithSurfactantProb.h"
 
 #include "SurfaceReconstruction.h"
 #include "BregmaMethodSolver.h"
@@ -29,8 +30,8 @@ void main()
 	MATLAB.Command("clc; clear all; close all;");
 	MATLAB.Command("workspace");
 
-	int problem = 4;
-	int example = 2;
+	int problem = 14;
+	int example = 1;
 	if (problem == 0) //// GMRES test :: example 1,2,3,4
 	{
 		switch (example)
@@ -67,7 +68,7 @@ void main()
 	else if (problem == 4) // NAVIER STOKES EQUATION SOLVER : EXAMPLE 1 ??
 	{
 		EulerianFluidSolver2D Euler;
-		if (example == 1)
+		if (example == 1 || example == 4)
 		{
 			Euler.FluidSolver(example);
 		}
@@ -117,7 +118,8 @@ void main()
 	}
 	else if (problem == 12)  // Eulerian Moving Interface.(JJ Xu, HK Zhao) : Example 1
 	{
-		MovingInterface Eulerian;
+		EulerianFluidSolver2D Fluid;
+		MovingInterface Eulerian(Fluid);
 		if (example <= 2) // Whole domain
 		{
 			Eulerian.SurfactantDiffusionSolver(example);
@@ -142,6 +144,14 @@ void main()
 		{
 			LLS.QuantityExtensionSolver(example);
 		}
+	}
+	else if (problem == 14)
+	{
+		EulerianFluidSolver2D Fluid;
+		MovingInterface Surfactant(Fluid);
+		InsolubleSurfactant ContinuumMethod(Fluid, Surfactant);
+		ContinuumMethod.ContinuumMethodWithSurfactantSolver(example);
+		
 	}
 	system("pause");
 }
