@@ -563,7 +563,87 @@ inline void MovingInterface::InitialCondition(const int & example)
 		totalT = 0;
 	}
 
+	if (example == 8)
+	{
+		/////////////////////////////////////////////////////////
+		/////  Simulations of surfactant effects
+		/////  on the dynamics of coalescing drops and bubbles
+		/////  --DW Martin and F Blanchette--
+		/////  Example 1
+		/////////////////////////////////////////////////////////
+		levelSet = LS(grid, 3 * grid.dx);
+		LS levelSet1(grid, 3 * grid.dx);
+		LS levelSet2(grid, 3 * grid.dx);
+		double radius = 1.0;
+		VT center(0, 3);
+#pragma omp parallel for
+		for (int i = grid.iStart; i <= grid.iEnd; i++)
+		{
+			for (int j = grid.jStart; j <= grid.jEnd; j++)
+			{
+				levelSet1(i, j) = sqrt((grid(i, j).x - center.x)*(grid(i, j).x - center.x) + (grid(i, j).y - center.y)*(grid(i, j).y - center.y)) - radius;
+			}
+		}
+#pragma omp parallel for
+		for (int i = grid.iStart; i <= grid.iEnd; i++)
+		{
+			for (int j = grid.jStart; j <= grid.jEnd; j++)
+			{
+				levelSet2(i, j) = 2 - grid(i, j).y;
+			}
+		}
 
+#pragma omp parallel for
+		for (int i = grid.iStart; i <= grid.iEnd; i++)
+		{
+			for (int j = grid.jStart; j <= grid.jEnd; j++)
+			{
+				levelSet1(i, j) = sqrt(grid(i, j).x*grid(i, j).x + grid(i, j).y*grid(i, j).y) - radius;
+			}
+		}
+
+		levelSet.InitialTube();
+
+		Surfactant = FD(grid);
+		int i, j;
+#pragma omp parallel for private(i, j)
+		for (int k = 1; k <= levelSet.numTube; k++)
+		{
+			levelSet.TubeIndex(k, i, j);
+			if (levelSet.tube(i, j) <= 2)
+			{
+				Surfactant(i, j) = 1;
+			}
+		}
+
+		SurfaceTension = FD(grid);
+
+#pragma omp parallel for
+		for (int i = grid.iStart; i <= grid.iEnd; i++)
+		{
+			for (int j = grid.jStart; j <= grid.jEnd; j++)
+			{
+				if (levelSet.tube(i, j) <= 2)
+				{
+					SurfaceTension(i, j) = 1 + Fluid.El*log(1 - Fluid.Xi* Surfactant(i, j));
+				}
+				else
+				{
+					SurfaceTension(i, j) = 1;
+				}
+			}
+		}
+
+		initialSurfactant = IntegralSurfactant();
+
+		AdvectionMethod2D<double>::alpha = 1.5*grid.dx;
+
+		term = Array2D<double>(grid);
+		termOld = Array2D<double>(grid);
+		cflCondition = 1.0 / 4.0;
+		dt = cflCondition*min(grid.dx, grid.dy);
+		totalT = 0;
+	}
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////

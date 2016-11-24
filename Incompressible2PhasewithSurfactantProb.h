@@ -49,10 +49,7 @@ public:
 	MovingInterface& InterfaceSurfactant;
 	FD& Surfactant = InterfaceSurfactant.Surfactant;
 	FD& SurfaceTension = InterfaceSurfactant.SurfaceTension;
-	//VectorND<double> tempSur;
-
 	LS& levelSet = InterfaceSurfactant.levelSet;
-	//int& CGsolverNum = InterfaceSurfactant.CGsolverNum;
 	double totalT;
 
 
@@ -90,6 +87,7 @@ InsolubleSurfactant::~InsolubleSurfactant()
 
 inline void InsolubleSurfactant::InitialCondition(const int & example)
 {
+	ExamNum = example;
 	if (example == 1)
 	{
 		cout << "*************************" << endl;

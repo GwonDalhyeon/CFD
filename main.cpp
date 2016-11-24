@@ -8,6 +8,7 @@
 #include "VortexSheet.h"
 #include "EulerianMovingInterface.h"
 #include "Incompressible2PhasewithSurfactantProb.h"
+#include "CoalescingDropProblem.h"
 
 #include "SurfaceReconstruction.h"
 #include "BregmaMethodSolver.h"
@@ -30,7 +31,7 @@ void main()
 	MATLAB.Command("clc; clear all; close all;");
 	MATLAB.Command("workspace");
 
-	int problem = 14;
+	int problem = 15;
 	int example = 1;
 	if (problem == 0) //// GMRES test :: example 1,2,3,4
 	{
@@ -152,6 +153,13 @@ void main()
 		InsolubleSurfactant ContinuumMethod(Fluid, Surfactant);
 		ContinuumMethod.ContinuumMethodWithSurfactantSolver(example);
 		
+	}
+	else if (problem == 15)
+	{
+		EulerianFluidSolver2D Fluid;
+		MovingInterface Surfactant(Fluid);
+		CoalescingDrop Coalescing(Fluid, Surfactant);
+
 	}
 	system("pause");
 }

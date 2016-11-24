@@ -485,6 +485,93 @@ inline void EulerianFluidSolver2D::InitialCondition(const int & example)
 
 
 	}
+
+	if (example == 5)
+	{
+		/////////////////////////////////////////////////////////
+		/////  Simulations of surfactant effects
+		/////  on the dynamics of coalescing drops and bubbles
+		/////  --DW Martin and F Blanchette--
+		/////  Example 1
+		/////////////////////////////////////////////////////////
+		int numP = gridP.iRes;
+		double ddx = gridP.dx;
+		gridPinner = Grid2D(gridP.xMin + gridP.dx, gridP.xMax - gridP.dx, 1, gridP.iRes - 2,
+			gridP.yMin + gridP.dy, gridP.yMax - gridP.dy, 1, gridP.jRes - 2);
+		gridU = Grid2D(gridP.xMin - gridP.dx / 2, gridP.xMax + gridP.dx / 2, gridP.iRes + 1,
+			gridP.yMin, gridP.yMax, gridP.jRes);
+		gridUinner = Grid2D(gridU.xMin + gridU.dx, gridU.xMax - gridU.dx, 1, gridU.iRes - 2,
+			gridU.yMin + gridU.dy, gridU.yMax - gridU.dy, 1, gridU.jRes - 2);
+		gridV = Grid2D(gridP.xMin, gridP.xMax, gridP.iRes,
+			gridP.yMin - gridP.dy / 2, gridP.yMax + gridP.dy / 2, gridP.jRes + 1);
+		gridVinner = Grid2D(gridV.xMin + gridV.dx, gridV.xMax - gridV.dx, 1, gridV.iRes - 2,
+			gridV.yMin + gridV.dy, gridV.yMax - gridV.dy, 1, gridV.jRes - 2);
+
+		P = FD(gridP);
+		Rho = FD(gridP);
+#pragma omp parallel for
+		for (int i = Rho.iStart; i <= Rho.iEnd; i++)
+		{
+			for (int j = Rho.jStart; j <= Rho.jEnd; j++)
+			{
+				Rho(i, j) = 1;
+			}
+		}
+
+		Phi = FD(gridP);
+		Phixxyy = FD(gridP);
+		U = FD(gridU);
+		V = FD(gridV);
+
+		originU = FD(gridU);
+		originV = FD(gridV);
+
+		gradientPx = FD(gridUinner);
+		gradientPy = FD(gridVinner);
+
+		Ustar = FD(gridU);;
+		Vstar = FD(gridV);
+
+		oldU = FD(gridU);;
+		oldV = FD(gridV);
+
+		BdryTop = 0;
+		BdryBottom = 0;
+		BdryLeft = 0;
+		BdryRight = 0;
+
+#pragma omp parallel for
+		for (int i = gridU.iStart; i <= gridU.iEnd; i++)
+		{
+			for (int j = gridU.jStart; j <= gridU.jEnd; j++)
+			{
+				U(i, j) = gridU(i, j).y;
+				Ustar(i, j) = U(i, j);
+				oldU(i, j) = U(i, j);
+			}
+		}
+
+		advectionU = FD(gridUinner);
+		advectionV = FD(gridVinner);
+		advectionU1 = FD(gridUinner);
+		advectionV1 = FD(gridVinner);
+		advectionU2 = FD(gridUinner);
+		advectionV2 = FD(gridVinner);
+		diffusionU = FD(gridUinner);
+		diffusionV = FD(gridVinner);
+
+		Ub = VectorND<double>(gridUinner.iRes*gridUinner.jRes);
+		tempU = VectorND<double>(gridUinner.iRes*gridUinner.jRes);
+		UCNMatrix = Array2D<double>(1, gridUinner.iRes*gridUinner.jRes, 1, gridUinner.iRes*gridUinner.jRes);
+
+		Vb = VectorND<double>(gridVinner.iRes*gridVinner.jRes);
+		tempV = VectorND<double>(gridVinner.iRes*gridVinner.jRes);
+		VCNMatrix = Array2D<double>(1, gridVinner.iRes*gridVinner.jRes, 1, gridVinner.iRes*gridVinner.jRes);
+
+		Phib = VectorND<double>(gridPinner.iRes*gridPinner.jRes);
+		tempPhi = VectorND<double>(gridPinner.iRes*gridPinner.jRes);
+		PhiCNMatrix = Array2D<double>(1, gridPinner.iRes*gridPinner.jRes, 1, gridPinner.iRes*gridPinner.jRes);
+	}
 }
 
 inline void EulerianFluidSolver2D::FluidSolver(const int & example)
