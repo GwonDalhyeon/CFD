@@ -155,6 +155,8 @@ public:
 
 	inline void SaveOld();
 	inline void SaveOld(Array2D<TT>& copyArray);
+
+	inline void Delete();
 private:
 
 };
@@ -1047,6 +1049,23 @@ template<class TT>
 inline void Field2D<TT>::SaveOld()
 {
 	dataArrayOld = dataArray;
+}
+
+template<class TT>
+inline void Field2D<TT>::Delete()
+{
+	dataArray.Delete();
+	ghostDataArray.Delete();
+	dataArrayOld.Delete();
+	ghostDataArrayOld.Delete();
+	K1.Delete();
+	K2.Delete();
+	K3.Delete();
+	dfdxM.Delete();
+	dfdxP.Delete();
+	dfdyM.Delete();
+	dfdyP.Delete();
+	gradient.Delete();
 }
 
 

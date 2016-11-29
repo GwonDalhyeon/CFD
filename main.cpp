@@ -159,7 +159,7 @@ void main()
 		EulerianFluidSolver2D Fluid;
 		MovingInterface Surfactant(Fluid);
 		CoalescingDrop Coalescing(Fluid, Surfactant);
-
+		Coalescing.CoalescingBubbleSolver(example);
 	}
 	system("pause");
 }

@@ -19,6 +19,7 @@ public:
 
 	static VectorND<double> SolverCSR(const CSR<double>& A, const VectorND<double>& b);
 	static VectorND<double> SolverCSR(const CSR<double>& A, const VectorND<double>& b, const double & tol);
+	static void SolverCSR(const CSR<double>& A, const VectorND<double>& b, const double & tol, VectorND<double>& x);
 
 	static void SparseA(const Array2D<double> & A, VectorND<double> & a,
 		VectorND<int> & row, VectorND<int> & col, int & nonzeroNum);
@@ -226,15 +227,14 @@ inline VectorND<double> CGSolver::SolverCSR(const CSR<double>& A, const VectorND
 	int num = A.rowNum;
 	double tolerance = tol;
 
-	VectorND<double> rOld(num);
-	VectorND<double> p(num);
+	VectorND<double> rOld = b;
+	VectorND<double> p = b;
 	VectorND<double> rNew(num);
 	VectorND<double> x(num);
+	VectorND<double> Ap(num);
 
 	int j;
 
-	rOld = b;
-	p = b;
 	x = 0;
 
 	double alpha = 0;
@@ -248,32 +248,38 @@ inline VectorND<double> CGSolver::SolverCSR(const CSR<double>& A, const VectorND
 	{
 		temp1 = 0;
 		temp2 = 0;
-#pragma omp parallel for private (j) reduction(+:temp2)
-		for (int i = 0; i < num; i++)
+		A.Multiply(p, Ap);
+		temp2 = DotProduct(p, Ap);
+//#pragma omp parallel for private (j) reduction(+:temp2)
+//		for (int i = 0; i < num; i++)
+//		{
+//			//A.indPrt
+//			for (int n = A.indPrt[i]; n < A.indPrt[i + 1]; n++)
+//			{
+//				j = int(A.columns[n]);
+//				temp2 = temp2 + p[i] * A.values[n] * p[j];
+//			}
+//		}
+
+		if (abs(temp2) < tolerance)
 		{
-			//A.indPrt
-			for (int n = A.indPrt[i]; n < A.indPrt[i + 1]; n++)
-			{
-				j = int(A.columns[n]);
-				temp2 = temp2 + p[i] * A.values[n] * p[j];
-			}
+			cout << "CG iterataion : " << k << " " << temp << endl;
+			result = (double)(clock() - before) / CLOCKS_PER_SEC;
+			cout << "time : " << result << "\n";
+			cout << "End : CG " << endl;
+			cout << endl;
+			return x;
 		}
 		alpha = residualOld / temp2;
 
 		for (int i = 0; i < num; i++)
 		{
-			x[i] = x[i] + alpha*p[i];
-			temp = 0;
-#pragma omp parallel for private (j) reduction(+:temp) 
-			for (int n = A.indPrt[i]; n < A.indPrt[i + 1]; n++)
-			{
-				j = int(A.columns[n]);
-				temp = temp + A.values[n] * p[j];
-			}
-			rNew[i] = rOld[i] - alpha*temp;
+			x[i] += alpha*p[i];
+
+			rOld[i] -= alpha*Ap[i];
 		}
 
-		residual = rNew.magnitude2();
+		residual = rOld.magnitude2();
 
 		temp = sqrt(abs(residual));
 
@@ -292,9 +298,9 @@ inline VectorND<double> CGSolver::SolverCSR(const CSR<double>& A, const VectorND
 #pragma omp parallel for
 		for (int i = 0; i < p.iLength; i++)
 		{
-			p[i] = rNew[i] + beta*p[i];
+			p[i] = rOld[i] + beta*p[i];
 		}
-		rOld = rNew;
+		//rOld = rNew;
 
 		residualOld = residual;
 
@@ -307,6 +313,101 @@ inline VectorND<double> CGSolver::SolverCSR(const CSR<double>& A, const VectorND
 	cout << "End : CG " << endl;
 	cout << endl;
 	return x;
+}
+
+inline void CGSolver::SolverCSR(const CSR<double>& A, const VectorND<double>& b, const double & tol, VectorND<double>& x)
+{
+	clock_t before;
+	double  result;
+	before = clock();
+	cout << "Start : CG " << endl;
+
+	int num = A.rowNum;
+	double tolerance = tol;
+
+	VectorND<double> rOld = b;
+	VectorND<double> p = b;
+	VectorND<double> Ap(num);
+
+	int j;
+
+	x = 0;
+
+	double alpha = 0;
+	double beta = 0;
+	double temp1 = 0, temp2 = 0;
+	double temp = 0;
+	double residual;
+	double residualOld = rOld.magnitude2();
+
+	for (int k = 0; k < 2 * num; k++)
+	{
+		temp1 = 0;
+		temp2 = 0;
+		A.Multiply(p, Ap);
+		temp2 = DotProduct(p, Ap);
+		//#pragma omp parallel for private (j) reduction(+:temp2)
+		//		for (int i = 0; i < num; i++)
+		//		{
+		//			//A.indPrt
+		//			for (int n = A.indPrt[i]; n < A.indPrt[i + 1]; n++)
+		//			{
+		//				j = int(A.columns[n]);
+		//				temp2 = temp2 + p[i] * A.values[n] * p[j];
+		//			}
+		//		}
+
+		if (abs(temp2) < tolerance)
+		{
+			cout << "CG iterataion : " << k << " " << temp << endl;
+			result = (double)(clock() - before) / CLOCKS_PER_SEC;
+			cout << "time : " << result << "\n";
+			cout << "End : CG " << endl;
+			cout << endl;
+			return;
+		}
+		alpha = residualOld / temp2;
+
+		for (int i = 0; i < num; i++)
+		{
+			x[i] += alpha*p[i];
+
+			rOld[i] -= alpha*Ap[i];
+		}
+
+		residual = rOld.magnitude2();
+
+		temp = sqrt(abs(residual));
+
+		//cout << k << " " << temp << endl;
+		if (temp < tolerance)
+		{
+			cout << "CG iterataion : " << k << " " << temp << endl;
+			result = (double)(clock() - before) / CLOCKS_PER_SEC;
+			cout << "time : " << result << "\n";
+			cout << "End : CG " << endl;
+			cout << endl;
+			return;
+		}
+
+		beta = residual / residualOld;
+#pragma omp parallel for
+		for (int i = 0; i < p.iLength; i++)
+		{
+			p[i] = rOld[i] + beta*p[i];
+		}
+		//rOld = rNew;
+
+		residualOld = residual;
+
+	}
+
+
+	cout << "CG iterataion : " << 2 * num << " " << temp << endl;
+	result = (double)(clock() - before) / CLOCKS_PER_SEC;
+	cout << "time : " << result << "\n";
+	cout << "End : CG " << endl;
+	cout << endl;
 }
 
 inline void CGSolver::SparseA(const Array2D<double> & A, VectorND<double> & a,

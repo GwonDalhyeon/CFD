@@ -33,7 +33,8 @@ public:
 
 	Array2D(const Grid2D& ipGrid);
 
-	void initialize(const int& iS, const int& iE, const int& iL, const int& jS, const int& jE, const int& jL, const int& ijL);
+	void initialize(const int& iS, const int& iL, const int& jS, const int& jL);
+	void initialize(const int& iS, const int& iE, const int& iL, const int& jS, const int& jE, const int& jL, const __int64& ijL);
 	void initialValues();
 
 	const int index(const Vector2D<int>& ipVector) const;
@@ -82,7 +83,7 @@ public:
 
 	// Write MATLAB Variable.
 	inline void Variable(const char * varName);
-
+	inline void Delete();
 private:
 
 };
@@ -117,10 +118,6 @@ inline Array2D<TT>::Array2D(const int & ipiRes)
 	}
 	initialize(0, ipiRes - 1, ipiRes, 0, 0, 0, ipiRes);
 
-	assert(iRes > 0);
-
-	values = new TT[ijRes];
-
 	initialValues();
 }
 
@@ -133,10 +130,6 @@ inline Array2D<TT>::Array2D(const int & ipiRes, const int& ipjRes)
 	}
 
 	initialize(0, ipiRes - 1, ipiRes, 0, ipjRes - 1, ipjRes, ipiRes*ipjRes);
-
-	assert(iRes > 0 && jRes > 0);
-
-	values = new TT[ijRes];
 
 	initialValues();
 }
@@ -151,10 +144,6 @@ inline Array2D<TT>::Array2D(const int & ipiStart, const int & ipiEnd, const int 
 
 	initialize(ipiStart, ipiEnd, ipiRes, 0, 0, 0, ipiRes);
 
-	assert(iRes > 0 && iEnd == iStart + iRes - 1);
-
-	values = new TT[ijRes];
-
 	initialValues();
 }
 
@@ -168,10 +157,6 @@ inline Array2D<TT>::Array2D(const int & ipiStart, const int & ipiRes, const int 
 	}
 	initialize(ipiStart, ipiStart + ipiRes - 1, ipiRes, ipjStart, ipjStart + ipjRes - 1, ipjRes, ipiRes*ipjRes);
 
-	assert(iRes > 0 && iEnd == iStart + iRes - 1);
-	assert(jRes > 0 && jEnd == jStart + jRes - 1);
-	values = new TT[ijRes];
-
 	initialValues();
 }
 
@@ -184,8 +169,6 @@ inline Array2D<TT>::Array2D(const Array2D<TT>& ipArray)
 	}
 
 	initialize(ipArray.iStart, ipArray.iEnd, ipArray.iRes, ipArray.jStart, ipArray.jEnd, ipArray.jRes, ipArray.ijRes);
-
-	values = new TT[ijRes];
 
 #pragma omp parallel for
 	for (int i = 0; i < ijRes; i++)
@@ -204,7 +187,6 @@ inline Array2D<TT>::Array2D(const Grid2D & ipGrid)
 
 	initialize(ipGrid.iStart, ipGrid.iEnd, ipGrid.iRes, ipGrid.jStart, ipGrid.jEnd, ipGrid.jRes, ipGrid.iRes*ipGrid.jRes);
 
-	values = new TT[ijRes];
 	memset(values, 0, ijRes * sizeof(TT));
 //#pragma omp parallel for
 //	for (int i = 0; i < ijRes; i++)
@@ -214,7 +196,13 @@ inline Array2D<TT>::Array2D(const Grid2D & ipGrid)
 }
 
 template<class TT>
-inline void Array2D<TT>::initialize(const int & iS, const int & iE, const int & iL, const int & jS, const int & jE, const int & jL, const int& ijL)
+inline void Array2D<TT>::initialize(const int & iS, const int & iL, const int & jS, const int & jL)
+{
+	initialize(iS, iL, iS + iL - 1, jS, jL, jS + jL - 1, (__int64) iL*jL);
+}
+
+template<class TT>
+inline void Array2D<TT>::initialize(const int & iS, const int & iE, const int & iL, const int & jS, const int & jE, const int & jL, const __int64& ijL)
 {
 	iStart = iS;
 	iEnd = iE;
@@ -223,6 +211,14 @@ inline void Array2D<TT>::initialize(const int & iS, const int & iE, const int & 
 	jEnd = jE;
 	jRes = jL;
 	ijRes = ijL;
+
+	assert(iRes > 0);
+	assert(iEnd == iStart + iRes - 1);
+	assert(jRes > 0);
+	assert(jEnd == jStart + jRes - 1);
+
+	values = new TT[ijRes];
+	initialValues();
 }
 
 template<class TT>
@@ -345,9 +341,6 @@ inline void Array2D<TT>::operator=(const Array2D<TT>& ipArray)
 	}
 	initialize(ipArray.iStart, ipArray.iEnd, ipArray.iRes, ipArray.jStart, ipArray.jEnd, ipArray.jRes, ipArray.ijRes);
 
-	assert(ijRes > 0);
-
-	values = new TT[ijRes];
 	memcpy(values, ipArray.values, ijRes * sizeof(TT));
 }
 
@@ -506,6 +499,15 @@ template<class TT>
 inline void Array2D<TT>::Variable(const char * varName)
 {
 	MATLAB.Variable(varName, iRes, jRes, values);
+}
+
+template<class TT>
+inline void Array2D<TT>::Delete()
+{
+	if (values != nullptr)
+	{
+		delete[] values;
+	}
 }
 
 

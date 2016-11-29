@@ -94,11 +94,11 @@ public:
 	inline void LGenerateLinearSystem2(VectorND<double>& vectorB, const double & scaling);
 
 	// Compute Surface Tension
-	inline void DimlessNonlinearLangmuirEOS();
-	inline void DimlessNonlinearLangmuirEOS(const int & tubeRange);
-	inline void DimlessLinearLangmuirEOS();
-	inline void DimlessLinearLangmuirEOS(const int & tubeRange);
-	inline void LinearLangmuirEOS(); 
+	inline void DimlessNonlinearLangmu1rEOS();
+	inline void DimlessNonlinearLangmu1rEOS(const int & tubeRange);
+	inline void DimlessLinearLangmu1rEOS();
+	inline void DimlessLinearLangmu1rEOS(const int & tubeRange);
+	inline void LinearLangmu1rEOS(); 
 
 	// Conserve Surfactant
 	inline double IntegralSurfactant();
@@ -571,36 +571,6 @@ inline void MovingInterface::InitialCondition(const int & example)
 		/////  --DW Martin and F Blanchette--
 		/////  Example 1
 		/////////////////////////////////////////////////////////
-		levelSet = LS(grid, 3 * grid.dx);
-		LS levelSet1(grid, 3 * grid.dx);
-		LS levelSet2(grid, 3 * grid.dx);
-		double radius = 1.0;
-		VT center(0, 3);
-#pragma omp parallel for
-		for (int i = grid.iStart; i <= grid.iEnd; i++)
-		{
-			for (int j = grid.jStart; j <= grid.jEnd; j++)
-			{
-				levelSet1(i, j) = sqrt((grid(i, j).x - center.x)*(grid(i, j).x - center.x) + (grid(i, j).y - center.y)*(grid(i, j).y - center.y)) - radius;
-			}
-		}
-#pragma omp parallel for
-		for (int i = grid.iStart; i <= grid.iEnd; i++)
-		{
-			for (int j = grid.jStart; j <= grid.jEnd; j++)
-			{
-				levelSet2(i, j) = 2 - grid(i, j).y;
-			}
-		}
-
-#pragma omp parallel for
-		for (int i = grid.iStart; i <= grid.iEnd; i++)
-		{
-			for (int j = grid.jStart; j <= grid.jEnd; j++)
-			{
-				levelSet1(i, j) = sqrt(grid(i, j).x*grid(i, j).x + grid(i, j).y*grid(i, j).y) - radius;
-			}
-		}
 
 		levelSet.InitialTube();
 
@@ -640,8 +610,6 @@ inline void MovingInterface::InitialCondition(const int & example)
 
 		term = Array2D<double>(grid);
 		termOld = Array2D<double>(grid);
-		cflCondition = 1.0 / 4.0;
-		dt = cflCondition*min(grid.dx, grid.dy);
 		totalT = 0;
 	}
 }
@@ -878,11 +846,11 @@ inline void MovingInterface::SurfactantNormalTerm(FD& ipField, LS& ipLevelSet, A
 			term(i, j) = 0;
 			if (abs(curvature) < curvatureThreshold)
 			{
-				term(i, j) += -curvature*dotProduct(normal, gradientF(i, j));
+				term(i, j) += -curvature*DotProduct(normal, gradientF(i, j));
 			}
 			else
 			{
-				term(i, j) += -AdvectionMethod2D<double>::sign(curvature)*curvatureThreshold*dotProduct(normal, gradientF(i, j));
+				term(i, j) += -AdvectionMethod2D<double>::sign(curvature)*curvatureThreshold*DotProduct(normal, gradientF(i, j));
 			}
 			term(i, j) += -normal(0)*(Hessian(0, 0)*normal(0) + Hessian(0, 1)*normal(1));
 			term(i, j) += -normal(1)*(Hessian(1, 0)*normal(0) + Hessian(1, 1)*normal(1));
@@ -1409,6 +1377,8 @@ inline void MovingInterface::LSurfactantDiffusion(const int & iter)
 			// CG solver 2
 			CGSolver::SparseA(A, a, row, col, nonzeroNum);
 		}
+		A.Delete();
+
 		LOneStepSemiImplicit();
 	}
 
@@ -1427,6 +1397,8 @@ inline void MovingInterface::LSurfactantDiffusion(const int & iter)
 			// CG solver 2
 			CGSolver::SparseA(A, a, row, col, nonzeroNum);
 		}
+		A.Delete();
+
 		LTwoStepSemiImplicit();
 	}
 
@@ -1438,13 +1410,13 @@ inline void MovingInterface::LOneStepSemiImplicit()
 	vectorB = VectorND<double>(levelSet.numTube1);
 	LGenerateLinearSystem1(vectorB, 1);
 
+	tempSur = VectorND<double>(levelSet.numTube1);
 	if (CGsolverNum == 1)
 	{
-		tempSur = CGSolver::SolverCSR(Acsr, vectorB, grid.dx*grid.dy);
+		CGSolver::SolverCSR(Acsr, vectorB, grid.dx*grid.dy, tempSur);
 	}
 	else if (CGsolverNum == 2)
 	{
-		tempSur = VectorND<double>(levelSet.numTube1);
 		CGSolver::SolverSparse(A.iRes, a, row, col, vectorB, tempSur);
 	}
 
@@ -1454,16 +1426,13 @@ inline void MovingInterface::LOneStepSemiImplicit()
 	{
 		i = levelSet.tube1Index(k).i;
 		j = levelSet.tube1Index(k).j;
-		Surfactant(i, j) = tempSur(k - 1);
-	}
-#pragma omp parallel for private(i, j)
-	for (int k = 1; k <= levelSet.numTube; k++)
-	{
-		i = levelSet.tubeIndex(k).i;
-		j = levelSet.tubeIndex(k).j;
 		if (levelSet.tube(i, j) == 3)
 		{
 			Surfactant(i, j) = 0;
+		}
+		else
+		{
+			Surfactant(i, j) = tempSur(k - 1);
 		}
 	}
 }
@@ -1475,9 +1444,10 @@ inline void MovingInterface::LTwoStepSemiImplicit()
 	vectorB = VectorND<double>(levelSet.numTube1);
 	LGenerateLinearSystem2(vectorB, 1);
 
+	tempSur = VectorND<double>(levelSet.numTube1);
 	if (CGsolverNum == 1)
 	{
-		tempSur = CGSolver::SolverCSR(Acsr, vectorB, grid.dx*grid.dy);
+		CGSolver::SolverCSR(Acsr, vectorB, grid.dx*grid.dy, tempSur);
 	}
 	else if (CGsolverNum == 2)
 	{
@@ -1541,11 +1511,11 @@ inline void MovingInterface::LSurfactantNormalTerm(FD & ipField, LS & ipLevelSet
 			term(i, j) = 0;
 			if (abs(curvature) < curvatureThreshold)
 			{
-				term(i, j) += -curvature*dotProduct(normal, gradientF(i, j));
+				term(i, j) += -curvature*DotProduct(normal, gradientF(i, j));
 			}
 			else
 			{
-				term(i, j) += -AdvectionMethod2D<double>::sign(curvature)*curvatureThreshold*dotProduct(normal, gradientF(i, j));
+				term(i, j) += -AdvectionMethod2D<double>::sign(curvature)*curvatureThreshold*DotProduct(normal, gradientF(i, j));
 			}
 			term(i, j) += -normal(0)*(Hessian(0, 0)*normal(0) + Hessian(0, 1)*normal(1));
 			term(i, j) += -normal(1)*(Hessian(1, 0)*normal(0) + Hessian(1, 1)*normal(1));
@@ -1758,7 +1728,7 @@ inline void MovingInterface::LGenerateLinearSystem2(VectorND<double>& vectorB, c
 	}
 }
 
-inline void MovingInterface::DimlessNonlinearLangmuirEOS()
+inline void MovingInterface::DimlessNonlinearLangmu1rEOS()
 {
 	int i, j;
 #pragma omp parallel for private(i, j)
@@ -1777,7 +1747,7 @@ inline void MovingInterface::DimlessNonlinearLangmuirEOS()
 	}
 }
 
-inline void MovingInterface::DimlessNonlinearLangmuirEOS(const int & tubeRange)
+inline void MovingInterface::DimlessNonlinearLangmu1rEOS(const int & tubeRange)
 {
 	int i, j;
 #pragma omp parallel for private(i, j)
@@ -1796,7 +1766,7 @@ inline void MovingInterface::DimlessNonlinearLangmuirEOS(const int & tubeRange)
 	}
 }
 
-inline void MovingInterface::DimlessLinearLangmuirEOS()
+inline void MovingInterface::DimlessLinearLangmu1rEOS()
 {
 	int i, j;
 #pragma omp parallel for private(i, j)
@@ -1815,7 +1785,7 @@ inline void MovingInterface::DimlessLinearLangmuirEOS()
 	}
 }
 
-inline void MovingInterface::DimlessLinearLangmuirEOS(const int & tubeRange)
+inline void MovingInterface::DimlessLinearLangmu1rEOS(const int & tubeRange)
 {
 	int i, j;
 #pragma omp parallel for private(i, j)
@@ -1834,7 +1804,7 @@ inline void MovingInterface::DimlessLinearLangmuirEOS(const int & tubeRange)
 	}
 }
 
-inline void MovingInterface::LinearLangmuirEOS()
+inline void MovingInterface::LinearLangmu1rEOS()
 {
 	int i, j;
 #pragma omp parallel for private(i, j)

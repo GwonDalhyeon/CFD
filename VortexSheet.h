@@ -220,7 +220,7 @@ inline void VortexSheet::VortexSolver(const int & example)
 		int solver = 1;
 		if (solver == 1)
 		{
-			streamV = CGSolver::SolverCSR(poissonCSR, vectorB, grid.dx*grid.dy);
+			CGSolver::SolverCSR(poissonCSR, vectorB, DBL_EPSILON, streamV);
 		}
 		else if (solver == 2)
 		{

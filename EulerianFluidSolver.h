@@ -60,6 +60,8 @@ public:
 	double Xi = 1;
 	double El = 1;
 	double Pe = 1;
+	double Oh;
+	double We;
 
 	double dt;
 	
@@ -149,6 +151,7 @@ public:
 	inline void EulerMethod2ndOrder3();
 	inline void EulerMethod2ndOrder1stIteration1();
 	inline void GenerateLinearSystemUV(Array2D<double>& matrixA, const Grid2D& ipGrid, const double & scaling);
+	inline void GenerateLinearSystemUV(Array2D<double>& matrixA, const Grid2D& ipGrid, const double & scaling, CSR<double> csrForm);
 	inline void GenerateLinearSystemUV(VectorND<double>& vectorB, const FD& vel, const FD& gradP, const FD& advec, const Grid2D& ipGrid, const double & scaling);
 	inline void GenerateLinearSystemPhi(Array2D<double>& matrixA, const double & scaling);
 	inline void GenerateLinearSystemPhi(VectorND<double>& vectorB, const double & scaling);
@@ -228,16 +231,16 @@ inline void EulerianFluidSolver2D::InitialCondition(const int & example)
 
 		vectorB = VectorND<double>(gridPinner.iRes*gridPinner.jRes);
 		tempP = VectorND<double>(gridPinner.iRes*gridPinner.jRes);
-		poissonMatrix = Array2D<double>(1, gridPinner.iRes*gridPinner.jRes, 1, gridPinner.iRes*gridPinner.jRes);
 
 		accuracyOrder = 1;
-		reynoldNum = 1000;
+		reynoldNum = 100;
 		cflCondition = 0.5;
 
 		dt = cflCondition*gridP.dx;
 		maxIteration = 2000;
 		writeOutputIteration = 10;
-
+		
+		CGsolverNum = 1;
 
 	}
 
@@ -301,15 +304,12 @@ inline void EulerianFluidSolver2D::InitialCondition(const int & example)
 		
 		Ub = VectorND<double>(gridUinner.iRes*gridUinner.jRes);
 		tempU = VectorND<double>(gridUinner.iRes*gridUinner.jRes);
-		UCNMatrix = Array2D<double>(1, gridUinner.iRes*gridUinner.jRes, 1, gridUinner.iRes*gridUinner.jRes);
 		
 		Vb = VectorND<double>(gridVinner.iRes*gridVinner.jRes);
 		tempV = VectorND<double>(gridVinner.iRes*gridVinner.jRes);
-		VCNMatrix = Array2D<double>(1, gridVinner.iRes*gridVinner.jRes, 1, gridVinner.iRes*gridVinner.jRes);
 
 		Phib = VectorND<double>(gridPinner.iRes*gridPinner.jRes);
 		tempPhi = VectorND<double>(gridPinner.iRes*gridPinner.jRes);
-		PhiCNMatrix = Array2D<double>(1, gridPinner.iRes*gridPinner.jRes, 1, gridPinner.iRes*gridPinner.jRes);
 
 
 		accuracyOrder = 2;
@@ -399,17 +399,12 @@ inline void EulerianFluidSolver2D::InitialCondition(const int & example)
 
 		Ub = VectorND<double>(gridUinner.iRes*gridUinner.jRes);
 		tempU = VectorND<double>(gridUinner.iRes*gridUinner.jRes);
-		UCNMatrix = Array2D<double>(1, gridUinner.iRes*gridUinner.jRes, 1, gridUinner.iRes*gridUinner.jRes);
 
 		Vb = VectorND<double>(gridVinner.iRes*gridVinner.jRes);
 		tempV = VectorND<double>(gridVinner.iRes*gridVinner.jRes);
-		VCNMatrix = Array2D<double>(1, gridVinner.iRes*gridVinner.jRes, 1, gridVinner.iRes*gridVinner.jRes);
 
 		Phib = VectorND<double>(gridPinner.iRes*gridPinner.jRes);
 		tempPhi = VectorND<double>(gridPinner.iRes*gridPinner.jRes);
-		PhiCNMatrix = Array2D<double>(1, gridPinner.iRes*gridPinner.jRes, 1, gridPinner.iRes*gridPinner.jRes);
-
-		CGsolverNum = 2;
 	}
 
 	if (example == 4)
@@ -473,7 +468,6 @@ inline void EulerianFluidSolver2D::InitialCondition(const int & example)
 
 		vectorB = VectorND<double>(gridPinner.iRes*gridPinner.jRes);
 		tempP = VectorND<double>(gridPinner.iRes*gridPinner.jRes);
-		poissonMatrix = Array2D<double>(1, gridPinner.iRes*gridPinner.jRes, 1, gridPinner.iRes*gridPinner.jRes);
 
 		accuracyOrder = 1;
 		reynoldNum = 1000;
@@ -482,8 +476,6 @@ inline void EulerianFluidSolver2D::InitialCondition(const int & example)
 		dt = cflCondition*gridP.dx;
 		maxIteration = 2000;
 		writeOutputIteration = 10;
-
-
 	}
 
 	if (example == 5)
@@ -535,21 +527,10 @@ inline void EulerianFluidSolver2D::InitialCondition(const int & example)
 		oldU = FD(gridU);;
 		oldV = FD(gridV);
 
-		BdryTop = 0;
-		BdryBottom = 0;
-		BdryLeft = 0;
-		BdryRight = 0;
-
-#pragma omp parallel for
-		for (int i = gridU.iStart; i <= gridU.iEnd; i++)
-		{
-			for (int j = gridU.jStart; j <= gridU.jEnd; j++)
-			{
-				U(i, j) = gridU(i, j).y;
-				Ustar(i, j) = U(i, j);
-				oldU(i, j) = U(i, j);
-			}
-		}
+		BdryTop = 2;
+		BdryBottom = 2;
+		BdryLeft = 2;
+		BdryRight = 2;
 
 		advectionU = FD(gridUinner);
 		advectionV = FD(gridVinner);
@@ -562,15 +543,12 @@ inline void EulerianFluidSolver2D::InitialCondition(const int & example)
 
 		Ub = VectorND<double>(gridUinner.iRes*gridUinner.jRes);
 		tempU = VectorND<double>(gridUinner.iRes*gridUinner.jRes);
-		UCNMatrix = Array2D<double>(1, gridUinner.iRes*gridUinner.jRes, 1, gridUinner.iRes*gridUinner.jRes);
 
 		Vb = VectorND<double>(gridVinner.iRes*gridVinner.jRes);
 		tempV = VectorND<double>(gridVinner.iRes*gridVinner.jRes);
-		VCNMatrix = Array2D<double>(1, gridVinner.iRes*gridVinner.jRes, 1, gridVinner.iRes*gridVinner.jRes);
 
 		Phib = VectorND<double>(gridPinner.iRes*gridPinner.jRes);
 		tempPhi = VectorND<double>(gridPinner.iRes*gridPinner.jRes);
-		PhiCNMatrix = Array2D<double>(1, gridPinner.iRes*gridPinner.jRes, 1, gridPinner.iRes*gridPinner.jRes);
 	}
 }
 
@@ -590,18 +568,8 @@ inline void EulerianFluidSolver2D::FluidSolver(const int & example)
 	P.Variable("P");
 
 	GenerateLinearSystem(poissonMatrix, -gridP.dx*gridP.dx);
-	poissonMatrix.Variable("poisson");
 
-	//int solver = 2;
-	//// CG solver 1
-	poissonCSR = CSR<double>(poissonMatrix);
 
-	//// CG solver 2
-	CGSolver::SparseA(poissonMatrix, a, row, col, nonzeroNum);
-
-	P.Variable("P");
-	U.Variable("U");
-	V.Variable("V");
 	str = string("quiver(Xp,Yp,U(:,1:end-1)/2+U(:,2:end)/2,V(1:end-1,:)/2+V(2:end,:)/2,2),axis([Xp(1)-(Xp(end)-Xp(1))/10 Xp(end)+(Xp(end)-Xp(1))/10 Yp(1)-(Yp(end)-Yp(1))/10 Yp(end)+(Yp(end)-Yp(1))/10]);");
 	str = str + string("hold on,streamline(Xp,Yp,U(:,1:end-1)/2+U(:,2:end)/2,V(1:end-1,:)/2+V(2:end,:)/2,-100:0.1:100,-100:0.1:100),hold off;");
 	MATLAB.Command(str.c_str());
@@ -631,10 +599,10 @@ inline void EulerianFluidSolver2D::FluidSolver(const int & example)
 		MATLAB.Command(cmd);
 		MATLAB.Command("divU =U(:,2:end)-U(:,1:end-1),divV =V(2:end,:)-V(1:end-1,:);div=divU+divV;");
 
-		if (iteration == 1 || iteration % 1 == 0)
+		if (i == 1 || i % 1 == 0)
 		{
-			MATLAB.WriteImage("fluid", iteration, "fig");
-			MATLAB.WriteImage("fluid", iteration, "png");
+			MATLAB.WriteImage("fluid", i, "fig");
+			MATLAB.WriteImage("fluid", i, "png");
 		}
 
 		if (writeFile && i%writeOutputIteration == 0)
@@ -652,6 +620,8 @@ inline void EulerianFluidSolver2D::FluidSolver(const int & example)
 inline void EulerianFluidSolver2D::GenerateLinearSystem(Array2D<double>& matrixA, const double & scaling)
 {
 	cout << "Start Generate Linear System : matrix A" << endl;
+	matrixA.initialize(1, gridPinner.iRes*gridPinner.jRes, 1, gridPinner.iRes*gridPinner.jRes);
+
 	int innerIStart = gridPinner.iStart;
 	int innerIEnd = gridPinner.iEnd;
 	int innerJStart = gridPinner.jStart;
@@ -752,6 +722,16 @@ inline void EulerianFluidSolver2D::GenerateLinearSystem(Array2D<double>& matrixA
 			}
 		}
 	}
+
+	if (CGsolverNum == 1)
+	{
+		poissonCSR = CSR<double>(poissonMatrix);
+	}
+	else if (CGsolverNum == 2)
+	{
+		CGSolver::SparseA(poissonMatrix, a, row, col, nonzeroNum);
+	}
+	poissonMatrix.Delete();
 }
 
 inline void EulerianFluidSolver2D::GenerateLinearSystem(VectorND<double>& vectorB, const double & scaling)
@@ -930,8 +910,8 @@ inline void EulerianFluidSolver2D::EulerMethod1()
 
 	AdvectionTerm(U, V, advectionU, advectionV);
 	DiffusionTerm(U, V, diffusionU, diffusionV);
-	//advectionU.Variable("advectionU");
-	//diffusionU.Variable("diffusionU");
+	advectionU.Variable("advectionU");
+	diffusionU.Variable("diffusionU");
 	//advectionV.Variable("advectionV");
 	//diffusionV.Variable("diffusionV");
 
@@ -962,7 +942,7 @@ inline void EulerianFluidSolver2D::EulerMethod1()
 	//U.Variable("Ustar");
 	//V.Variable("Vstar");
 	//MATLAB.Command("divUstar =Ustar(:,2:end)-Ustar(:,1:end-1),divVstar =Vstar(2:end,:)-Vstar(1:end-1,:);divstar=divUstar+divVstar;");
-	//MATLAB.Command("quiver(Xp,Yp,Ustar(:,1:end-1),Vstar(1:end-1,:)");
+	//MATLAB.Command("quiver(Xp,Yp,Ustar(:,1:end-1),Vstar(1:end-1,:))");
 }
 
 inline void EulerianFluidSolver2D::EulerMethod2()
@@ -971,7 +951,7 @@ inline void EulerianFluidSolver2D::EulerMethod2()
 	//vectorB.Variable("vectorB");
 	if (CGsolverNum == 1)
 	{
-		tempP = CGSolver::SolverCSR(poissonCSR, vectorB, gridP.dx*gridP.dy);
+		CGSolver::SolverCSR(poissonCSR, vectorB, DBL_EPSILON, tempP);
 	}
 	else if (CGsolverNum == 2)
 	{
@@ -1029,7 +1009,7 @@ inline void EulerianFluidSolver2D::EulerMethod3()
 	//U.Variable("Unew");
 	//V.Variable("Vnew");
 	//MATLAB.Command("divUnew =Unew(:,2:end)-Unew(:,1:end-1),divVnew =Vnew(2:end,:)-Vnew(1:end-1,:);divnew=divUnew+divVnew;");
-	//MATLAB.Command("quiver(Xp,Yp,U(1:end-1,:),V(:,1:end-1)");
+	//MATLAB.Command("quiver(Xp,Yp,Unew(1:end-1,:),Vnew(:,1:end-1))");
 }
 
 inline void EulerianFluidSolver2D::AdvectionTerm(FD& U, FD& V, FD& TermU, FD& TermV)
@@ -1167,22 +1147,40 @@ inline void EulerianFluidSolver2D::BdryCondVel()
 {
 	if (BdryLeft == 1)
 	{
-		//// Boundary : Linear extension.
 #pragma omp parallel for
 		for (int j = gridUinner.jStart; j <= gridUinner.jEnd; j++)
 		{
 			U(gridU.iStart, j) = -U(gridU.iStart + 1, j);
 		}
 	}
-	if (BdryRight == 1)
+	else if(BdryLeft == 2)
 	{
 		//// Boundary : Linear extension.
+#pragma omp parallel for
+		for (int j = gridUinner.jStart; j <= gridUinner.jEnd; j++)
+		{
+			U(gridU.iStart, j) = 2*U(gridU.iStart + 1, j)- U(gridU.iStart + 2, j);
+		}
+	}
+
+	if (BdryRight == 1)
+	{
 #pragma omp parallel for
 		for (int j = gridUinner.jStart; j <= gridUinner.jEnd; j++)
 		{
 			U(gridU.iEnd, j) = -U(gridU.iEnd - 1, j);
 		}
 	}
+	else if (BdryRight == 2)
+	{
+		//// Boundary : Linear extension.
+#pragma omp parallel for
+		for (int j = gridUinner.jStart; j <= gridUinner.jEnd; j++)
+		{
+			U(gridU.iEnd, j) = 2*U(gridU.iEnd - 1, j)- U(gridU.iEnd - 2, j);
+		}
+	}
+
 	if (BdryBottom == 1)
 	{
 #pragma omp parallel for
@@ -1191,12 +1189,29 @@ inline void EulerianFluidSolver2D::BdryCondVel()
 			V(i, gridV.jStart) = -V(i, gridV.jStart + 1);
 		}
 	}
+	else if (BdryBottom == 2)
+	{
+#pragma omp parallel for
+		for (int i = gridVinner.iStart; i <= gridVinner.iEnd; i++)
+		{
+			V(i, gridV.jStart) = 2*V(i, gridV.jStart + 1)- V(i, gridV.jStart + 2);
+		}
+	}
+
 	if (BdryTop == 1)
 	{
 #pragma omp parallel for
 		for (int i = gridVinner.iStart; i <= gridVinner.iEnd; i++)
 		{
 			V(i, gridV.jEnd) = -V(i, gridV.jEnd - 1);
+		}
+	}
+	else if (BdryTop == 2)
+	{
+#pragma omp parallel for
+		for (int i = gridVinner.iStart; i <= gridVinner.iEnd; i++)
+		{
+			V(i, gridV.jEnd) = 2*V(i, gridV.jEnd - 1)- V(i, gridV.jEnd - 2);
 		}
 	}
 }
@@ -1222,23 +1237,23 @@ inline void EulerianFluidSolver2D::NSSolver2ndOrder(const int & example)
 	U.Variable("U");
 	V.Variable("V");
 
-	GenerateLinearSystemUV(UCNMatrix, gridUinner, 1);
-	GenerateLinearSystemUV(VCNMatrix, gridVinner, 1);
 	GenerateLinearSystemPhi(PhiCNMatrix, -gridP.dx2 / dt);
 	if (CGsolverNum == 1)
 	{
-		//// CG solver 1
-		UCN_CSR = CSR<double>(UCNMatrix);
-		VCN_CSR = CSR<double>(VCNMatrix);
-		PhiCN_CSR = CSR<double>(PhiCNMatrix);
+		GenerateLinearSystemUV(UCNMatrix, gridUinner, 1, UCN_CSR);
+		GenerateLinearSystemUV(VCNMatrix, gridVinner, 1, VCN_CSR);
 	}
 	else if (CGsolverNum == 2)
 	{
-		//// CG solver 2
+		GenerateLinearSystemUV(UCNMatrix, gridUinner, 1);
 		CGSolver::SparseA(UCNMatrix, Ua, Urow, Ucol, UnonzeroNum);
+		UCNMatrix.Delete();
+
+		GenerateLinearSystemUV(VCNMatrix, gridVinner, 1);
 		CGSolver::SparseA(VCNMatrix, Va, Vrow, Vcol, VnonzeroNum);
-		CGSolver::SparseA(PhiCNMatrix, Phia, Phirow, Phicol, PhinonzeroNum);
+		VCNMatrix.Delete();
 	}
+
 
 	str = string("quiver(Xp,Yp,U(:,1:end-1)/2+U(:,2:end)/2,V(1:end-1,:)/2+V(2:end,:)/2,2),axis([Xp(1)-(Xp(end)-Xp(1))/10 Xp(end)+(Xp(end)-Xp(1))/10 Yp(1)-(Yp(end)-Yp(1))/10 Yp(end)+(Yp(end)-Yp(1))/10]);");
 	str = str + string("hold on,streamline(Xp,Yp,U(:,1:end-1)/2+U(:,2:end)/2,V(1:end-1,:)/2+V(2:end,:)/2,-100:0.1:100,-100:0.1:100),hold off;");
@@ -1371,8 +1386,8 @@ inline void EulerianFluidSolver2D::EulerMethod2ndOrder1()
 	
 	if (CGsolverNum == 1)
 	{
-		tempU = CGSolver::SolverCSR(UCN_CSR, Ub, gridU.dx*gridU.dy);
-		tempV = CGSolver::SolverCSR(VCN_CSR, Vb, gridV.dx*gridV.dy);
+		CGSolver::SolverCSR(UCN_CSR, Ub, gridU.dx*gridU.dy, tempU);
+		CGSolver::SolverCSR(VCN_CSR, Vb, gridV.dx*gridV.dy, tempV);
 	}
 	else if (CGsolverNum == 2)
 	{
@@ -1418,7 +1433,7 @@ inline void EulerianFluidSolver2D::EulerMethod2ndOrder2()
 	
 	if (CGsolverNum == 1)
 	{
-		tempPhi = CGSolver::SolverCSR(PhiCN_CSR, Phib, gridP.dx*gridP.dy);
+		CGSolver::SolverCSR(PhiCN_CSR, Phib, DBL_EPSILON, tempPhi);
 	}
 	else if (CGsolverNum == 2)
 	{
@@ -1581,6 +1596,8 @@ inline void EulerianFluidSolver2D::EulerMethod2ndOrder1stIteration1()
 inline void EulerianFluidSolver2D::GenerateLinearSystemUV(Array2D<double>& matrixA, const Grid2D& ipGrid, const double & scaling)
 {
 	cout << "Start Generate Linear System : matrix A" << endl;
+	matrixA = Array2D<double>(1, ipGrid.iRes*ipGrid.jRes, 1, ipGrid.iRes*ipGrid.jRes);
+
 	int innerIStart = ipGrid.iStart;
 	int innerIEnd = ipGrid.iEnd;
 	int innerJStart = ipGrid.jStart;
@@ -1683,6 +1700,112 @@ inline void EulerianFluidSolver2D::GenerateLinearSystemUV(Array2D<double>& matri
 	}
 }
 
+inline void EulerianFluidSolver2D::GenerateLinearSystemUV(Array2D<double>& matrixA, const Grid2D & ipGrid, const double & scaling, CSR<double> csrForm)
+{
+	cout << "Start Generate Linear System : matrix A" << endl;
+	matrixA.initialize(1, ipGrid.iRes*ipGrid.jRes, 1, ipGrid.iRes*ipGrid.jRes);
+
+	int innerIStart = ipGrid.iStart;
+	int innerIEnd = ipGrid.iEnd;
+	int innerJStart = ipGrid.jStart;
+	int innerJEnd = ipGrid.jEnd;
+	int innerIRes = ipGrid.iRes;
+	int innerJRes = ipGrid.jRes;
+
+	int index, leftIndex, rightIndex, bottomIndex, topIndex;
+#pragma omp parallel for private(index, leftIndex, rightIndex, bottomIndex, topIndex)
+	for (int j = innerJStart; j <= innerJEnd; j++)
+	{
+		for (int i = innerIStart; i <= innerIEnd; i++)
+		{
+			index = (i - innerIStart)*innerIRes*innerJRes + (i - innerIStart)
+				+ (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart)*innerIRes;
+			leftIndex = (i - innerIStart)*innerIRes*innerJRes + (i - innerIStart - 1)
+				+ (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart)*innerIRes;
+			rightIndex = (i - innerIStart)*innerIRes*innerJRes + (i - innerIStart + 1)
+				+ (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart)*innerIRes;
+			bottomIndex = (i - innerIStart)*innerIRes*innerJRes + (i - innerIStart)
+				+ (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart - 1)*innerIRes;
+			topIndex = (i - innerIStart)*innerIRes*innerJRes + (i - innerIStart)
+				+ (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart + 1)*innerIRes;
+			// Boundary condition.
+			if (j == innerJStart)
+			{
+				if (i == innerIStart)
+				{
+					matrixA(index) = scaling*(1 + dt / reynoldNum * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
+					matrixA(rightIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdx2;
+					matrixA(topIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdy2;
+				}
+				else if (i == innerIEnd)
+				{
+					matrixA(index) = scaling*(1 + dt / reynoldNum * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
+					matrixA(leftIndex) = scaling * -1. / 2. * dt / reynoldNum *ipGrid.oneOverdx2;
+					matrixA(topIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdy2;
+				}
+				else
+				{
+					matrixA(index) = scaling*(1 + dt / reynoldNum * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
+					matrixA(leftIndex) = scaling * -1. / 2. * dt / reynoldNum *ipGrid.oneOverdx2;
+					matrixA(rightIndex) = scaling * -1. / 2. * dt / reynoldNum* ipGrid.oneOverdx2;
+					matrixA(topIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdy2;
+				}
+			}
+			else if (j>innerJStart && j<innerJEnd)
+			{
+				if (i == innerIStart)
+				{
+					matrixA(index) = scaling*(1 + dt / reynoldNum * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
+					matrixA(rightIndex) = scaling * -1. / 2. * dt / reynoldNum* ipGrid.oneOverdx2;
+					matrixA(bottomIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdy2;
+					matrixA(topIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdy2;
+
+				}
+				else if (i == innerIEnd)
+				{
+					matrixA(index) = scaling*(1 + dt / reynoldNum * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
+					matrixA(leftIndex) = scaling * -1. / 2. * dt / reynoldNum *ipGrid.oneOverdx2;
+					matrixA(bottomIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdy2;
+					matrixA(topIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdy2;
+				}
+				else
+				{
+					matrixA(index) = scaling*(1 + dt / reynoldNum * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
+					matrixA(leftIndex) = scaling * -1. / 2. * dt / reynoldNum *ipGrid.oneOverdx2;
+					matrixA(rightIndex) = scaling * -1. / 2. * dt / reynoldNum* ipGrid.oneOverdx2;
+					matrixA(bottomIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdy2;
+					matrixA(topIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdy2;
+				}
+			}
+			else if (j == innerJEnd)
+			{
+				if (i == innerIStart)
+				{
+					matrixA(index) = scaling*(1 + dt / reynoldNum * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
+					matrixA(rightIndex) = scaling * -1. / 2. * dt / reynoldNum* ipGrid.oneOverdx2;
+					matrixA(bottomIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdy2;
+				}
+				else if (i == innerIEnd)
+				{
+					matrixA(index) = scaling*(1 + dt / reynoldNum * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
+					matrixA(leftIndex) = scaling * -1. / 2. * dt / reynoldNum *ipGrid.oneOverdx2;
+					matrixA(bottomIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdy2;
+				}
+				else
+				{
+					matrixA(index) = scaling*(1 + dt / reynoldNum * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
+					matrixA(leftIndex) = scaling * -1. / 2. * dt / reynoldNum *ipGrid.oneOverdx2;
+					matrixA(rightIndex) = scaling * -1. / 2. * dt / reynoldNum* ipGrid.oneOverdx2;
+					matrixA(bottomIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdy2;
+				}
+
+			}
+		}
+	}
+	csrForm = CSR<double>(matrixA);
+	matrixA.Delete();
+}
+
 inline void EulerianFluidSolver2D::GenerateLinearSystemUV(VectorND<double>& vectorB, const FD & vel, const FD & gradP, const FD & advec, const Grid2D& ipGrid, const double & scaling)
 {
 	int innerIStart = ipGrid.iStart;
@@ -1733,6 +1856,8 @@ inline void EulerianFluidSolver2D::GenerateLinearSystemUV(VectorND<double>& vect
 inline void EulerianFluidSolver2D::GenerateLinearSystemPhi(Array2D<double>& matrixA, const double & scaling)
 {
 	cout << "Start Generate Linear System : matrix A" << endl;
+	matrixA.initialize(1, gridPinner.iRes*gridPinner.jRes, 1, gridPinner.iRes*gridPinner.jRes);
+
 	int innerIStart = gridPinner.iStart;
 	int innerIEnd = gridPinner.iEnd;
 	int innerJStart = gridPinner.jStart;
@@ -1828,6 +1953,16 @@ inline void EulerianFluidSolver2D::GenerateLinearSystemPhi(Array2D<double>& matr
 			}
 		}
 	}
+
+	if (CGsolverNum == 1)
+	{
+		PhiCN_CSR = CSR<double>(PhiCNMatrix);
+	}
+	else if (CGsolverNum == 2)
+	{
+		CGSolver::SparseA(PhiCNMatrix, Phia, Phirow, Phicol, PhinonzeroNum);
+	}
+	PhiCNMatrix.Delete();
 }
 
 inline void EulerianFluidSolver2D::GenerateLinearSystemPhi(VectorND<double>& vectorB, const double & scaling)

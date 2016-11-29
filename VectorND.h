@@ -92,7 +92,7 @@ template<class TT>
 inline VectorND<TT> operator / (const TT& constant, const VectorND<TT>& ipVector);
 
 template<class TT>
-inline TT dotProduct(const VectorND<TT>& ipVector1, const VectorND<TT>& ipVector2);
+inline TT DotProduct(const VectorND<TT>& ipVector1, const VectorND<TT>& ipVector2);
 
 template<class TT>
 inline std::ostream& operator << (std::ostream& output, const VectorND<TT>& ipVector);
@@ -578,13 +578,13 @@ inline VectorND<TT> operator/(const TT & constant, const VectorND<TT>& ipVector)
 }
 
 template<class TT>
-inline TT dotProduct(const VectorND<TT>& ipVector1, const VectorND<TT>& ipVector2)
+inline TT DotProduct(const VectorND<TT>& ipVector1, const VectorND<TT>& ipVector2)
 {
 	assert(ipVector1.iLength == ipVector2.iLength);
 
 	double dotPro = 0;
 #pragma omp parallel for reduction(+:dotPro)
-	for (int i = 0; i < iLength; i++)
+	for (int i = 0; i < ipVector1.iLength; i++)
 	{
 		dotPro = dotPro + ipVector1.values[i] * ipVector2.values[i];
 	}

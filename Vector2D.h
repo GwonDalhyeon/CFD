@@ -86,7 +86,7 @@ template<class TT>
 inline Vector2D<TT> operator / (const TT& value, const Vector2D<TT>& inputVector);
 
 template<class TT>
-inline TT dotProduct(const Vector2D<TT>& inputVector1, const Vector2D<TT>& inputVector2);
+inline TT DotProduct(const Vector2D<TT>& inputVector1, const Vector2D<TT>& inputVector2);
 
 template<class TT>
 inline std::ostream& operator << (std::ostream& output, const Vector2D<TT>& v);
@@ -323,7 +323,7 @@ inline Vector2D<TT> operator / (const TT& value, const Vector2D<TT>& inputVector
 }
 
 template<class TT>
-inline TT dotProduct(const Vector2D<TT>& inputVector1, const Vector2D<TT>& inputVector2)
+inline TT DotProduct(const Vector2D<TT>& inputVector1, const Vector2D<TT>& inputVector2)
 {
 	return inputVector1.x*inputVector2.x + inputVector1.y*inputVector2.y;
 }

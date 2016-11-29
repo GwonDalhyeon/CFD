@@ -13,10 +13,13 @@ public:
 
 
 	int Nf; // The Num of Interfaces per Front.
-	double rhoI, rhoE;
-	double muI, muE;
-	double densityRatio = rhoE / rhoI; // 1 : Bubble, 0.1 : Liquid drop
-	double viscosityRatio = muE / muI; // 1 : Bubble, 0.1 : Liquid drop
+	double rho1, rho2, rhoF;
+	double mu1, mu2;
+	double densityRatio;// 1 : Bubble, 0.1 : Liquid drop
+	double viscosityRatio; // 1 : Bubble, 0.1 : Liquid drop
+	double lengthscale;
+	double gamma0;
+	double timescale;
 
 
 	///////////////////////////////
@@ -38,7 +41,14 @@ public:
 	int& accuracyOrder = Fluid.accuracyOrder;
 	double& reynoldNum = Fluid.reynoldNum;
 	double& cflCondition = Fluid.cflCondition;
+	double& Pe = Fluid.Pe;
+	double& Oh = Fluid.Oh;
+	double& We = Fluid.We;
 	double& dt = Fluid.dt;
+
+	double& Ca = Fluid.Ca;
+	double& Xi = Fluid.Xi;
+	double& El = Fluid.El;
 
 	int& maxIteration = Fluid.maxIteration;
 	int& writeOutputIteration = Fluid.writeOutputIteration;
@@ -69,6 +79,11 @@ public:
 	inline void EulerMethod2ndOrder1();
 	inline void EulerMethod2ndOrder1stIteration1();
 
+	inline void ComputeSurfaceForce();
+	inline void GenerateLinearSystemUV(Array2D<double>& matrixA, const Grid2D& ipGrid, const double & scaling, CSR<double> csrForm);
+	inline void GenerateLinearSystemUV(VectorND<double>& vectorB, const FD & vel, const FD & gradP, const FD & advec, const FD& force, const Grid2D& ipGrid, const double & scaling);
+
+
 	inline void PlotSurfactant();
 	inline void PlotVelocity();
 private:
@@ -96,31 +111,98 @@ inline void CoalescingDrop::InitialCondition(const int & example)
 		cout << "               Example 1 " << endl;
 		cout << "*************************" << endl;
 		
-		int gridSize = 150;
-		grid = Grid2D(-3, 3, gridSize + 1, 0, 5, gridSize * 5. / 3. + 1);
+		int gridSize = 100;
+		grid = Grid2D(-2.5, 2.5, gridSize + 1, 0, 5, gridSize + 1);
 
-		// Initialize Velocity Fields
-		Fluid.InitialCondition(5);
-		Fluid.CGsolverNum = 2;
-		accuracyOrder = 2;
-		reynoldNum = 10;
-		rhoE = 1; rhoI = 1;
-		muE = 1; muI = 1;
+		Nf = 2;
+		rho2 = 1.25; rho1 = rho2;
+		mu2 = 1.81*pow(10, -5); mu1 = mu2;
+		densityRatio = rho2 / rho1; // 1 : Bubble, 0.1 : Liquid drop
+		viscosityRatio = mu2 / mu1; // 1 : Bubble, 0.1 : Liquid drop
+		lengthscale = 0.01;
+		gamma0 = 3.0*pow(10, -3);//??????????
+		timescale = sqrt(rho1*pow(lengthscale, 3) / (Nf*gamma0));
 
-		cflCondition = 1.0 / 8.0;
-		dt = cflCondition*min(grid.dx, grid.dy);
+		//// Initialize Surfactant Fields
+		levelSet = LS(grid, 3 * grid.dx);
+		LS levelSet1(grid, 3 * grid.dx);
+		LS levelSet2(grid, 3 * grid.dx);
+		double radius = 0.5;
+		VT center(0, 2.5 - grid.dy / 10);
+#pragma omp parallel for
+		for (int i = grid.iStart; i <= grid.iEnd; i++)
+		{
+			for (int j = grid.jStart; j <= grid.jEnd; j++)
+			{
+				levelSet1(i, j) = sqrt((grid(i, j).x - center.x)*(grid(i, j).x - center.x) + (grid(i, j).y - center.y)*(grid(i, j).y - center.y)) - radius;
+			}
+		}
+#pragma omp parallel for
+		for (int i = grid.iStart; i <= grid.iEnd; i++)
+		{
+			for (int j = grid.jStart; j <= grid.jEnd; j++)
+			{
+				levelSet2(i, j) = grid(i, j).y - 2 - grid.dy / 10;
+			}
+		}
 
-		SurfaceForceX = FD(Fluid.gridU);
-		SurfaceForceY = FD(Fluid.gridV);
-		SurfGradSurfTension = FV(grid);
+#pragma omp parallel for
+		for (int i = grid.iStart; i <= grid.iEnd; i++)
+		{
+			for (int j = grid.jStart; j <= grid.jEnd; j++)
+			{
+				if (levelSet1(i, j) * levelSet2(i, j) <= 0)
+				{
+					levelSet(i, j) = min(levelSet1(i, j), levelSet2(i, j));
+				}
+				else if (abs(levelSet1(i, j)) < abs(levelSet2(i, j)))
+				{
+					levelSet(i, j) = levelSet1(i, j);
+				}
+				else
+				{
+					levelSet(i, j) = levelSet2(i, j);
+				}
+			}
+		}
 
-		// Initialize Surfactant Fields
 		InterfaceSurfactant.InitialCondition(8);
 		InterfaceSurfactant.CGsolverNum = 1;
 		InterfaceSurfactant.cflCondition = cflCondition;
 		InterfaceSurfactant.dt = dt;
 
-		maxIteration = ceil(2.0 / dt); // Up to 2 sec.
+
+		//// Initialize Velocity Fields
+		Fluid.InitialCondition(5);
+		Fluid.CGsolverNum = 1;
+		accuracyOrder = 2;
+		reynoldNum = 10;
+		We = rho2 * lengthscale * lengthscale / gamma0;
+		Oh = mu1 / sqrt(lengthscale*rho1*Nf*gamma0);
+#pragma omp parallel for
+		for (int i = gridV.iStart; i <= gridV.iEnd; i++)
+		{
+			for (int j = gridV.jStart; j <= gridV.jEnd-1; j++)
+			{
+				if (levelSet1(i, j) <= 0)
+				{
+					V(i, j) = -We;
+					Fluid.Vstar(i, j) = V(i, j);
+					Fluid.oldV(i, j) = V(i, j);
+				}
+			}
+		}
+		//cflCondition = 1.0 / 8.0;
+		//dt = cflCondition*min(grid.dx, grid.dy);
+		dt = 0.001;
+
+		singularForce = false;
+		SurfaceForceX = FD(Fluid.gridU);
+		SurfaceForceY = FD(Fluid.gridV);
+		SurfGradSurfTension = FV(grid);
+
+		double finalTime = 10.0;
+		maxIteration = ceil(finalTime / dt); // Up to 2 sec.
 		totalT = 0;
 	}
 }
@@ -148,6 +230,10 @@ inline void CoalescingDrop::CoalescingBubbleSolver(const int & example)
 	MATLAB.Command(str.c_str());
 	MATLAB.Command("IntSur0 = sum(sum(Surfactant0.*(Tube==1)))*(Y(2)-Y(1))*(Y(2)-Y(1));");
 
+	PlotVelocity();
+	MATLAB.WriteImage("surfactant", 0, "fig");
+	MATLAB.WriteImage("surfactant", 0, "png");
+
 	int reinitialIter = int(levelSet.gamma1 / min(levelSet.phi.dx, levelSet.phi.dy)) * 2;
 	int extensionIter = (int)ceil((levelSet.gamma2 - levelSet.gamma1) / (0.2*min(grid.dx, grid.dy)));
 	for (iteration = 1; iteration <= maxIteration; iteration++)
@@ -157,12 +243,12 @@ inline void CoalescingDrop::CoalescingBubbleSolver(const int & example)
 		totalT += dt;
 		//// Step 1-1 : Surfactant Diffusion
 		cout << "Diffusion Start" << endl;
-		InterfaceSurfactant.LSurfactantDiffusion(iteration);
+		//InterfaceSurfactant.LSurfactantDiffusion(iteration);
 		cout << "Diffusion End" << endl;
 
 		//// Step 1-2 : New Surface Tension
-		InterfaceSurfactant.DimlessNonlinearLangmuirEOS(2);
-		InterfaceSurfactant.SurfaceTension.Variable("SurfaceTension");
+		//InterfaceSurfactant.DimlessNonlinearLangmu1rEOS(2);
+		//InterfaceSurfactant.SurfaceTension.Variable("SurfaceTension");
 
 		//// Step 2 : Navier-Stokes equation
 		NSSolver();
@@ -172,19 +258,19 @@ inline void CoalescingDrop::CoalescingBubbleSolver(const int & example)
 		AdvectionMethod2D<double>::LLSPropagatingTVDRK3(levelSet, U, V, dt);
 		AdvectionMethod2D<double>::LLSReinitializationTVDRK3(levelSet, dt, reinitialIter);
 
-		InterfaceSurfactant.ConserveSurfactantFactorBeta();
+		//InterfaceSurfactant.ConserveSurfactantFactorBeta();
 
-		AdvectionMethod2D<double>::LLSQuantityExtension(levelSet, Surfactant, 3, 3, extensionIter);
+		//AdvectionMethod2D<double>::LLSQuantityExtension(levelSet, Surfactant, 3, 3, extensionIter);
 		levelSet.UpdateInterface();
 		levelSet.UpdateLLS();
 
 
-		MATLAB.Command("subplot(2,1,1)");
-		PlotSurfactant();
-		MATLAB.Command("subplot(2,1,2)");
-		PlotVelocity();
-		if (iteration == 1 || iteration % 1 == 0)
+		//MATLAB.Command("subplot(2,1,1)");
+		//PlotSurfactant();
+		//MATLAB.Command("subplot(2,1,2)");
+		if (iteration % 10 == 0)
 		{
+			PlotVelocity();
 			MATLAB.WriteImage("surfactant", iteration, "fig");
 			MATLAB.WriteImage("surfactant", iteration, "png");
 		}
@@ -195,18 +281,229 @@ inline void CoalescingDrop::CoalescingBubbleSolver(const int & example)
 
 inline void CoalescingDrop::NSSolver()
 {
+	if (iteration == 1)
+	{
+		if (accuracyOrder == 1)
+		{
+			Fluid.vectorB = VectorND<double>(Fluid.gridPinner.iRes*Fluid.gridPinner.jRes);
+			Fluid.tempP = VectorND<double>(Fluid.gridPinner.iRes*Fluid.gridPinner.jRes);
+
+			Fluid.GenerateLinearSystem(Fluid.poissonMatrix, -Fluid.gridP.dx*Fluid.gridP.dx);
+		}
+		else
+		{
+			Fluid.GenerateLinearSystemPhi(Fluid.PhiCNMatrix, -Fluid.gridP.dx2 / dt);
+			if (Fluid.CGsolverNum == 1)
+			{
+				GenerateLinearSystemUV(Fluid.UCNMatrix, Fluid.gridUinner, 1, Fluid.UCN_CSR);
+				GenerateLinearSystemUV(Fluid.VCNMatrix, Fluid.gridVinner, 1, Fluid.VCN_CSR);
+			}
+			else if (Fluid.CGsolverNum == 2)
+			{
+				Fluid.GenerateLinearSystemUV(Fluid.UCNMatrix, Fluid.gridUinner, 1);
+				CGSolver::SparseA(Fluid.UCNMatrix, Fluid.Ua, Fluid.Urow, Fluid.Ucol, Fluid.UnonzeroNum);
+				Fluid.UCNMatrix.Delete();
+
+				Fluid.GenerateLinearSystemUV(Fluid.VCNMatrix, Fluid.gridVinner, 1);
+				CGSolver::SparseA(Fluid.VCNMatrix, Fluid.Va, Fluid.Vrow, Fluid.Vcol, Fluid.VnonzeroNum);
+				Fluid.VCNMatrix.Delete();
+			}
+		}
+	}
+
+	Fluid.originU.dataArray = U.dataArray;
+	Fluid.originV.dataArray = V.dataArray;
+
+	/////////////////
+	//// Step 1  ////
+	/////////////////
+	if (accuracyOrder == 1)
+	{
+		EulerMethod();
+	}
+	else if (accuracyOrder == 2)
+	{
+		EulerMethod2ndOrder();
+	}
+	//U.Variable("U1");
+	//V.Variable("V1");
+	//MATLAB.Command("quiver(Xp,Yp,U1(:,1:end-1),V1(1:end-1,:))");
+
+	/////////////////
+	//// Step 2  ////
+	/////////////////
+	if (accuracyOrder == 1)
+	{
+		EulerMethod();
+	}
+	else if (accuracyOrder == 2)
+	{
+		EulerMethod2ndOrder();
+	}
+	//U.Variable("U21");
+	//V.Variable("V21");
+	//MATLAB.Command("quiver(Xp,Yp,U21(:,1:end-1),V21(1:end-1,:))");
+#pragma omp parallel for
+	for (int i = gridU.iStart; i <= gridU.iEnd; i++)
+	{
+		for (int j = gridU.jStart; j <= gridU.jEnd; j++)
+		{
+			U(i, j) = 3. / 4. * Fluid.originU(i, j) + 1. / 4. * U(i, j);
+		}
+	}
+#pragma omp parallel for
+	for (int i = gridV.iStart; i <= gridV.iEnd; i++)
+	{
+		for (int j = gridV.jStart; j <= gridV.jEnd; j++)
+		{
+			V(i, j) = 3. / 4. * Fluid.originV(i, j) + 1. / 4. * V(i, j);
+		}
+	}
+	//U.Variable("U2");
+	//V.Variable("V2");
+	//MATLAB.Command("quiver(Xp,Yp,U22(:,1:end-1),V22(1:end-1,:))");
+
+	/////////////////
+	//// Step 3  ////
+	/////////////////
+	if (accuracyOrder == 1)
+	{
+		EulerMethod();
+	}
+	else if (accuracyOrder == 2)
+	{
+		EulerMethod2ndOrder();
+	}
+	//U.Variable("U31");
+	//V.Variable("V31");
+	//MATLAB.Command("quiver(Xp,Yp,U31(:,1:end-1),V31(1:end-1,:))");
+#pragma omp parallel for
+	for (int i = gridU.iStart; i <= gridU.iEnd; i++)
+	{
+		for (int j = gridU.jStart; j <= gridU.jEnd; j++)
+		{
+			U(i, j) = 1. / 3. * Fluid.originU(i, j) + 2. / 3. * U(i, j);
+		}
+	}
+#pragma omp parallel for
+	for (int i = gridV.iStart; i <= gridV.iEnd; i++)
+	{
+		for (int j = gridV.jStart; j <= gridV.jEnd; j++)
+		{
+			V(i, j) = 1. / 3. * Fluid.originV(i, j) + 2. / 3. * V(i, j);
+		}
+	}
+	//U.Variable("U3");
+	//V.Variable("V3");
+	//MATLAB.Command("quiver(Xp,Yp,U32(:,1:end-1),V32(1:end-1,:))");
 }
 
 inline void CoalescingDrop::EulerMethod()
 {
+	////////////////////////////////////////////////
+	////     Projection Method 1 : advection    ////
+	////////////////////////////////////////////////
+
+	EulerMethod1();
+
+	////////////////////////////////////////////////
+	////     Projection Method 2 : Poisson Eq   ////
+	////////////////////////////////////////////////
+	Fluid.EulerMethod2();
+
+	//////////////////////////////////////////////
+	////     Projection Method 3 : New U,V    ////
+	//////////////////////////////////////////////
+	Fluid.EulerMethod3();
 }
 
 inline void CoalescingDrop::EulerMethod1()
 {
+	//// Compute Surface Force
+	if (singularForce)
+	{
+		ComputeSurfaceForce();
+	}
+
+	Array2D<double>& K1U = U.K1;
+	Array2D<double>& K1V = V.K1;
+	Fluid.AdvectionTerm(U, V, Fluid.advectionU, Fluid.advectionV);
+	Fluid.DiffusionTerm(U, V, Fluid.diffusionU, Fluid.diffusionV);
+	//advectionU.Variable("advectionU");
+	//diffusionU.Variable("diffusionU");
+	//advectionV.Variable("advectionV");
+	//diffusionV.Variable("diffusionV");
+
+#pragma omp parallel for
+	for (int i = K1U.iStart; i <= K1U.iEnd; i++)
+	{
+		for (int j = K1U.jStart; j <= K1U.jEnd; j++)
+		{
+			K1U(i, j) = dt*(-Fluid.advectionU(i, j) + 1. / reynoldNum*Fluid.diffusionU(i, j) + SurfaceForceX(i, j));
+			U(i, j) = U(i, j) + K1U(i, j);
+		}
+	}
+#pragma omp parallel for
+	for (int i = K1V.iStart; i <= K1V.iEnd; i++)
+	{
+		for (int j = K1V.jStart; j <= K1V.jEnd; j++)
+		{
+			K1V(i, j) = dt*(-Fluid.advectionV(i, j) + 1. / reynoldNum*Fluid.diffusionV(i, j) + SurfaceForceY(i, j));
+			V(i, j) = V(i, j) + K1V(i, j);
+		}
+	}
+	//K1U.Variable("k1u");
+	//K1V.Variable("k1v");
+	//// Boundary : Linear extension.
+	Fluid.BdryCondVel();
+
+
+	//U.Variable("Ustar");
+	//V.Variable("Vstar");
+	//MATLAB.Command("divUstar =Ustar(:,2:end)-Ustar(:,1:end-1),divVstar =Vstar(2:end,:)-Vstar(1:end-1,:);divstar=divUstar+divVstar;");
+	//MATLAB.Command("quiver(Xp,Yp,Ustar(:,1:end-1),Vstar(1:end-1,:)");
 }
 
 inline void CoalescingDrop::EulerMethod2ndOrder()
 {
+	U.SaveOld();
+	V.SaveOld();
+
+	////////////////////////////////////////////////
+	////     Projection Method 1 : advection    ////
+	////////////////////////////////////////////////
+
+	//if (iteration >= 2)
+	//{
+	//	EulerMethod2ndOrder1();
+	//}
+	//else
+	{
+		EulerMethod2ndOrder1stIteration1();
+	}
+
+
+
+	///////////////////////////////////////////////////////////////
+	////     Projection Method 2 : Recover U from Projection   ////
+	///////////////////////////////////////////////////////////////
+	Fluid.EulerMethod2ndOrder2();
+
+	////////////////////////////////////////////////////////////
+	////     Projection Method 3 : New Gradient Pressure    ////
+	////////////////////////////////////////////////////////////
+	Fluid.EulerMethod2ndOrder3();
+
+	Fluid.oldU.dataArray = U.dataArrayOld;
+	Fluid.oldV.dataArray = V.dataArrayOld;
+
+	//MATLAB.Command("VVB = reshape(Vb, 49, 50)';");
+	//advectionV.Variable("advectionV");
+	//MATLAB.Command("figure(2),subplot(1,2,1),plot(Vnew(51,2:end-1),'-o'),grid on, subplot(1,2,2),plot(advectionV(end,:),'-o'),grid on");
+	//MATLAB.Command("figure(2),subplot(2,2,1),surf(Xu(2:end-1,2:end-1),Yu(2:end-1,2:end-1),Unew(2:end-1,2:end-1))");
+	//MATLAB.Command("subplot(2,2,2),surf(Xv(2:end-1,2:end-1),Yv(2:end-1,2:end-1),Vnew(2:end-1,2:end-1))");
+	//MATLAB.Command("subplot(2,2,3),surf(Xp(2:end-1,2:end-1),Yp(2:end-1,2:end-1),Phi(2:end-1,2:end-1))");
+	//MATLAB.Command("subplot(2,2,4),surf(VVB)");
 }
 
 inline void CoalescingDrop::EulerMethod2ndOrder1()
@@ -215,12 +512,260 @@ inline void CoalescingDrop::EulerMethod2ndOrder1()
 
 inline void CoalescingDrop::EulerMethod2ndOrder1stIteration1()
 {
+	if (singularForce)
+	{
+		ComputeSurfaceForce();
+		//SurfaceForceX.Variable("SurfaceForceX");
+		//SurfaceForceY.Variable("SurfaceForceY");
+	}
+
+
+	Fluid.AdvectionTerm(U, V, Fluid.advectionU, Fluid.advectionV);
+	Fluid.DiffusionTerm(U, V, Fluid.diffusionU, Fluid.diffusionV);
+
+	double viscosity = 1;
+	//// 2nd-order Adams-Bashforth formula
+	//Fluid.advectionU.Variable("advectionU");
+	//Fluid.diffusionU.Variable("diffusionU");
+
+	//Fluid.advectionV.Variable("advectionV");
+	//Fluid.diffusionV.Variable("diffusionV");
+
+	//// Crank-Nicolson
+	GenerateLinearSystemUV(Fluid.Ub, U, Fluid.gradientPx, Fluid.advectionU, SurfaceForceX, Fluid.gridUinner, 1);
+	GenerateLinearSystemUV(Fluid.Vb, V, Fluid.gradientPy, Fluid.advectionV, SurfaceForceY, Fluid.gridVinner, 1);
+
+	//Fluid.Ub.Variable("Ub");
+	//Fluid.Vb.Variable("Vb");
+
+	if (Fluid.CGsolverNum == 1)
+	{
+		CGSolver::SolverCSR(Fluid.UCN_CSR, Fluid.Ub, DBL_EPSILON, Fluid.tempU);
+		CGSolver::SolverCSR(Fluid.VCN_CSR, Fluid.Vb, DBL_EPSILON, Fluid.tempV);
+	}
+	else if (Fluid.CGsolverNum == 2)
+	{
+		CGSolver::SolverSparse(Fluid.UCNMatrix.iRes, Fluid.Ua, Fluid.Urow, Fluid.Ucol, Fluid.Ub, Fluid.tempU);
+		CGSolver::SolverSparse(Fluid.VCNMatrix.iRes, Fluid.Va, Fluid.Vrow, Fluid.Vcol, Fluid.Vb, Fluid.tempV);
+	}
+	//tempU.Variable("tempU");
+	//tempV.Variable("tempV");
+
+	int index;
+#pragma omp parallel for private(index)
+	for (int i = Fluid.gridUinner.iStart; i <= Fluid.gridUinner.iEnd; i++)
+	{
+		for (int j = Fluid.gridUinner.jStart; j <= Fluid.gridUinner.jEnd; j++)
+		{
+			index = (i - Fluid.gridUinner.iStart) + (j - Fluid.gridUinner.jStart)*Fluid.gridUinner.iRes;
+			U(i, j) = Fluid.tempU(index);
+		}
+	}
+#pragma omp parallel for private(index)
+	for (int i = Fluid.gridVinner.iStart; i <= Fluid.gridVinner.iEnd; i++)
+	{
+		for (int j = Fluid.gridVinner.jStart; j <= Fluid.gridVinner.jEnd; j++)
+		{
+			index = (i - Fluid.gridVinner.iStart) + (j - Fluid.gridVinner.jStart)*Fluid.gridVinner.iRes;
+			V(i, j) = Fluid.tempV(index);
+		}
+	}
+
+	// Boundary : Linear extension. (But, Dirichlet로 줄 방법은 없나???)
+	Fluid.BdryCondVel();
+
+	//U.Variable("Ustar");
+	//V.Variable("Vstar");
+	//MATLAB.Command("divUstar =Ustar(:,2:end)-Ustar(:,1:end-1),divVstar =Vstar(2:end,:)-Vstar(1:end-1,:);divstar=divUstar+divVstar;");
+	//MATLAB.Command("quiver(Xp,Yp,Ustar(:,1:end-1),Vstar(1:end-1,:))");
+}
+
+inline void CoalescingDrop::ComputeSurfaceForce()
+{
+	FD& meanCurvature = levelSet.meanCurvature;
+	FV& unitNormal = levelSet.unitNormal;
+	//Array2D<VT>& gradient = Surfactant.gradient;
+
+	int ComputedTubeRange = 2;
+	levelSet.LComputeMeanCurvature(ComputedTubeRange);
+	levelSet.LComputeUnitNormal(ComputedTubeRange);
+
+	int i, j;
+	//// Surface Tension Surface Gradient
+#pragma omp parallel for private(i, j)
+	for (int k = 1; k <= levelSet.numTube; k++)
+	{
+		levelSet.TubeIndex(k, i, j);
+		if (levelSet.tube(i, j) <= ComputedTubeRange)
+		{
+			//gradient(i, j) = VT(Surfactant.dxPhi(i, j), Surfactant.dyPhi(i, j));
+			//SurfGradSurfTension(i, j) = Surfactant.gradient(i, j)
+			//	- DotProduct(unitNormal(i, j), gradient(i, j))*unitNormal(i, j);
+			SurfaceTension(i, j) = gamma0;
+			SurfaceForceX(i, j) = 2*meanCurvature(i, j)*SurfaceTension(i, j)*unitNormal(i, j).x + SurfGradSurfTension(i, j).x;
+			SurfaceForceX(i, j) *= AdvectionMethod2D<double>::DeltaFt(levelSet(i, j))*levelSet.gradient(i, j).magnitude();
+			SurfaceForceY(i, j) = 2*meanCurvature(i, j)*SurfaceTension(i, j)*unitNormal(i, j).y + SurfGradSurfTension(i, j).y;
+			SurfaceForceY(i, j) *= -AdvectionMethod2D<double>::DeltaFt(levelSet(i, j))*levelSet.gradient(i, j).magnitude();
+
+		}
+		else
+		{
+			SurfGradSurfTension(i, j) = 0;
+
+			SurfaceForceX(i, j) = 0;
+			SurfaceForceY(i, j) = 0;
+		}
+	}
+}
+
+inline void CoalescingDrop::GenerateLinearSystemUV(Array2D<double>& matrixA, const Grid2D & ipGrid, const double & scaling, CSR<double> csrForm)
+{
+	cout << "Start Generate Linear System : matrix A" << endl;
+	int innerIStart = ipGrid.iStart;
+	int innerIEnd = ipGrid.iEnd;
+	int innerJStart = ipGrid.jStart;
+	int innerJEnd = ipGrid.jEnd;
+	int innerIRes = ipGrid.iRes;
+	int innerJRes = ipGrid.jRes;
+
+	int index, leftIndex, rightIndex, bottomIndex, topIndex;
+#pragma omp parallel for private(index, leftIndex, rightIndex, bottomIndex, topIndex)
+	for (int j = innerJStart; j <= innerJEnd; j++)
+	{
+		for (int i = innerIStart; i <= innerIEnd; i++)
+		{
+			index = (i - innerIStart)*innerIRes*innerJRes + (i - innerIStart)
+				+ (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart)*innerIRes;
+			leftIndex = (i - innerIStart)*innerIRes*innerJRes + (i - innerIStart - 1)
+				+ (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart)*innerIRes;
+			rightIndex = (i - innerIStart)*innerIRes*innerJRes + (i - innerIStart + 1)
+				+ (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart)*innerIRes;
+			bottomIndex = (i - innerIStart)*innerIRes*innerJRes + (i - innerIStart)
+				+ (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart - 1)*innerIRes;
+			topIndex = (i - innerIStart)*innerIRes*innerJRes + (i - innerIStart)
+				+ (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart + 1)*innerIRes;
+			// Boundary condition.
+			if (j == innerJStart)
+			{
+				if (i == innerIStart)
+				{
+					matrixA(index) = scaling*(1 + dt * Oh * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
+					matrixA(rightIndex) = scaling * -0.5 * dt * Oh * ipGrid.oneOverdx2;
+					matrixA(topIndex) = scaling * -0.5 * dt * Oh * ipGrid.oneOverdy2;
+				}
+				else if (i == innerIEnd)
+				{
+					matrixA(index) = scaling*(1 + dt * Oh * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
+					matrixA(leftIndex) = scaling * -0.5 * dt * Oh *ipGrid.oneOverdx2;
+					matrixA(topIndex) = scaling * -0.5 * dt * Oh * ipGrid.oneOverdy2;
+				}
+				else
+				{
+					matrixA(index) = scaling*(1 + dt * Oh * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
+					matrixA(leftIndex) = scaling * -0.5 * dt * Oh *ipGrid.oneOverdx2;
+					matrixA(rightIndex) = scaling * -0.5 * dt * Oh * ipGrid.oneOverdx2;
+					matrixA(topIndex) = scaling * -0.5 * dt * Oh * ipGrid.oneOverdy2;
+				}
+
+			}
+			else if (j>innerJStart && j<innerJEnd)
+			{
+				if (i == innerIStart)
+				{
+					matrixA(index) = scaling*(1 + dt * Oh * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
+					matrixA(rightIndex) = scaling * -0.5 * dt * Oh * ipGrid.oneOverdx2;
+					matrixA(bottomIndex) = scaling * -0.5 * dt * Oh * ipGrid.oneOverdy2;
+					matrixA(topIndex) = scaling * -0.5 * dt * Oh * ipGrid.oneOverdy2;
+
+				}
+				else if (i == innerIEnd)
+				{
+					matrixA(index) = scaling*(1 + dt * Oh * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
+					matrixA(leftIndex) = scaling * -0.5 * dt * Oh *ipGrid.oneOverdx2;
+					matrixA(bottomIndex) = scaling * -0.5 * dt * Oh * ipGrid.oneOverdy2;
+					matrixA(topIndex) = scaling * -0.5 * dt * Oh * ipGrid.oneOverdy2;
+
+				}
+				else
+				{
+					matrixA(index) = scaling*(1 + dt * Oh * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
+					matrixA(leftIndex) = scaling * -0.5 * dt * Oh *ipGrid.oneOverdx2;
+					matrixA(rightIndex) = scaling * -0.5 * dt * Oh * ipGrid.oneOverdx2;
+					matrixA(bottomIndex) = scaling * -0.5 * dt * Oh * ipGrid.oneOverdy2;
+					matrixA(topIndex) = scaling * -0.5 * dt * Oh * ipGrid.oneOverdy2;
+				}
+
+			}
+			else if (j == innerJEnd)
+			{
+				if (i == innerIStart)
+				{
+					matrixA(index) = scaling*(1 + dt * Oh * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
+					matrixA(rightIndex) = scaling * -0.5 * dt * Oh* ipGrid.oneOverdx2;
+					matrixA(bottomIndex) = scaling * -0.5 * dt * Oh * ipGrid.oneOverdy2;
+				}
+				else if (i == innerIEnd)
+				{
+					matrixA(index) = scaling*(1 + dt * Oh * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
+					matrixA(leftIndex) = scaling * -0.5 * dt * Oh *ipGrid.oneOverdx2;
+					matrixA(bottomIndex) = scaling * -0.5 * dt * Oh * ipGrid.oneOverdy2;
+				}
+				else
+				{
+					matrixA(index) = scaling*(1 + dt * Oh * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
+					matrixA(leftIndex) = scaling * -0.5 * dt * Oh *ipGrid.oneOverdx2;
+					matrixA(rightIndex) = scaling * -0.5 * dt * Oh * ipGrid.oneOverdx2;
+					matrixA(bottomIndex) = scaling * -0.5 * dt * Oh * ipGrid.oneOverdy2;
+				}
+
+			}
+		}
+	}
+}
+
+inline void CoalescingDrop::GenerateLinearSystemUV(VectorND<double>& vectorB, const FD & vel, const FD & gradP, const FD & advec, const FD & force, const Grid2D & ipGrid, const double & scaling)
+{
+	int innerIStart = ipGrid.iStart;
+	int innerIEnd = ipGrid.iEnd;
+	int innerJStart = ipGrid.jStart;
+	int innerJEnd = ipGrid.jEnd;
+	int innerIRes = ipGrid.iRes;
+	int innerJRes = ipGrid.jRes;
+
+	int index;
+#pragma omp parallel for private(index)
+	for (int i = innerIStart; i <= innerIEnd; i++)
+	{
+		for (int j = innerJStart; j <= innerJEnd; j++)
+		{
+			index = (i - innerIStart) + (j - innerJStart)*innerIRes;
+			vectorB(index) = vel(i, j) + dt*(-gradP(i, j) - advec(i, j) + 0.5 * Oh * (vel.dxxPhi(i, j) + vel.dyyPhi(i, j)) + force(i, j));
+
+			if (i == innerIStart)
+			{
+				vectorB(index) += -0.5 * dt * Oh * (2 * vel(i - 1, j) - vel.dataArrayOld(i - 1, j))*ipGrid.oneOverdx2;
+			}
+			if (i == innerIEnd)
+			{
+				vectorB(index) += -0.5 * dt * Oh * (2 * vel(i + 1, j) - vel.dataArrayOld(i + 1, j))*ipGrid.oneOverdx2;
+			}
+			if (j == innerJStart)
+			{
+				vectorB(index) += -0.5 * dt * Oh * (2 * vel(i, j - 1) - vel.dataArrayOld(i, j - 1))*ipGrid.oneOverdy2;
+			}
+			if (j == innerJEnd)
+			{
+				vectorB(index) += -0.5 * dt * Oh * (2 * vel(i, j + 1) - vel.dataArrayOld(i, j + 1))*ipGrid.oneOverdy2;
+			}
+
+			vectorB(index) *= scaling;
+		}
+	}
 }
 
 inline void CoalescingDrop::PlotSurfactant()
 {
 	string str;
-	const char* cmd;
 
 	Surfactant.Variable("Surfactant");
 	levelSet.tube.Variable("Tube");
