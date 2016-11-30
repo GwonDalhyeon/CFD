@@ -80,7 +80,7 @@ public:
 	inline void EulerMethod2ndOrder1stIteration1();
 
 	inline void ComputeSurfaceForce();
-	inline void GenerateLinearSystemUV(Array2D<double>& matrixA, const Grid2D& ipGrid, const double & scaling, CSR<double> csrForm);
+	inline void GenerateLinearSystemUV(Array2D<double>& matrixA, const Grid2D& ipGrid, const double & scaling, CSR<double>& csrForm);
 	inline void GenerateLinearSystemUV(VectorND<double>& vectorB, const FD & vel, const FD & gradP, const FD & advec, const FD& force, const Grid2D& ipGrid, const double & scaling);
 
 
@@ -292,6 +292,15 @@ inline void CoalescingDrop::NSSolver()
 		}
 		else
 		{
+			Fluid.Ub = VectorND<double>(Fluid.gridUinner.iRes*Fluid.gridUinner.jRes);
+			Fluid.tempU = VectorND<double>(Fluid.gridUinner.iRes*Fluid.gridUinner.jRes);
+
+			Fluid.Vb = VectorND<double>(Fluid.gridVinner.iRes*Fluid.gridVinner.jRes);
+			Fluid.tempV = VectorND<double>(Fluid.gridVinner.iRes*Fluid.gridVinner.jRes);
+
+			Fluid.Phib = VectorND<double>(Fluid.gridPinner.iRes*Fluid.gridPinner.jRes);
+			Fluid.tempPhi = VectorND<double>(Fluid.gridPinner.iRes*Fluid.gridPinner.jRes);
+
 			Fluid.GenerateLinearSystemPhi(Fluid.PhiCNMatrix, -Fluid.gridP.dx2 / dt);
 			if (Fluid.CGsolverNum == 1)
 			{
@@ -618,9 +627,11 @@ inline void CoalescingDrop::ComputeSurfaceForce()
 	}
 }
 
-inline void CoalescingDrop::GenerateLinearSystemUV(Array2D<double>& matrixA, const Grid2D & ipGrid, const double & scaling, CSR<double> csrForm)
+inline void CoalescingDrop::GenerateLinearSystemUV(Array2D<double>& matrixA, const Grid2D & ipGrid, const double & scaling, CSR<double>& csrForm)
 {
 	cout << "Start Generate Linear System : matrix A" << endl;
+	matrixA.initialize(1, ipGrid.iRes*ipGrid.jRes, 1, ipGrid.iRes*ipGrid.jRes);
+
 	int innerIStart = ipGrid.iStart;
 	int innerIEnd = ipGrid.iEnd;
 	int innerJStart = ipGrid.jStart;
@@ -721,6 +732,8 @@ inline void CoalescingDrop::GenerateLinearSystemUV(Array2D<double>& matrixA, con
 			}
 		}
 	}
+	csrForm = CSR<double>(matrixA);
+	matrixA.Delete();
 }
 
 inline void CoalescingDrop::GenerateLinearSystemUV(VectorND<double>& vectorB, const FD & vel, const FD & gradP, const FD & advec, const FD & force, const Grid2D & ipGrid, const double & scaling)

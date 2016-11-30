@@ -212,6 +212,14 @@ inline void InsolubleSurfactant::NSSolver()
 		}
 		else
 		{
+			Fluid.tempU = VectorND<double>(Fluid.gridUinner.iRes*Fluid.gridUinner.jRes);
+
+			Fluid.Vb = VectorND<double>(Fluid.gridVinner.iRes*Fluid.gridVinner.jRes);
+			Fluid.tempV = VectorND<double>(Fluid.gridVinner.iRes*Fluid.gridVinner.jRes);
+
+			Fluid.Phib = VectorND<double>(Fluid.gridPinner.iRes*Fluid.gridPinner.jRes);
+			Fluid.tempPhi = VectorND<double>(Fluid.gridPinner.iRes*Fluid.gridPinner.jRes);
+
 			Fluid.GenerateLinearSystemPhi(Fluid.PhiCNMatrix, -Fluid.gridP.dx2 / dt);
 			if (Fluid.CGsolverNum == 1)
 			{

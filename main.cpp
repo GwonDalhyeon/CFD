@@ -31,7 +31,7 @@ void main()
 	MATLAB.Command("clc; clear all; close all;");
 	MATLAB.Command("workspace");
 
-	int problem = 15;
+	int problem = 4;
 	int example = 1;
 	if (problem == 0) //// GMRES test :: example 1,2,3,4
 	{
@@ -69,15 +69,10 @@ void main()
 	else if (problem == 4) // NAVIER STOKES EQUATION SOLVER : EXAMPLE 1 ??
 	{
 		EulerianFluidSolver2D Euler;
-		if (example == 1 || example == 4)
+		if (example == 1 || example == 2)
 		{
 			Euler.FluidSolver(example);
 		}
-		else if (example ==2)
-		{
-			Euler.NSSolver2ndOrder(example);
-		}
-
 	}
 	else if (problem == 5) // SURFACE RECONSTRUCTION USING SPLIT BREGMAN : EXAMPLE 1 ~ 6 ??
 	{
