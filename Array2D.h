@@ -106,6 +106,7 @@ Array2D<TT>::~Array2D()
 	if (values != nullptr)
 	{
 		delete[] values;
+		values = 0;
 	}
 }
 
@@ -507,6 +508,7 @@ inline void Array2D<TT>::Delete()
 	if (values != nullptr)
 	{
 		delete[] values;
+		values = 0;
 	}
 }
 

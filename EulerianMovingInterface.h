@@ -35,16 +35,11 @@ public:
 	Array2D<double> term;
 	Array2D<double> termOld;
 
-	int CGsolverNum;
 	VectorND<double> vectorB;
 	Array2D<double>A;
 	// CG solver 1
 	CSR<double> Acsr;
-	// CG solver 2
-	VectorND<double> a;
-	VectorND<int> row;
-	VectorND<int> col;
-	int nonzeroNum;
+
 
 	double dt;
 	double totalT;
@@ -76,7 +71,7 @@ public:
 	////   Local Surfactant Diffusion Solver  ////
 	//////////////////////////////////////////////
 	inline void LSurfactantDiffusionSolver(const int& example);
-	
+
 	///////////////////////////////////////////
 	//// Eulerian Moving Interface Solver  ////
 	///////////////////////////////////////////
@@ -98,7 +93,7 @@ public:
 	inline void DimlessNonlinearLangmu1rEOS(const int & tubeRange);
 	inline void DimlessLinearLangmu1rEOS();
 	inline void DimlessLinearLangmu1rEOS(const int & tubeRange);
-	inline void LinearLangmu1rEOS(); 
+	inline void LinearLangmu1rEOS();
 
 	// Conserve Surfactant
 	inline double IntegralSurfactant();
@@ -174,8 +169,6 @@ inline void MovingInterface::InitialCondition(const int & example)
 		totalT = 0;
 		dt = grid.dx / 4.0;
 		maxIteration = 80;
-		CGsolverNum = 2;
-
 	}
 
 	if (example == 2)
@@ -247,8 +240,6 @@ inline void MovingInterface::InitialCondition(const int & example)
 		dt = AdvectionMethod2D<double>::AdaptiveTimeStep(U, cflCondition);
 		maxIteration = 80;
 		totalT = 0;
-		CGsolverNum = 2;
-
 	}
 
 	if (example == 3)
@@ -300,7 +291,6 @@ inline void MovingInterface::InitialCondition(const int & example)
 		//MATLAB.Command("subplot(1,2,2),surf(X,Y,Surfactant), hold on, contour(X,Y,Tube),hold off;");
 		AdvectionMethod2D<double>::alpha = 1.5*grid.dx;
 
-		CGsolverNum = 2;
 		term = Array2D<double>(grid);
 		termOld = Array2D<double>(grid);
 		dt = grid.dx / 4.0;
@@ -308,7 +298,7 @@ inline void MovingInterface::InitialCondition(const int & example)
 		totalT = 0;
 
 	}
-	
+
 	if (example == 4)
 	{
 		cout << "*************************" << endl;
@@ -334,7 +324,7 @@ inline void MovingInterface::InitialCondition(const int & example)
 			}
 		}
 
-		levelSet = LS(grid, 3*grid.dx);
+		levelSet = LS(grid, 3 * grid.dx);
 		double radius = 1.0;
 #pragma omp parallel for
 		for (int i = grid.iStart; i <= grid.iEnd; i++)
@@ -345,7 +335,7 @@ inline void MovingInterface::InitialCondition(const int & example)
 			}
 		}
 		levelSet.InitialTube();
-		
+
 		Surfactant = FD(grid);
 		int i, j;
 #pragma omp parallel for private(i, j)
@@ -362,14 +352,13 @@ inline void MovingInterface::InitialCondition(const int & example)
 		AdvectionMethod2D<double>::LLSQuantityExtension(levelSet, Surfactant, 3, 3, extensionIter);
 		AdvectionMethod2D<double>::alpha = 1.5*grid.dx;
 
-		CGsolverNum = 1;
 		term = Array2D<double>(grid);
 		termOld = Array2D<double>(grid);
 		cflCondition = 1.0 / 4.0;
 		dt = AdvectionMethod2D<double>::AdaptiveTimeStep(U, cflCondition);
 		maxIteration = 800;
 		totalT = 0;
-	}                                               
+	}
 
 	if (example == 5)
 	{
@@ -391,7 +380,7 @@ inline void MovingInterface::InitialCondition(const int & example)
 		{
 			for (int j = grid.jStart; j <= grid.jEnd; j++)
 			{
-				if (grid(i,j).y>=0)
+				if (grid(i, j).y >= 0)
 				{
 					U(i, j) = grid(i, j).y*grid(i, j).y;
 				}
@@ -431,7 +420,6 @@ inline void MovingInterface::InitialCondition(const int & example)
 		AdvectionMethod2D<double>::LLSQuantityExtension(levelSet, Surfactant, 3, 3, extensionIter);
 		AdvectionMethod2D<double>::alpha = 1.5*grid.dx;
 
-		CGsolverNum = 1;
 		term = Array2D<double>(grid);
 		termOld = Array2D<double>(grid);
 		cflCondition = 1.0 / 4.0;
@@ -493,7 +481,6 @@ inline void MovingInterface::InitialCondition(const int & example)
 		AdvectionMethod2D<double>::LLSQuantityExtension(levelSet, Surfactant, 3, 3, extensionIter);
 		AdvectionMethod2D<double>::alpha = 1.5*grid.dx;
 
-		CGsolverNum = 1;
 		term = Array2D<double>(grid);
 		termOld = Array2D<double>(grid);
 		cflCondition = 1.0 / 4.0;
@@ -533,7 +520,7 @@ inline void MovingInterface::InitialCondition(const int & example)
 				Surfactant(i, j) = 1;
 			}
 		}
-		
+
 		SurfaceTension = FD(grid);
 
 #pragma omp parallel for
@@ -541,7 +528,7 @@ inline void MovingInterface::InitialCondition(const int & example)
 		{
 			for (int j = grid.jStart; j <= grid.jEnd; j++)
 			{
-				if (levelSet.tube(i,j)<=2)
+				if (levelSet.tube(i, j) <= 2)
 				{
 					SurfaceTension(i, j) = 1 + Fluid.El*log(1 - Fluid.Xi* Surfactant(i, j));
 				}
@@ -681,46 +668,18 @@ inline void MovingInterface::SurfactantDiffusion(const int & iter)
 	if (iter == 1)
 	{
 		GenerateLinearSystem1(A, 1);
-		//// CG solver 1
 		Acsr = CSR<double>(A);
-		//// CG solver 2
-		CGSolver::SparseA(A, a, row, col, nonzeroNum);
-
-		if (CGsolverNum == 1)
-		{
-			// CG solver 1
-			Acsr = CSR<double>(A);
-		}
-		else if (CGsolverNum == 2)
-		{
-			// CG solver 2
-			CGSolver::SparseA(A, a, row, col, nonzeroNum);
-		}
 	}
 	if (iter == 2)
 	{
 		GenerateLinearSystem2(A, 1);
-		//// CG solver 1
 		Acsr = CSR<double>(A);
-		//// CG solver 2
-		CGSolver::SparseA(A, a, row, col, nonzeroNum);
-
-		if (CGsolverNum == 1)
-		{
-			// CG solver 1
-			Acsr = CSR<double>(A);
-		}
-		else if (CGsolverNum == 2)
-		{
-			// CG solver 2
-			CGSolver::SparseA(A, a, row, col, nonzeroNum);
-		}
 	}
 	if (iter == 1)
 	{
 		OneStepSemiImplicit();
 	}
-	if (iter>=2)
+	if (iter >= 2)
 	{
 		TwoStepSemiImplicit();
 	}
@@ -731,20 +690,15 @@ inline void MovingInterface::OneStepSemiImplicit()
 	//// Linear Equation
 	GenerateLinearSystem1(vectorB, 1);
 
-	if (CGsolverNum == 1)
-	{
-		tempSur = CGSolver::SolverCSR(Acsr, vectorB, grid.dx*grid.dy);
-	}
-	else if (CGsolverNum == 2)
-	{
-		CGSolver::SolverSparse(A.iRes, a, row, col, vectorB, tempSur);
-	}
+
+	CGSolver::Solver(Acsr, vectorB, tempSur);
+
 
 	int index;
 #pragma omp parallel for private(index)
-	for (int i = grid.iStart + 1; i <= grid.iEnd - 1; i++)
+	for (int i = Surfactant.iStartI; i <= Surfactant.iEndI; i++)
 	{
-		for (int j = grid.jStart + 1; j <= grid.jEnd - 1; j++)
+		for (int j = Surfactant.jStartI; j <= Surfactant.jEndI; j++)
 		{
 			index = (i - (grid.iStart + 1)) + (j - (grid.jStart + 1))*(grid.iRes - 2);
 			Surfactant(i, j) = tempSur(index);
@@ -773,15 +727,7 @@ inline void MovingInterface::TwoStepSemiImplicit()
 {
 	//// Linear Equation
 	GenerateLinearSystem2(vectorB, 1);
-
-	if (CGsolverNum == 1)
-	{
-		tempSur = CGSolver::SolverCSR(Acsr, vectorB, grid.dx*grid.dy);
-	}
-	else if (CGsolverNum == 2)
-	{
-		CGSolver::SolverSparse(A.iRes, a, row, col, vectorB, tempSur);
-	}
+	CGSolver::Solver(Acsr, vectorB, tempSur);
 
 	int index;
 #pragma omp parallel for private(index)
@@ -1251,7 +1197,7 @@ inline void MovingInterface::EulerianMovingInterfaceSolver(const int & example)
 
 
 	InitialCondition(example);
-	
+
 	grid.Variable();
 	levelSet.phi.Variable("phi0");
 	levelSet.tube.Variable("Tube");
@@ -1282,7 +1228,7 @@ inline void MovingInterface::EulerianMovingInterfaceSolver(const int & example)
 		MATLAB.Command("SurTube1 = Surfactant.*(Tube<=1);");
 		MATLAB.Command("surf(X,Y,SurTube1),axis equal,axis([X(1) X(end) Y(1) Y(end)]), hold on, contour(X,Y,Tube,'r'),hold off;set(gca,'fontsize',20)");
 
-		if (ExamNum==4)
+		if (ExamNum == 4)
 		{
 #pragma omp parallel for
 			for (int i = grid.iStart; i <= grid.iEnd; i++)
@@ -1303,7 +1249,7 @@ inline void MovingInterface::EulerianMovingInterfaceSolver(const int & example)
 		}
 		else
 		{
-			if (i==1)
+			if (i == 1)
 			{
 #pragma omp parallel for
 				for (int i = grid.iStart; i <= grid.iEnd; i++)
@@ -1326,7 +1272,7 @@ inline void MovingInterface::EulerianMovingInterfaceSolver(const int & example)
 		}
 
 
-		AdvectionMethod2D<double>::LLSPropagatingTVDRK3(levelSet, U, V, dt);		
+		AdvectionMethod2D<double>::LLSPropagatingTVDRK3(levelSet, U, V, dt);
 		AdvectionMethod2D<double>::LLSReinitializationTVDRK3(levelSet, dt, reinitialIter);
 		AdvectionMethod2D<double>::LLSQuantityExtension(levelSet, Surfactant, 3, 3, extensionIter);
 		levelSet.UpdateInterface();
@@ -1367,16 +1313,9 @@ inline void MovingInterface::LSurfactantDiffusion(const int & iter)
 	if (iter == 1)
 	{
 		LGenerateLinearSystem1(A, 1);
-		if (CGsolverNum == 1)
-		{
-			// CG solver 1
-			Acsr = CSR<double>(A);
-		}
-		else if (CGsolverNum == 2)
-		{
-			// CG solver 2
-			CGSolver::SparseA(A, a, row, col, nonzeroNum);
-		}
+
+		Acsr = CSR<double>(A);
+
 		A.Delete();
 
 		LOneStepSemiImplicit();
@@ -1387,16 +1326,9 @@ inline void MovingInterface::LSurfactantDiffusion(const int & iter)
 		SurfactantTube2Extrapolation();
 
 		LGenerateLinearSystem2(A, 1);
-		if (CGsolverNum == 1)
-		{
-			// CG solver 1
-			Acsr = CSR<double>(A);
-		}
-		else if (CGsolverNum == 2)
-		{
-			// CG solver 2
-			CGSolver::SparseA(A, a, row, col, nonzeroNum);
-		}
+
+		Acsr = CSR<double>(A);
+
 		A.Delete();
 
 		LTwoStepSemiImplicit();
@@ -1411,14 +1343,9 @@ inline void MovingInterface::LOneStepSemiImplicit()
 	LGenerateLinearSystem1(vectorB, 1);
 
 	tempSur = VectorND<double>(levelSet.numTube1);
-	if (CGsolverNum == 1)
-	{
-		CGSolver::SolverCSR(Acsr, vectorB, grid.dx*grid.dy, tempSur);
-	}
-	else if (CGsolverNum == 2)
-	{
-		CGSolver::SolverSparse(A.iRes, a, row, col, vectorB, tempSur);
-	}
+
+	CGSolver::Solver(Acsr, vectorB, tempSur);
+
 
 	int i, j;
 #pragma omp parallel for private(i, j)
@@ -1445,14 +1372,9 @@ inline void MovingInterface::LTwoStepSemiImplicit()
 	LGenerateLinearSystem2(vectorB, 1);
 
 	tempSur = VectorND<double>(levelSet.numTube1);
-	if (CGsolverNum == 1)
-	{
-		CGSolver::SolverCSR(Acsr, vectorB, grid.dx*grid.dy, tempSur);
-	}
-	else if (CGsolverNum == 2)
-	{
-		CGSolver::SolverSparse(A.iRes, a, row, col, vectorB, tempSur);
-	}
+
+	CGSolver::Solver(Acsr, vectorB, tempSur);
+
 	int i, j;
 #pragma omp parallel for private(i, j)
 	for (int k = 1; k <= levelSet.numTube1; k++)

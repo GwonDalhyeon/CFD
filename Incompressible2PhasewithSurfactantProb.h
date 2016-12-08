@@ -60,7 +60,7 @@ public:
 	//// Surfactant + Navier-Stokes equation solver  ////
 	/////////////////////////////////////////////////////
 	inline void ContinuumMethodWithSurfactantSolver(const int& example);
-	
+
 	inline void NSSolver();
 	inline void EulerMethod();
 	inline void EulerMethod1();
@@ -99,10 +99,9 @@ inline void InsolubleSurfactant::InitialCondition(const int & example)
 
 		int gridSize = 200;
 		grid = Grid2D(-5, 5, gridSize + 1, -2, 2, gridSize * 2. / 5. + 1);
-		
+
 		// Initialize Velocity Fields
 		Fluid.InitialCondition(3);
-		Fluid.CGsolverNum = 1;
 		accuracyOrder = 2;
 		reynoldNum = 10;
 		Ca = 0.5;
@@ -119,11 +118,10 @@ inline void InsolubleSurfactant::InitialCondition(const int & example)
 
 		// Initialize Surfactant Fields
 		InterfaceSurfactant.InitialCondition(7);
-		InterfaceSurfactant.CGsolverNum = 1;		
 		InterfaceSurfactant.cflCondition = cflCondition;
 		InterfaceSurfactant.dt = dt;
-		
-		maxIteration = ceil(2.0/dt); // Up to 2 sec.
+
+		maxIteration = ceil(2.0 / dt); // Up to 2 sec.
 		totalT = 0;
 	}
 }
@@ -171,7 +169,7 @@ inline void InsolubleSurfactant::ContinuumMethodWithSurfactantSolver(const int &
 		//// Step 2 : Navier-Stokes equation
 		NSSolver();
 
-		
+
 
 		AdvectionMethod2D<double>::LLSPropagatingTVDRK3(levelSet, U, V, dt);
 		AdvectionMethod2D<double>::LLSReinitializationTVDRK3(levelSet, dt, reinitialIter);
@@ -187,13 +185,13 @@ inline void InsolubleSurfactant::ContinuumMethodWithSurfactantSolver(const int &
 		PlotSurfactant();
 		MATLAB.Command("subplot(2,1,2)");
 		PlotVelocity();
-		if (iteration ==1 || iteration%1==0)
+		if (iteration == 1 || iteration % 1 == 0)
 		{
 			MATLAB.WriteImage("surfactant", iteration, "fig");
 			MATLAB.WriteImage("surfactant", iteration, "png");
 		}
 		cout << "       Iteration " << to_string(iteration) << " : End" << endl;
-	
+
 	}
 }
 
@@ -203,45 +201,34 @@ inline void InsolubleSurfactant::NSSolver()
 
 	if (iteration == 1)
 	{
-		if (accuracyOrder==1)
+		if (accuracyOrder == 1)
 		{
-			Fluid.vectorB = VectorND<double>(Fluid.gridPinner.iRes*Fluid.gridPinner.jRes);
-			Fluid.tempP = VectorND<double>(Fluid.gridPinner.iRes*Fluid.gridPinner.jRes);
-			
-			Fluid.GenerateLinearSystem(Fluid.poissonMatrix, -Fluid.gridP.dx*Fluid.gridP.dx);
+			Fluid.Pb = VectorND<double>(Fluid.P.innerGrid.iRes*Fluid.P.innerGrid.jRes);
+			Fluid.tempP = VectorND<double>(Fluid.P.innerGrid.iRes*Fluid.P.innerGrid.jRes);
+
+			Fluid.GenerateLinearSystem(Fluid.PMatrix, -Fluid.gridP.dx*Fluid.gridP.dx);
 		}
 		else
 		{
-			Fluid.tempU = VectorND<double>(Fluid.gridUinner.iRes*Fluid.gridUinner.jRes);
+			Fluid.tempU = VectorND<double>(Fluid.U.innerGrid.iRes*Fluid.U.innerGrid.jRes);
 
-			Fluid.Vb = VectorND<double>(Fluid.gridVinner.iRes*Fluid.gridVinner.jRes);
-			Fluid.tempV = VectorND<double>(Fluid.gridVinner.iRes*Fluid.gridVinner.jRes);
+			Fluid.Vb = VectorND<double>(Fluid.V.innerGrid.iRes*Fluid.V.innerGrid.jRes);
+			Fluid.tempV = VectorND<double>(Fluid.V.innerGrid.iRes*Fluid.V.innerGrid.jRes);
 
-			Fluid.Phib = VectorND<double>(Fluid.gridPinner.iRes*Fluid.gridPinner.jRes);
-			Fluid.tempPhi = VectorND<double>(Fluid.gridPinner.iRes*Fluid.gridPinner.jRes);
+			Fluid.Phib = VectorND<double>(Fluid.P.innerGrid.iRes*Fluid.P.innerGrid.jRes);
+			Fluid.tempPhi = VectorND<double>(Fluid.P.innerGrid.iRes*Fluid.P.innerGrid.jRes);
 
 			Fluid.GenerateLinearSystemPhi(Fluid.PhiCNMatrix, -Fluid.gridP.dx2 / dt);
-			if (Fluid.CGsolverNum == 1)
-			{
-				Fluid.GenerateLinearSystemUV(Fluid.UCNMatrix, Fluid.gridUinner, 1, Fluid.UCN_CSR);
-				Fluid.GenerateLinearSystemUV(Fluid.VCNMatrix, Fluid.gridVinner, 1, Fluid.VCN_CSR);
-			}
-			else if (Fluid.CGsolverNum == 2)
-			{
-				Fluid.GenerateLinearSystemUV(Fluid.UCNMatrix, Fluid.gridUinner, 1);
-				CGSolver::SparseA(Fluid.UCNMatrix, Fluid.Ua, Fluid.Urow, Fluid.Ucol, Fluid.UnonzeroNum);
-				Fluid.UCNMatrix.Delete();
 
-				Fluid.GenerateLinearSystemUV(Fluid.VCNMatrix, Fluid.gridVinner, 1);
-				CGSolver::SparseA(Fluid.VCNMatrix, Fluid.Va, Fluid.Vrow, Fluid.Vcol, Fluid.VnonzeroNum);
-				Fluid.VCNMatrix.Delete();
-			}
-		}	
+			Fluid.GenerateLinearSystemUV(Fluid.UCNMatrix, Fluid.U.innerGrid, 1, Fluid.UCN_CSR);
+			Fluid.GenerateLinearSystemUV(Fluid.VCNMatrix, Fluid.V.innerGrid, 1, Fluid.VCN_CSR);
+
+		}
 	}
 
 	Fluid.originU.dataArray = U.dataArray;
 	Fluid.originV.dataArray = V.dataArray;
-	
+
 	/////////////////
 	//// Step 1  ////
 	/////////////////
@@ -410,7 +397,7 @@ inline void InsolubleSurfactant::EulerMethod2ndOrder()
 		EulerMethod2ndOrder1stIteration1();
 	}
 
-	
+
 
 	///////////////////////////////////////////////////////////////
 	////     Projection Method 2 : Recover U from Projection   ////
@@ -458,43 +445,36 @@ inline void InsolubleSurfactant::EulerMethod2ndOrder1stIteration1()
 
 	//Fluid.advectionV.Variable("advectionV");
 	//Fluid.diffusionV.Variable("diffusionV");
-	
+
 	//// Crank-Nicolson
-	GenerateLinearSystemUV(Fluid.Ub, U, Fluid.gradientPx, Fluid.advectionU, SurfaceForceX, Fluid.gridUinner, 1);
-	GenerateLinearSystemUV(Fluid.Vb, V, Fluid.gradientPy, Fluid.advectionV, SurfaceForceY, Fluid.gridVinner, 1);
+	GenerateLinearSystemUV(Fluid.Ub, U, Fluid.gradientPx, Fluid.advectionU, SurfaceForceX, Fluid.U.innerGrid, 1);
+	GenerateLinearSystemUV(Fluid.Vb, V, Fluid.gradientPy, Fluid.advectionV, SurfaceForceY, Fluid.V.innerGrid, 1);
 
 	//Fluid.Ub.Variable("Ub");
 	//Fluid.Vb.Variable("Vb");
 
-	if (Fluid.CGsolverNum == 1)
-	{
-		CGSolver::SolverCSR(Fluid.UCN_CSR, Fluid.Ub, DBL_EPSILON, Fluid.tempU);
-		CGSolver::SolverCSR(Fluid.VCN_CSR, Fluid.Vb, DBL_EPSILON, Fluid.tempV);
-	}
-	else if (Fluid.CGsolverNum == 2)
-	{
-		CGSolver::SolverSparse(Fluid.UCNMatrix.iRes, Fluid.Ua, Fluid.Urow, Fluid.Ucol, Fluid.Ub, Fluid.tempU);
-		CGSolver::SolverSparse(Fluid.VCNMatrix.iRes, Fluid.Va, Fluid.Vrow, Fluid.Vcol, Fluid.Vb, Fluid.tempV);
-	}
+	CGSolver::SolverCSR(Fluid.UCN_CSR, Fluid.Ub, DBL_EPSILON, Fluid.tempU);
+	CGSolver::SolverCSR(Fluid.VCN_CSR, Fluid.Vb, DBL_EPSILON, Fluid.tempV);
+
 	//tempU.Variable("tempU");
 	//tempV.Variable("tempV");
 
 	int index;
 #pragma omp parallel for private(index)
-	for (int i = Fluid.gridUinner.iStart; i <= Fluid.gridUinner.iEnd; i++)
+	for (int i = Fluid.U.innerGrid.iStart; i <= Fluid.U.innerGrid.iEnd; i++)
 	{
-		for (int j = Fluid.gridUinner.jStart; j <= Fluid.gridUinner.jEnd; j++)
+		for (int j = Fluid.U.innerGrid.jStart; j <= Fluid.U.innerGrid.jEnd; j++)
 		{
-			index = (i - Fluid.gridUinner.iStart) + (j - Fluid.gridUinner.jStart)*Fluid.gridUinner.iRes;
+			index = (i - Fluid.U.innerGrid.iStart) + (j - Fluid.U.innerGrid.jStart)*Fluid.U.innerGrid.iRes;
 			U(i, j) = Fluid.tempU(index);
 		}
 	}
 #pragma omp parallel for private(index)
-	for (int i = Fluid.gridVinner.iStart; i <= Fluid.gridVinner.iEnd; i++)
+	for (int i = Fluid.V.innerGrid.iStart; i <= Fluid.V.innerGrid.iEnd; i++)
 	{
-		for (int j = Fluid.gridVinner.jStart; j <= Fluid.gridVinner.jEnd; j++)
+		for (int j = Fluid.V.innerGrid.jStart; j <= Fluid.V.innerGrid.jEnd; j++)
 		{
-			index = (i - Fluid.gridVinner.iStart) + (j - Fluid.gridVinner.jStart)*Fluid.gridVinner.iRes;
+			index = (i - Fluid.V.innerGrid.iStart) + (j - Fluid.V.innerGrid.jStart)*Fluid.V.innerGrid.iRes;
 			V(i, j) = Fluid.tempV(index);
 		}
 	}
@@ -527,12 +507,12 @@ inline void InsolubleSurfactant::ComputeSurfaceForce()
 		if (levelSet.tube(i, j) <= ComputedTubeRange)
 		{
 			gradient(i, j) = VT(Surfactant.dxPhi(i, j), Surfactant.dyPhi(i, j));
-			SurfGradSurfTension(i, j) = Surfactant.gradient(i, j) 
+			SurfGradSurfTension(i, j) = Surfactant.gradient(i, j)
 				- DotProduct(unitNormal(i, j), gradient(i, j))*unitNormal(i, j);
 
-			SurfaceForceX(i, j) = - 2*meanCurvature(i, j)*SurfaceTension(i, j)*unitNormal(i, j).x + SurfGradSurfTension(i, j).x;
+			SurfaceForceX(i, j) = -2 * meanCurvature(i, j)*SurfaceTension(i, j)*unitNormal(i, j).x + SurfGradSurfTension(i, j).x;
 			SurfaceForceX(i, j) *= AdvectionMethod2D<double>::DeltaFt(levelSet(i, j))*levelSet.gradient(i, j).magnitude() / (reynoldNum*Ca);
-			SurfaceForceY(i, j) = - 2*meanCurvature(i, j)*SurfaceTension(i, j)*unitNormal(i, j).y + SurfGradSurfTension(i, j).y;
+			SurfaceForceY(i, j) = -2 * meanCurvature(i, j)*SurfaceTension(i, j)*unitNormal(i, j).y + SurfGradSurfTension(i, j).y;
 			SurfaceForceY(i, j) *= -AdvectionMethod2D<double>::DeltaFt(levelSet(i, j))*levelSet.gradient(i, j).magnitude() / (reynoldNum*Ca);
 
 		}
@@ -546,7 +526,7 @@ inline void InsolubleSurfactant::ComputeSurfaceForce()
 	}
 }
 
-inline void InsolubleSurfactant::GenerateLinearSystemUV(VectorND<double>& vectorB, const FD & vel, const FD & gradP, const FD & advec, const FD& force,const Grid2D & ipGrid, const double & scaling)
+inline void InsolubleSurfactant::GenerateLinearSystemUV(VectorND<double>& vectorB, const FD & vel, const FD & gradP, const FD & advec, const FD& force, const Grid2D & ipGrid, const double & scaling)
 {
 	int innerIStart = ipGrid.iStart;
 	int innerIEnd = ipGrid.iEnd;
@@ -554,7 +534,7 @@ inline void InsolubleSurfactant::GenerateLinearSystemUV(VectorND<double>& vector
 	int innerJEnd = ipGrid.jEnd;
 	int innerIRes = ipGrid.iRes;
 	int innerJRes = ipGrid.jRes;
-		
+
 	int index;
 #pragma omp parallel for private(index)
 	for (int i = innerIStart; i <= innerIEnd; i++)

@@ -34,3 +34,12 @@ using namespace std;
 
 
 #define PI 3.141592
+#define BC_FULL 0
+#define BC_DIR -1
+#define BC_OBJ -2
+#define BC_NULL -3
+#define BC_NEUM -4
+#define BC_PER -5	
+#define BC_OTHER -6
+#define BC_IMPLICIT -7
+#define BC_REFLECTION -8

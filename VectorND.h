@@ -116,6 +116,7 @@ VectorND<TT>::~VectorND()
 	if (iLength > 0 && values != nullptr)
 	{
 		delete[] values;
+		values = 0;
 	}
 }
 

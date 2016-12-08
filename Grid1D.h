@@ -38,7 +38,7 @@ public:
 	Grid1D(const double & ipXMin, const double & ipXmax, const int & ipiStart, const int & ipiRes);
 	Grid1D(const Grid1D& ipGrid);
 
-	void initialize(const double & ipXMin, const double & ipXmax, const int & ipiStart, const int & ipiRes);
+	void Initialize(const double & ipXMin, const double & ipXmax, const int & ipiStart, const int & ipiRes);
 
 	inline void operator=(const Grid1D& ipGrid);
 
@@ -73,20 +73,20 @@ Grid1D::~Grid1D()
 
 inline Grid1D::Grid1D(const double & ipXMin, const double & ipXmax, const int & ipiRes)
 {
-	initialize(ipXMin, ipXmax, 0, ipiRes);
+	Initialize(ipXMin, ipXmax, 0, ipiRes);
 }
 
 inline Grid1D::Grid1D(const double & ipXMin, const double & ipXmax, const int & ipiStart, const int & ipiRes)
 {
-	initialize(ipXMin, ipXmax, ipiStart, ipiRes);
+	Initialize(ipXMin, ipXmax, ipiStart, ipiRes);
 }
 
 inline Grid1D::Grid1D(const Grid1D & ipGrid)
 {
-	initialize(ipGrid.xMin, ipGrid.xMax, ipGrid.iStart, ipGrid.iRes);
+	Initialize(ipGrid.xMin, ipGrid.xMax, ipGrid.iStart, ipGrid.iRes);
 }
 
-inline void Grid1D::initialize(const double & ipXMin, const double & ipXmax, const int & ipiStart, const int & ipiRes)
+inline void Grid1D::Initialize(const double & ipXMin, const double & ipXmax, const int & ipiStart, const int & ipiRes)
 {
 	iRes = ipiRes;
 	iStart = ipiStart;
@@ -104,7 +104,7 @@ inline void Grid1D::initialize(const double & ipXMin, const double & ipXmax, con
 
 inline void Grid1D::operator=(const Grid1D & ipGrid)
 {
-	initialize(ipGrid.xMin, ipGrid.xMax, ipGrid.iStart, ipGrid.iRes);
+	Initialize(ipGrid.xMin, ipGrid.xMax, ipGrid.iStart, ipGrid.iRes);
 }
 
 inline double Grid1D::operator()(const int & i) const

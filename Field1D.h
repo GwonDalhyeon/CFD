@@ -154,14 +154,14 @@ inline Field1D<TT>::Field1D(const Grid1D & ipGrid)
 template<class TT>
 inline Field1D<TT>::Field1D(const double & ipXMin, const double & ipXmax, const int & ipiRes)
 {
-	grid.initialize(ipXMin, ipXmax, 0, ipiRes);
+	grid.Initialize(ipXMin, ipXmax, 0, ipiRes);
 	initialize(1, grid);
 }
 
 template<class TT>
 inline Field1D<TT>::Field1D(const double & ipXMin, const double & ipXmax, const int & ipiStart, const int & ipiRes)
 {
-	grid.initialize(ipXMin, ipXmax, ipiStart, ipiRes);
+	grid.Initialize(ipXMin, ipXmax, ipiStart, ipiRes);
 	initialize(1, grid);
 }
 
@@ -200,7 +200,7 @@ inline Field1D<TT>::Field1D(const int & ipGhostWidth, const Grid1D & ipGrid)
 template<class TT>
 inline Field1D<TT>::Field1D(const int & ipGhostWidth, const double & ipXMin, const double & ipXmax, const int & ipiRes)
 {
-	grid.initialize(ipXMin, ipXmax, 0, ipiRes);
+	grid.Initialize(ipXMin, ipXmax, 0, ipiRes);
 
 	initialize(ipGhostWidth, grid);
 }
@@ -208,7 +208,7 @@ inline Field1D<TT>::Field1D(const int & ipGhostWidth, const double & ipXMin, con
 template<class TT>
 inline Field1D<TT>::Field1D(const int & ipGhostWidth, const double & ipXMin, const double & ipXmax, const int & ipiStart, const int & ipiRes)
 {
-	grid.initialize(ipXMin, ipXmax, ipiStart, ipiRes);
+	grid.Initialize(ipXMin, ipXmax, ipiStart, ipiRes);
 
 	initialize(ipGhostWidth, grid);
 }
@@ -223,7 +223,7 @@ inline void Field1D<TT>::initialize(const int & ipGhostWidth, const Grid1D & ipG
 
 	double widthX = double(ghostWidth)*(ipGrid.xMax - ipGrid.xMin) / double(ipGrid.iRes - 1);
 
-	ghostGrid.initialize(ipGrid.xMin - widthX, ipGrid.xMax + widthX, ipGrid.iStart - ghostWidth, ipGrid.iRes + 2 * ghostWidth);
+	ghostGrid.Initialize(ipGrid.xMin - widthX, ipGrid.xMax + widthX, ipGrid.iStart - ghostWidth, ipGrid.iRes + 2 * ghostWidth);
 	ghostDataArray = Array1D<TT>(ghostGrid);
 }
 

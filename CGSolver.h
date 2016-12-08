@@ -7,11 +7,9 @@ public:
 	CGSolver();
 	~CGSolver();
 
-	static void SolverFull(const Array2D<double> & A, const VectorND<double> & b,
-		VectorND<double> & x);
+	static void SolverFull(const Array2D<double> & A, const VectorND<double> & b, VectorND<double> & x);
 
-	static void SolverSparse(const Array2D<double> & A, const VectorND<double> & b,
-		VectorND<double> & x);
+	static void SolverSparse(const Array2D<double> & A, const VectorND<double> & b,	VectorND<double> & x);
 
 	static void SolverSparse(const int & rowNum, const VectorND<double> & A,
 		const VectorND<int> & row, const VectorND<int> & col,
@@ -20,6 +18,8 @@ public:
 	static VectorND<double> SolverCSR(const CSR<double>& A, const VectorND<double>& b);
 	static VectorND<double> SolverCSR(const CSR<double>& A, const VectorND<double>& b, const double & tol);
 	static void SolverCSR(const CSR<double>& A, const VectorND<double>& b, const double & tol, VectorND<double>& x);
+
+	static void Solver(const CSR<double>& A, const VectorND<double>& b, VectorND<double>& x);
 
 	static void SparseA(const Array2D<double> & A, VectorND<double> & a,
 		VectorND<int> & row, VectorND<int> & col, int & nonzeroNum);
@@ -35,8 +35,7 @@ CGSolver::~CGSolver()
 {
 }
 
-inline void CGSolver::SolverFull(const Array2D<double>& A, const VectorND<double>& b,
-	VectorND<double>& x)
+inline void CGSolver::SolverFull(const Array2D<double>& A, const VectorND<double>& b, VectorND<double>& x)
 {
 	assert(A.iRes == A.jRes);
 	assert(A.iRes == b.iLength);
@@ -60,8 +59,7 @@ inline void CGSolver::SolverFull(const Array2D<double>& A, const VectorND<double
 	delete[] r;
 }
 
-inline void CGSolver::SolverSparse(const Array2D<double>& A, const VectorND<double>& b,
-	VectorND<double>& x)
+inline void CGSolver::SolverSparse(const Array2D<double>& A, const VectorND<double>& b, VectorND<double>& x)
 {
 	assert(A.iRes == A.jRes);
 	assert(A.iRes == b.iLength);
@@ -323,15 +321,12 @@ inline void CGSolver::SolverCSR(const CSR<double>& A, const VectorND<double>& b,
 	cout << "Start : CG " << endl;
 
 	int num = A.rowNum;
-	double tolerance = tol;
 
 	VectorND<double> rOld = b;
 	VectorND<double> p = b;
 	VectorND<double> Ap(num);
 
 	int j;
-
-	x = 0;
 
 	double alpha = 0;
 	double beta = 0;
@@ -357,7 +352,7 @@ inline void CGSolver::SolverCSR(const CSR<double>& A, const VectorND<double>& b,
 		//			}
 		//		}
 
-		if (abs(temp2) < tolerance)
+		if (abs(temp2) < DBL_EPSILON)
 		{
 			cout << "CG iterataion : " << k << " " << temp << endl;
 			result = (double)(clock() - before) / CLOCKS_PER_SEC;
@@ -377,12 +372,10 @@ inline void CGSolver::SolverCSR(const CSR<double>& A, const VectorND<double>& b,
 
 		residual = rOld.magnitude2();
 
-		temp = sqrt(abs(residual));
-
 		//cout << k << " " << temp << endl;
-		if (temp < tolerance)
+		if (residual < DBL_EPSILON)
 		{
-			cout << "CG iterataion : " << k << " " << temp << endl;
+			cout << "CG iterataion : " << k << " " << residual << endl;
 			result = (double)(clock() - before) / CLOCKS_PER_SEC;
 			cout << "time : " << result << "\n";
 			cout << "End : CG " << endl;
@@ -407,6 +400,80 @@ inline void CGSolver::SolverCSR(const CSR<double>& A, const VectorND<double>& b,
 	result = (double)(clock() - before) / CLOCKS_PER_SEC;
 	cout << "time : " << result << "\n";
 	cout << "End : CG " << endl;
+	cout << endl;
+}
+
+inline void CGSolver::Solver(const CSR<double>& A, const VectorND<double>& b, VectorND<double>& x)
+{
+	clock_t before;
+	double  result;
+	before = clock();
+	cout << "--------  Start : CG  --------" << endl;
+	x = 0;
+	int N = x.iLength;
+
+	VTN res(N);
+	VTN Ap(N);
+	
+	A.ComputeResidual(x, b, res);
+	VTN p(res);
+
+	int num_iteration = 0;
+
+
+	double alpha, res_old, res_new;
+	double k;
+
+	//A.ComputeResidual(x, b, res);
+
+	
+	res_old = res.magnitude2();
+
+	while (num_iteration < 2*A.rowNum)
+	{
+		A.Multiply(p, Ap);
+
+		k = DotProduct(p, Ap);
+		if (abs(k) < DBL_EPSILON)
+		{
+			cout << "First Time!!" << endl;
+			cout << endl;
+			res_new = 0;
+			break;
+		}
+		alpha = res_old / k;
+
+#pragma omp parallel for
+		for (int i = 0; i < N; i++)
+		{
+			x[i] += alpha*p[i];
+			res[i] -= alpha*Ap[i];
+		}
+
+		res_new = res.magnitude2();
+
+		if (res_new < DBL_EPSILON)
+		{
+			cout << "Converge!!" << endl;
+			break;
+		}
+
+		k = res_new / res_old;
+#pragma omp parallel for
+		for (int i = 0; i < N; i++)
+		{
+			p[i] = res[i] + k*p[i];
+		}
+
+		res_old = res_new;
+
+		num_iteration++;
+	}
+
+	cout << "Iteration Number : " << num_iteration << endl;
+	cout << "Time             : " << (double)(clock() - before) / CLOCKS_PER_SEC << "\n";
+	cout << "Residual         : " << sqrt(res_new) << endl;
+	cout << "--------  End : CG  -------- " << endl;
 	cout << endl;
 }
 
@@ -450,6 +517,6 @@ inline void CGSolver::SparseA(const Array2D<double> & A, VectorND<double> & a,
 
 	result = (double)(clock() - before) / CLOCKS_PER_SEC;
 	cout << "time : " << result << "\n";
-	cout<<"End : Make sparse matrix." << endl;
+	cout << "End : Make sparse matrix." << endl;
 	cout << endl;
 }
