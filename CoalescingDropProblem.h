@@ -1,11 +1,11 @@
 #pragma once
-#include "EulerianFluidSolver.h"
+#include "FluidSolver2D.h"
 #include "EulerianMovingInterface.h"
 
 class CoalescingDrop
 {
 public:
-	CoalescingDrop(EulerianFluidSolver2D & ipFluid, MovingInterface& ipInterfaceSurfactant);
+	CoalescingDrop(FluidSolver2D & ipFluid, MovingInterface& ipInterfaceSurfactant);
 	~CoalescingDrop();
 
 	int ExamNum;
@@ -25,9 +25,9 @@ public:
 	///////////////////////////////
 	//// Incompressible Fluid  ////
 	///////////////////////////////
-	EulerianFluidSolver2D& Fluid;
+	FluidSolver2D& Fluid;
 
-	Grid2D& grid = Fluid.gridP;
+	Grid2D& grid = Fluid.grid;
 	Grid2D& gridU = Fluid.gridU;
 	Grid2D& gridV = Fluid.gridV;
 	FD& U = Fluid.U;
@@ -38,7 +38,7 @@ public:
 	FD SurfaceForceY;
 	FV SurfGradSurfTension;
 
-	int& accuracyOrder = Fluid.accuracyOrder;
+	int& ProjectionOrder = Fluid.ProjectionOrder;
 	double& reynoldNum = Fluid.reynoldNum;
 	double& cflCondition = Fluid.cflCondition;
 	double& Pe = Fluid.Pe;
@@ -61,7 +61,7 @@ public:
 	FD& SurfaceTension = InterfaceSurfactant.SurfaceTension;
 
 	LS& levelSet = InterfaceSurfactant.levelSet;
-	double totalT;
+	double& totalT = InterfaceSurfactant.totalT;
 
 
 	inline void InitialCondition(const int& example);
@@ -90,7 +90,7 @@ private:
 
 };
 
-CoalescingDrop::CoalescingDrop(EulerianFluidSolver2D & ipFluid, MovingInterface& ipInterfaceSurfactant)
+CoalescingDrop::CoalescingDrop(FluidSolver2D & ipFluid, MovingInterface& ipInterfaceSurfactant)
 	:Fluid(ipFluid), InterfaceSurfactant(ipInterfaceSurfactant)
 {
 }
@@ -120,7 +120,7 @@ inline void CoalescingDrop::InitialCondition(const int & example)
 		densityRatio = rho2 / rho1; // 1 : Bubble, 0.1 : Liquid drop
 		viscosityRatio = mu2 / mu1; // 1 : Bubble, 0.1 : Liquid drop
 		lengthscale = 0.01;
-		gamma0 = 3.0*pow(10, -3);//??????????
+		gamma0 = 3.0*pow(10, -3); //??????????
 		timescale = sqrt(rho1*pow(lengthscale, 3) / (Nf*gamma0));
 
 		//// Initialize Surfactant Fields
@@ -167,16 +167,14 @@ inline void CoalescingDrop::InitialCondition(const int & example)
 		}
 
 		InterfaceSurfactant.InitialCondition(8);
-		InterfaceSurfactant.cflCondition = cflCondition;
-		InterfaceSurfactant.dt = dt;
 
 
 		//// Initialize Velocity Fields
 		Fluid.InitialCondition(5);
-		accuracyOrder = 2;
-		reynoldNum = 10;
+		
 		We = rho2 * lengthscale * lengthscale / gamma0;
 		Oh = mu1 / sqrt(lengthscale*rho1*Nf*gamma0);
+
 #pragma omp parallel for
 		for (int i = gridV.iStart; i <= gridV.iEnd; i++)
 		{
@@ -185,12 +183,12 @@ inline void CoalescingDrop::InitialCondition(const int & example)
 				if (levelSet1(i, j) <= 0)
 				{
 					V(i, j) = -We;
-					Fluid.Vstar(i, j) = V(i, j);
-					Fluid.oldV(i, j) = V(i, j);
+					Fluid.originV(i, j) = V(i, j);
 				}
 			}
 		}
-		//cflCondition = 1.0 / 8.0;
+
+		cflCondition = 1.0 / 8.0;
 		//dt = cflCondition*min(grid.dx, grid.dy);
 		dt = 0.001;
 
@@ -222,10 +220,6 @@ inline void CoalescingDrop::CoalescingBubbleSolver(const int & example)
 
 	MATLAB.Command("figure('units','normalized','outerposition',[0 0 1 1])");
 	//MATLAB.Command("subplot(2,1,1),surf(X,Y,Surfactant),subplot(2,1,2),contour(X,Y,phi0,[0 0],'b'),grid on,axis equal");
-	MATLAB.Command("SurTube1 = Surfactant0.*(Tube<=1);");
-	MATLAB.Command("surf(X,Y,SurTube1),grid on,axis equal,set(gca,'fontsize',20)");
-	str = string("title(['iteration : ', num2str(") + to_string(0) + string("),', time : ', num2str(") + to_string(totalT) + string(")]);");
-	MATLAB.Command(str.c_str());
 	MATLAB.Command("IntSur0 = sum(sum(Surfactant0.*(Tube==1)))*(Y(2)-Y(1))*(Y(2)-Y(1));");
 
 	PlotVelocity();
@@ -241,7 +235,7 @@ inline void CoalescingDrop::CoalescingBubbleSolver(const int & example)
 		totalT += dt;
 		//// Step 1-1 : Surfactant Diffusion
 		cout << "Diffusion Start" << endl;
-		//InterfaceSurfactant.LSurfactantDiffusion(iteration);
+		InterfaceSurfactant.LSurfactantDiffusion(iteration);
 		cout << "Diffusion End" << endl;
 
 		//// Step 1-2 : New Surface Tension
@@ -258,7 +252,7 @@ inline void CoalescingDrop::CoalescingBubbleSolver(const int & example)
 
 		//InterfaceSurfactant.ConserveSurfactantFactorBeta();
 
-		//AdvectionMethod2D<double>::LLSQuantityExtension(levelSet, Surfactant, 3, 3, extensionIter);
+		AdvectionMethod2D<double>::LLSQuantityExtension(levelSet, Surfactant, 3, 3, extensionIter);
 		levelSet.UpdateInterface();
 		levelSet.UpdateLLS();
 
@@ -266,58 +260,30 @@ inline void CoalescingDrop::CoalescingBubbleSolver(const int & example)
 		//MATLAB.Command("subplot(2,1,1)");
 		//PlotSurfactant();
 		//MATLAB.Command("subplot(2,1,2)");
-		if (iteration % 10 == 0)
+		PlotVelocity();
+		if (iteration % 10000000 == 0)
 		{
-			PlotVelocity();
 			MATLAB.WriteImage("surfactant", iteration, "fig");
 			MATLAB.WriteImage("surfactant", iteration, "png");
 		}
 		cout << "       Iteration " << to_string(iteration) << " : End" << endl;
-
+		cout << "*******************************************************************" << endl;
 	}
 }
 
 inline void CoalescingDrop::NSSolver()
 {
-	if (iteration == 1)
-	{
-		if (accuracyOrder == 1)
-		{
-			Fluid.Pb = VectorND<double>(Fluid.P.innerGrid.iRes*Fluid.P.innerGrid.jRes);
-			Fluid.tempP = VectorND<double>(Fluid.P.innerGrid.iRes*Fluid.P.innerGrid.jRes);
-
-			Fluid.GenerateLinearSystem(Fluid.PMatrix, -Fluid.gridP.dx*Fluid.gridP.dx);
-		}
-		else
-		{
-			Fluid.Ub = VectorND<double>(Fluid.U.innerGrid.iRes*Fluid.U.innerGrid.jRes);
-			Fluid.tempU = VectorND<double>(Fluid.U.innerGrid.iRes*Fluid.U.innerGrid.jRes);
-
-			Fluid.Vb = VectorND<double>(Fluid.V.innerGrid.iRes*Fluid.V.innerGrid.jRes);
-			Fluid.tempV = VectorND<double>(Fluid.V.innerGrid.iRes*Fluid.V.innerGrid.jRes);
-
-			Fluid.Phib = VectorND<double>(Fluid.P.innerGrid.iRes*Fluid.P.innerGrid.jRes);
-			Fluid.tempPhi = VectorND<double>(Fluid.P.innerGrid.iRes*Fluid.P.innerGrid.jRes);
-
-			Fluid.GenerateLinearSystemPhi(Fluid.PhiCNMatrix, -Fluid.gridP.dx2 / dt);
-
-			GenerateLinearSystemUV(Fluid.UCNMatrix, Fluid.U.innerGrid, 1, Fluid.UCN_CSR);
-			GenerateLinearSystemUV(Fluid.VCNMatrix, Fluid.V.innerGrid, 1, Fluid.VCN_CSR);
-
-		}
-	}
-
 	Fluid.originU.dataArray = U.dataArray;
 	Fluid.originV.dataArray = V.dataArray;
 
 	/////////////////
 	//// Step 1  ////
 	/////////////////
-	if (accuracyOrder == 1)
+	if (ProjectionOrder == 1)
 	{
 		EulerMethod();
 	}
-	else if (accuracyOrder == 2)
+	else if (ProjectionOrder == 2)
 	{
 		EulerMethod2ndOrder();
 	}
@@ -328,11 +294,11 @@ inline void CoalescingDrop::NSSolver()
 	/////////////////
 	//// Step 2  ////
 	/////////////////
-	if (accuracyOrder == 1)
+	if (ProjectionOrder == 1)
 	{
 		EulerMethod();
 	}
-	else if (accuracyOrder == 2)
+	else if (ProjectionOrder == 2)
 	{
 		EulerMethod2ndOrder();
 	}
@@ -362,11 +328,11 @@ inline void CoalescingDrop::NSSolver()
 	/////////////////
 	//// Step 3  ////
 	/////////////////
-	if (accuracyOrder == 1)
+	if (ProjectionOrder == 1)
 	{
 		EulerMethod();
 	}
-	else if (accuracyOrder == 2)
+	else if (ProjectionOrder == 2)
 	{
 		EulerMethod2ndOrder();
 	}
@@ -405,12 +371,12 @@ inline void CoalescingDrop::EulerMethod()
 	////////////////////////////////////////////////
 	////     Projection Method 2 : Poisson Eq   ////
 	////////////////////////////////////////////////
-	Fluid.EulerMethod2();
+	Fluid.EulerMethodStep2();
 
 	//////////////////////////////////////////////
 	////     Projection Method 3 : New U,V    ////
 	//////////////////////////////////////////////
-	Fluid.EulerMethod3();
+	Fluid.EulerMethodStep3();
 }
 
 inline void CoalescingDrop::EulerMethod1()
@@ -423,19 +389,19 @@ inline void CoalescingDrop::EulerMethod1()
 
 	Array2D<double>& K1U = U.K1;
 	Array2D<double>& K1V = V.K1;
-	Fluid.AdvectionTerm(U, V, Fluid.advectionU, Fluid.advectionV);
-	Fluid.DiffusionTerm(U, V, Fluid.diffusionU, Fluid.diffusionV);
-	//advectionU.Variable("advectionU");
-	//diffusionU.Variable("diffusionU");
-	//advectionV.Variable("advectionV");
-	//diffusionV.Variable("diffusionV");
+	Fluid.AdvectionTerm(U, V, Fluid.AdvectionU, Fluid.AdvectionV);
+	Fluid.DiffusionTerm(U, V, Fluid.DiffusionU, Fluid.DiffusionV);
+	//AdvectionU.Variable("AdvectionU");
+	//DiffusionU.Variable("DiffusionU");
+	//AdvectionV.Variable("AdvectionV");
+	//DiffusionV.Variable("DiffusionV");
 
 #pragma omp parallel for
 	for (int i = K1U.iStart; i <= K1U.iEnd; i++)
 	{
 		for (int j = K1U.jStart; j <= K1U.jEnd; j++)
 		{
-			K1U(i, j) = dt*(-Fluid.advectionU(i, j) + 1. / reynoldNum*Fluid.diffusionU(i, j) + SurfaceForceX(i, j));
+			K1U(i, j) = dt*(-Fluid.AdvectionU(i, j) + 1. / reynoldNum*Fluid.DiffusionU(i, j) + SurfaceForceX(i, j));
 			U(i, j) = U(i, j) + K1U(i, j);
 		}
 	}
@@ -444,14 +410,13 @@ inline void CoalescingDrop::EulerMethod1()
 	{
 		for (int j = K1V.jStart; j <= K1V.jEnd; j++)
 		{
-			K1V(i, j) = dt*(-Fluid.advectionV(i, j) + 1. / reynoldNum*Fluid.diffusionV(i, j) + SurfaceForceY(i, j));
+			K1V(i, j) = dt*(-Fluid.AdvectionV(i, j) + 1. / reynoldNum*Fluid.DiffusionV(i, j) + SurfaceForceY(i, j));
 			V(i, j) = V(i, j) + K1V(i, j);
 		}
 	}
 	//K1U.Variable("k1u");
 	//K1V.Variable("k1v");
-	//// Boundary : Linear extension.
-	Fluid.BdryCondVel();
+	Fluid.TreatVelocityBC(U, V);
 
 
 	//U.Variable("Ustar");
@@ -494,8 +459,8 @@ inline void CoalescingDrop::EulerMethod2ndOrder()
 	Fluid.oldV.dataArray = V.dataArrayOld;
 
 	//MATLAB.Command("VVB = reshape(Vb, 49, 50)';");
-	//advectionV.Variable("advectionV");
-	//MATLAB.Command("figure(2),subplot(1,2,1),plot(Vnew(51,2:end-1),'-o'),grid on, subplot(1,2,2),plot(advectionV(end,:),'-o'),grid on");
+	//AdvectionV.Variable("AdvectionV");
+	//MATLAB.Command("figure(2),subplot(1,2,1),plot(Vnew(51,2:end-1),'-o'),grid on, subplot(1,2,2),plot(AdvectionV(end,:),'-o'),grid on");
 	//MATLAB.Command("figure(2),subplot(2,2,1),surf(Xu(2:end-1,2:end-1),Yu(2:end-1,2:end-1),Unew(2:end-1,2:end-1))");
 	//MATLAB.Command("subplot(2,2,2),surf(Xv(2:end-1,2:end-1),Yv(2:end-1,2:end-1),Vnew(2:end-1,2:end-1))");
 	//MATLAB.Command("subplot(2,2,3),surf(Xp(2:end-1,2:end-1),Yp(2:end-1,2:end-1),Phi(2:end-1,2:end-1))");
@@ -516,20 +481,20 @@ inline void CoalescingDrop::EulerMethod2ndOrder1stIteration1()
 	}
 
 
-	Fluid.AdvectionTerm(U, V, Fluid.advectionU, Fluid.advectionV);
-	Fluid.DiffusionTerm(U, V, Fluid.diffusionU, Fluid.diffusionV);
+	Fluid.AdvectionTerm(U, V, Fluid.AdvectionU, Fluid.AdvectionV);
+	Fluid.DiffusionTerm(U, V, Fluid.DiffusionU, Fluid.DiffusionV);
 
 	double viscosity = 1;
 	//// 2nd-order Adams-Bashforth formula
-	//Fluid.advectionU.Variable("advectionU");
-	//Fluid.diffusionU.Variable("diffusionU");
+	//Fluid.AdvectionU.Variable("AdvectionU");
+	//Fluid.DiffusionU.Variable("DiffusionU");
 
-	//Fluid.advectionV.Variable("advectionV");
-	//Fluid.diffusionV.Variable("diffusionV");
+	//Fluid.AdvectionV.Variable("AdvectionV");
+	//Fluid.DiffusionV.Variable("DiffusionV");
 
 	//// Crank-Nicolson
-	GenerateLinearSystemUV(Fluid.Ub, U, Fluid.gradientPx, Fluid.advectionU, SurfaceForceX, Fluid.U.innerGrid, 1);
-	GenerateLinearSystemUV(Fluid.Vb, V, Fluid.gradientPy, Fluid.advectionV, SurfaceForceY, Fluid.V.innerGrid, 1);
+	GenerateLinearSystemUV(Fluid.Ub, U, Fluid.gradientPx, Fluid.AdvectionU, SurfaceForceX, Fluid.U.innerGrid, 1);
+	GenerateLinearSystemUV(Fluid.Vb, V, Fluid.gradientPy, Fluid.AdvectionV, SurfaceForceY, Fluid.V.innerGrid, 1);
 
 	//Fluid.Ub.Variable("Ub");
 	//Fluid.Vb.Variable("Vb");
@@ -562,8 +527,7 @@ inline void CoalescingDrop::EulerMethod2ndOrder1stIteration1()
 		}
 	}
 
-	// Boundary : Linear extension. (But, Dirichlet로 줄 방법은 없나???)
-	Fluid.BdryCondVel();
+	Fluid.TreatVelocityBC(U, V);
 
 	//U.Variable("Ustar");
 	//V.Variable("Vstar");

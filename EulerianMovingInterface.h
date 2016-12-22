@@ -1,19 +1,21 @@
 #pragma once
 
 #include "AdvectionMethod2D.h"
-#include "EulerianFluidSolver.h"
+//#include "EulerianFluidSolver.h"
+#include "FluidSolver2D.h"
+
 
 class MovingInterface
 {
 public:
-	MovingInterface(EulerianFluidSolver2D & ipFluid);
+	MovingInterface(FluidSolver2D & ipFluid);
 	~MovingInterface();
 
 	int ExamNum;
 
-	EulerianFluidSolver2D& Fluid;
+	FluidSolver2D& Fluid;
 
-	Grid2D& grid = Fluid.gridP;
+	Grid2D& grid = Fluid.grid;
 
 	FD& U = Fluid.U; // x velocity
 	FD& V = Fluid.V; // y velocity
@@ -36,17 +38,16 @@ public:
 	Array2D<double> termOld;
 
 	VectorND<double> vectorB;
-	Array2D<double>A;
 	// CG solver 1
 	CSR<double> Acsr;
 
 
-	double dt;
+	double& dt = Fluid.dt;
 	double totalT;
 
-	double cflCondition;
+	double& cflCondition = Fluid.cflCondition;
 
-	int maxIteration;
+	int& maxIteration = Fluid.maxIteration;
 	int writeOutputIteration;
 
 	inline void InitialCondition(const int& example);
@@ -62,10 +63,10 @@ public:
 
 	inline void SurfactantNormalTerm(FD& ipField, LS& ipLevelSet, Array2D<double>& term);
 	inline double ExactSurfactant(const double& x, const double& y, const double& time);
-	inline void GenerateLinearSystem1(Array2D<double>& matrixA, const double & scaling);
-	inline void GenerateLinearSystem1(VectorND<double>& vectorB, const double & scaling);
-	inline void GenerateLinearSystem2(Array2D<double>& matrixA, const double & scaling);
-	inline void GenerateLinearSystem2(VectorND<double>& vectorB, const double & scaling);
+	inline void GenerateLinearSystem1(CSR<double>& ipCSR);
+	inline void GenerateLinearSystem1(VectorND<double>& vectorB);
+	inline void GenerateLinearSystem2(CSR<double>& ipCSR);
+	inline void GenerateLinearSystem2(VectorND<double>& vectorB);
 
 	//////////////////////////////////////////////
 	////   Local Surfactant Diffusion Solver  ////
@@ -80,13 +81,14 @@ public:
 	inline void SurfactantTube2Extrapolation();
 
 	inline void LSurfactantDiffusion(const int& iter);
+	inline void LCountNonZero();
 	inline void LOneStepSemiImplicit();
 	inline void LTwoStepSemiImplicit();
 	inline void LSurfactantNormalTerm(FD& ipField, LS& ipLevelSet, Array2D<double>& term);
-	inline void LGenerateLinearSystem1(Array2D<double>& matrixA, const double & scaling);
-	inline void LGenerateLinearSystem1(VectorND<double>& vectorB, const double & scaling);
-	inline void LGenerateLinearSystem2(Array2D<double>& matrixA, const double & scaling);
-	inline void LGenerateLinearSystem2(VectorND<double>& vectorB, const double & scaling);
+	inline void LGenerateLinearSystem1(CSR<double>& ipCSR);
+	inline void LGenerateLinearSystem1(VectorND<double>& vectorB);
+	inline void LGenerateLinearSystem2(CSR<double>& ipCSR);
+	inline void LGenerateLinearSystem2(VectorND<double>& vectorB);
 
 	// Compute Surface Tension
 	inline void DimlessNonlinearLangmu1rEOS();
@@ -103,7 +105,7 @@ private:
 
 };
 
-inline MovingInterface::MovingInterface(EulerianFluidSolver2D & ipFluid)
+inline MovingInterface::MovingInterface(FluidSolver2D & ipFluid)
 	:Fluid(ipFluid)
 {
 }
@@ -114,6 +116,8 @@ MovingInterface::~MovingInterface()
 
 inline void MovingInterface::InitialCondition(const int & example)
 {
+	AdvectionMethod2D<double>::alpha = 1.5*grid.dx;
+
 	ExamNum = example;
 	if (example == 1)
 	{
@@ -142,29 +146,23 @@ inline void MovingInterface::InitialCondition(const int & example)
 		}
 
 		Surfactant = FD(grid);
-#pragma omp parallel for
-		for (int i = grid.iStart; i <= grid.iEnd; i++)
+		int tempBC = 0;
+		for (int j = grid.jStart; j <= grid.jEnd; j++)
 		{
-			for (int j = grid.jStart; j <= grid.jEnd; j++)
+			for (int i = grid.iStart; i <= grid.iEnd; i++)
 			{
-				Surfactant(i, j) = ExactSurfactant(grid(i, j).x, grid(i, j).y, totalT);
-
+				Surfactant(i, j) = ExactSurfactant(grid(i, j).x, grid(i, j).y, 0);
+				if (i == grid.iStart || i == grid.iEnd || j == grid.jStart || j == grid.jEnd)
+				{
+					Surfactant.BC(i, j) = BC_DIR;
+					continue;
+				}
+				Surfactant.BC(i, j) = tempBC++;
 			}
 		}
 
-		AdvectionMethod2D<double>::alpha = 1.5*grid.dx;
-
-		int innerIStart = grid.iStart + 1;
-		int innerIEnd = grid.iEnd - 1;
-		int innerJStart = grid.jStart + 1;
-		int innerJEnd = grid.jEnd - 1;
-		int innerIRes = grid.iRes - 2;
-		int innerJRes = grid.jRes - 2;
-		term = Array2D<double>(innerIStart, innerIRes, innerJStart, innerJRes);
-		termOld = Array2D<double>(innerIStart, innerIRes, innerJStart, innerJRes);
-		tempSur = VectorND<double>((grid.iRes - 2)*(grid.jRes - 2));
-		vectorB = VectorND<double>((grid.iRes - 2)*(grid.jRes - 2));
-		A = Array2D<double>(1, (grid.iRes - 2)*(grid.jRes - 2), 1, (grid.iRes - 2)*(grid.jRes - 2));
+		term = Array2D<double>(grid);
+		termOld = Array2D<double>(grid);
 
 		totalT = 0;
 		dt = grid.dx / 4.0;
@@ -212,30 +210,25 @@ inline void MovingInterface::InitialCondition(const int & example)
 
 		Surfactant = FD(grid);
 		int i, j;
-#pragma omp parallel for private(x0, y0)
-		for (int i = grid.iStart; i <= grid.iEnd; i++)
+		int tempBC = 0;
+		for (int j = grid.jStart; j <= grid.jEnd; j++)
 		{
-			for (int j = grid.jStart; j <= grid.jEnd; j++)
+			for (int i = grid.iStart; i <= grid.iEnd; i++)
 			{
 				x0 = grid(i, j).x;
 				y0 = grid(i, j).y;
-				Surfactant(i, j) = ExactSurfactant(x0, y0, totalT);
+				Surfactant(i, j) = ExactSurfactant(x0, y0, 0);
+				if (i == grid.iStart || i == grid.iEnd || j == grid.jStart || j == grid.jEnd)
+				{
+					Surfactant.BC(i, j) = BC_DIR;
+					continue;
+				}
+				Surfactant.BC(i, j) = tempBC++;
 			}
 		}
+		term = Array2D<double>(grid);
+		termOld = Array2D<double>(grid);
 
-		AdvectionMethod2D<double>::alpha = 1.5*grid.dx;
-
-		int innerIStart = grid.iStart + 1;
-		int innerIEnd = grid.iEnd - 1;
-		int innerJStart = grid.jStart + 1;
-		int innerJEnd = grid.jEnd - 1;
-		int innerIRes = grid.iRes - 2;
-		int innerJRes = grid.jRes - 2;
-		term = Array2D<double>(innerIStart, innerIRes, innerJStart, innerJRes);
-		termOld = Array2D<double>(innerIStart, innerIRes, innerJStart, innerJRes);
-		tempSur = VectorND<double>((grid.iRes - 2)*(grid.jRes - 2));
-		vectorB = VectorND<double>((grid.iRes - 2)*(grid.jRes - 2));
-		A = Array2D<double>(1, (grid.iRes - 2)*(grid.jRes - 2), 1, (grid.iRes - 2)*(grid.jRes - 2));
 		cflCondition = 1.0 / 4.0;
 		dt = AdvectionMethod2D<double>::AdaptiveTimeStep(U, cflCondition);
 		maxIteration = 80;
@@ -479,7 +472,6 @@ inline void MovingInterface::InitialCondition(const int & example)
 
 		int extensionIter = (int)ceil((levelSet.gamma2 - levelSet.gamma1) / (0.1*min(grid.dx, grid.dy)));
 		AdvectionMethod2D<double>::LLSQuantityExtension(levelSet, Surfactant, 3, 3, extensionIter);
-		AdvectionMethod2D<double>::alpha = 1.5*grid.dx;
 
 		term = Array2D<double>(grid);
 		termOld = Array2D<double>(grid);
@@ -541,8 +533,6 @@ inline void MovingInterface::InitialCondition(const int & example)
 
 		initialSurfactant = IntegralSurfactant();
 
-		AdvectionMethod2D<double>::alpha = 1.5*grid.dx;
-
 		term = Array2D<double>(grid);
 		termOld = Array2D<double>(grid);
 		cflCondition = 1.0 / 4.0;
@@ -593,8 +583,6 @@ inline void MovingInterface::InitialCondition(const int & example)
 
 		initialSurfactant = IntegralSurfactant();
 
-		AdvectionMethod2D<double>::alpha = 1.5*grid.dx;
-
 		term = Array2D<double>(grid);
 		termOld = Array2D<double>(grid);
 		totalT = 0;
@@ -611,7 +599,6 @@ inline void MovingInterface::SurfactantDiffusionSolver(const int & example)
 	bool writeFile = false;
 	string fileName;
 	string str;
-	const char* cmd;
 
 
 	InitialCondition(example);
@@ -623,8 +610,7 @@ inline void MovingInterface::SurfactantDiffusionSolver(const int & example)
 	Surfactant.Variable("Surfactant");
 	MATLAB.Command("surf(X,Y,Surfactant);");
 	str = string("title(['iteration : ', num2str(") + to_string(0) + string("),', time : ', num2str(") + to_string(totalT) + string(")]), ;");
-	cmd = str.c_str();
-	MATLAB.Command(cmd);
+	MATLAB.Command(str.c_str());
 
 	FD exact(grid);
 
@@ -657,8 +643,7 @@ inline void MovingInterface::SurfactantDiffusionSolver(const int & example)
 		//MATLAB.Command("subplot(1,2,2),surf(X,Y,SurfactantExact);set(gca,'fontsize',20)");
 		MATLAB.Command("loss=sum(sum((Surfactant-SurfactantExact).^2.))*(Y(2)-Y(1))^2;");
 		str = string("title(['iteration : ', num2str(i),', time : ', num2str(totalT), ', L2 error  :',num2str(loss)]);");
-		cmd = str.c_str();
-		MATLAB.Command(cmd);
+		MATLAB.Command(str.c_str());
 	}
 
 }
@@ -667,13 +652,18 @@ inline void MovingInterface::SurfactantDiffusion(const int & iter)
 {
 	if (iter == 1)
 	{
-		GenerateLinearSystem1(A, 1);
-		Acsr = CSR<double>(A);
+		Surfactant.CountNonZero();
+		vectorB = VectorND<double>(Surfactant.num_all_full_cells);
+		tempSur = VectorND<double>(Surfactant.num_all_full_cells);
+		Acsr = CSR<double>(Surfactant.num_all_full_cells, Surfactant.nnz);
+
+		GenerateLinearSystem1(Acsr);
 	}
 	if (iter == 2)
 	{
-		GenerateLinearSystem2(A, 1);
-		Acsr = CSR<double>(A);
+		Acsr = CSR<double>(Surfactant.num_all_full_cells, Surfactant.nnz);
+		GenerateLinearSystem2(Acsr);
+
 	}
 	if (iter == 1)
 	{
@@ -688,37 +678,12 @@ inline void MovingInterface::SurfactantDiffusion(const int & iter)
 inline void MovingInterface::OneStepSemiImplicit()
 {
 	//// Linear Equation
-	GenerateLinearSystem1(vectorB, 1);
+	GenerateLinearSystem1(vectorB);
 
 
 	CGSolver::Solver(Acsr, vectorB, tempSur);
 
-
-	int index;
-#pragma omp parallel for private(index)
-	for (int i = Surfactant.iStartI; i <= Surfactant.iEndI; i++)
-	{
-		for (int j = Surfactant.jStartI; j <= Surfactant.jEndI; j++)
-		{
-			index = (i - (grid.iStart + 1)) + (j - (grid.jStart + 1))*(grid.iRes - 2);
-			Surfactant(i, j) = tempSur(index);
-		}
-	}
-
-	//// Dirichlet Boundary Condition from the Exact Solution
-
-#pragma omp parallel for
-	for (int i = grid.iStart; i <= grid.iEnd; i++)
-	{
-		Surfactant(i, grid.jStart) = ExactSurfactant(grid(i, grid.jStart).x, grid(i, grid.jStart).y, totalT);
-		Surfactant(i, grid.jEnd) = ExactSurfactant(grid(i, grid.jEnd).x, grid(i, grid.jEnd).y, totalT);
-	}
-#pragma omp parallel for
-	for (int j = grid.jStart; j <= grid.jEnd; j++)
-	{
-		Surfactant(grid.iStart, j) = ExactSurfactant(grid(grid.iStart, j).x, grid(grid.iStart, j).y, totalT);
-		Surfactant(grid.iEnd, j) = ExactSurfactant(grid(grid.iEnd, j).x, grid(grid.iEnd, j).y, totalT);
-	}
+	Fluid.VectorToGrid(tempSur, Surfactant);
 
 	AdvectionMethod2D<double>::LSPropagatingTVDRK3(levelSet, U, V, dt);
 }
@@ -726,33 +691,11 @@ inline void MovingInterface::OneStepSemiImplicit()
 inline void MovingInterface::TwoStepSemiImplicit()
 {
 	//// Linear Equation
-	GenerateLinearSystem2(vectorB, 1);
+	GenerateLinearSystem2(vectorB);
+
 	CGSolver::Solver(Acsr, vectorB, tempSur);
 
-	int index;
-#pragma omp parallel for private(index)
-	for (int i = grid.iStart + 1; i <= grid.iEnd - 1; i++)
-	{
-		for (int j = grid.jStart + 1; j <= grid.jEnd - 1; j++)
-		{
-			index = (i - (grid.iStart + 1)) + (j - (grid.jStart + 1))*(grid.iRes - 2);
-			Surfactant(i, j) = tempSur(index);
-		}
-	}
-
-	//// Dirichlet Boundary Condition from the Exact Solution
-#pragma omp parallel for
-	for (int i = grid.iStart; i <= grid.iEnd; i++)
-	{
-		Surfactant(i, grid.jStart) = ExactSurfactant(grid(i, grid.jStart).x, grid(i, grid.jStart).y, totalT);
-		Surfactant(i, grid.jEnd) = ExactSurfactant(grid(i, grid.jEnd).x, grid(i, grid.jEnd).y, totalT);
-	}
-#pragma omp parallel for
-	for (int j = grid.jStart; j <= grid.jEnd; j++)
-	{
-		Surfactant(grid.iStart, j) = ExactSurfactant(grid(grid.iStart, j).x, grid(grid.iStart, j).y, totalT);
-		Surfactant(grid.iEnd, j) = ExactSurfactant(grid(grid.iEnd, j).x, grid(grid.iEnd, j).y, totalT);
-	}
+	Fluid.VectorToGrid(tempSur, Surfactant);
 
 	AdvectionMethod2D<double>::LSPropagatingTVDRK3(levelSet, U, V, dt);
 }
@@ -785,6 +728,10 @@ inline void MovingInterface::SurfactantNormalTerm(FD& ipField, LS& ipLevelSet, A
 	{
 		for (int j = term.jStart; j <= term.jEnd; j++)
 		{
+			if (Surfactant.BC(i,j) < 0)
+			{
+				continue;
+			}
 			normal = ipLevelSet.normal(i, j);
 			//Normal(i, j) = normal;
 			Hessian = Surfactant.Hessian(i, j);
@@ -810,9 +757,6 @@ inline void MovingInterface::SurfactantNormalTerm(FD& ipField, LS& ipLevelSet, A
 			term(i, j) += normal(1)*(gradientV(i, j).x*normal(0) + gradientV(i, j).y*normal(1))*ipField(i, j);
 		}
 	}
-	//term.Variable("addedTerm");
-	//ArrayVec2DVariable("normal", Normal.dataArray);
-	//ArrayVec2DVariable("gradient", gradient.dataArray);
 }
 
 inline double MovingInterface::ExactSurfactant(const double & x, const double & y, const double & time)
@@ -828,296 +772,374 @@ inline double MovingInterface::ExactSurfactant(const double & x, const double & 
 	return 0.0;
 }
 
-inline void MovingInterface::GenerateLinearSystem1(Array2D<double>& matrixA, const double & scaling)
+inline void MovingInterface::GenerateLinearSystem1(CSR<double>& ipCSR)
 {
-	cout << "Start Generate Linear System : matrix A" << endl;
-	int innerIStart = grid.iStart + 1;
-	int innerIEnd = grid.iEnd - 1;
-	int innerJStart = grid.jStart + 1;
-	int innerJEnd = grid.jEnd - 1;
-	int innerIRes = grid.iRes - 2;
-	int innerJRes = grid.jRes - 2;
+	int iStart = Surfactant.iStart, iEnd = Surfactant.iEnd, jStart = Surfactant.jStart, jEnd = Surfactant.jEnd;
 
-	int index, leftIndex, rightIndex, bottomIndex, topIndex;
-#pragma omp parallel for private(index, leftIndex, rightIndex, bottomIndex, topIndex)
-	for (int j = innerJStart; j <= innerJEnd; j++)
+	double dx = Surfactant.dx, dy = Surfactant.dy;
+	double dx2 = dx*dx, dy2 = dy*dy, dxdy = dx*dy;
+	double oneOverdx = 1 / dx, oneOverdx2 = 1 / dx2;
+	double oneOverdy = 1 / dy, oneOverdy2 = 1 / dy2;
+
+	Array2D<int>& BC = Surfactant.BC;
+
+	double coefIJ;
+
+	for (int j = jStart; j <= jEnd; j++)
 	{
-		for (int i = innerIStart; i <= innerIEnd; i++)
+		for (int i = iStart; i <= iEnd; i++)
 		{
-			index = (i - innerIStart)*innerIRes*innerJRes + (i - innerIStart)
-				+ (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart)*innerIRes;
-			leftIndex = (i - innerIStart)*innerIRes*innerJRes + (i - innerIStart - 1)
-				+ (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart)*innerIRes;
-			rightIndex = (i - innerIStart)*innerIRes*innerJRes + (i - innerIStart + 1)
-				+ (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart)*innerIRes;
-			bottomIndex = (i - innerIStart)*innerIRes*innerJRes + (i - innerIStart)
-				+ (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart - 1)*innerIRes;
-			topIndex = (i - innerIStart)*innerIRes*innerJRes + (i - innerIStart)
-				+ (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart + 1)*innerIRes;
-			// Boundary condition.
-			if (j == innerJStart)
-			{
-				if (i == innerIStart)
-				{
-					matrixA(index) = scaling*(1 + 2 * dt*grid.oneOverdx2 + 2 * dt*grid.oneOverdy2);
-					matrixA(rightIndex) = scaling * -1 * dt*grid.oneOverdx2;
-					matrixA(topIndex) = scaling * -1 * dt*grid.oneOverdy2;
-				}
-				else if (i == innerIEnd)
-				{
-					matrixA(index) = scaling*(1 + 2 * dt*grid.oneOverdx2 + 2 * dt*grid.oneOverdy2);
-					matrixA(leftIndex) = scaling * -1 * dt*grid.oneOverdx2;
-					matrixA(topIndex) = scaling * -1 * dt*grid.oneOverdy2;
-				}
-				else
-				{
-					matrixA(index) = scaling*(1 + 2 * dt*grid.oneOverdx2 + 2 * dt*grid.oneOverdy2);
-					matrixA(leftIndex) = scaling * -1 * dt*grid.oneOverdx2;
-					matrixA(rightIndex) = scaling * -1 * dt*grid.oneOverdx2;
-					matrixA(topIndex) = scaling * -1 * dt*grid.oneOverdy2;
-				}
-			}
-			else if (j > innerJStart && j < innerJEnd)
-			{
-				if (i == innerIStart)
-				{
-					matrixA(index) = scaling*(1 + 2 * dt*grid.oneOverdx2 + 2 * dt*grid.oneOverdy2);
-					matrixA(rightIndex) = scaling * -1 * dt*grid.oneOverdx2;
-					matrixA(bottomIndex) = scaling * -1 * dt*grid.oneOverdy2;
-					matrixA(topIndex) = scaling * -1 * dt*grid.oneOverdy2;
+			coefIJ = 0;
 
-				}
-				else if (i == innerIEnd)
-				{
-					matrixA(index) = scaling*(1 + 2 * dt*grid.oneOverdx2 + 2 * dt*grid.oneOverdy2);
-					matrixA(leftIndex) = scaling * -1 * dt*grid.oneOverdx2;
-					matrixA(bottomIndex) = scaling * -1 * dt*grid.oneOverdy2;
-					matrixA(topIndex) = scaling * -1 * dt*grid.oneOverdy2;
-
-				}
-				else
-				{
-					matrixA(index) = scaling*(1 + 2 * dt*grid.oneOverdx2 + 2 * dt*grid.oneOverdy2);
-					matrixA(leftIndex) = scaling * -1 * dt*grid.oneOverdx2;
-					matrixA(rightIndex) = scaling * -1 * dt*grid.oneOverdx2;
-					matrixA(bottomIndex) = scaling * -1 * dt*grid.oneOverdy2;
-					matrixA(topIndex) = scaling * -1 * dt*grid.oneOverdy2;
-				}
-			}
-			else if (j == innerJEnd)
+			if (BC(i, j) < 0)
 			{
-				if (i == innerIStart)
+				continue;
+			}
+
+			//// If neighbor is full cell
+			if (i>iStart)
+			{
+				if (BC(i - 1, j) > -1)
 				{
-					matrixA(index) = scaling*(1 + 2 * dt*grid.oneOverdx2 + 2 * dt*grid.oneOverdy2);
-					matrixA(rightIndex) = scaling * -1 * dt*grid.oneOverdx2;
-					matrixA(bottomIndex) = scaling * -1 * dt*grid.oneOverdy2;
-				}
-				else if (i == innerIEnd)
-				{
-					matrixA(index) = scaling*(1 + 2 * dt*grid.oneOverdx2 + 2 * dt*grid.oneOverdy2);
-					matrixA(leftIndex) = scaling * -1 * dt*grid.oneOverdx2;
-					matrixA(bottomIndex) = scaling * -1 * dt*grid.oneOverdy2;
-				}
-				else
-				{
-					matrixA(index) = scaling*(1 + 2 * dt*grid.oneOverdx2 + 2 * dt*grid.oneOverdy2);
-					matrixA(leftIndex) = scaling * -1 * dt*grid.oneOverdx2;
-					matrixA(rightIndex) = scaling * -1 * dt*grid.oneOverdx2;
-					matrixA(bottomIndex) = scaling * -1 * dt*grid.oneOverdy2;
+					coefIJ++;
+					ipCSR.AssignValue(BC(i, j), BC(i - 1, j), -oneOverdx2);
 				}
 			}
+			if (i<iEnd)
+			{
+				if (BC(i + 1, j) > -1)
+				{
+					coefIJ++;
+					ipCSR.AssignValue(BC(i, j), BC(i + 1, j), -oneOverdx2);
+				}
+			}
+			if (j>iStart)
+			{
+				if (BC(i, j - 1) > -1)
+				{
+					coefIJ++;
+					ipCSR.AssignValue(BC(i, j), BC(i, j - 1), -oneOverdy2);
+				}
+			}
+			if (j<jEnd)
+			{
+				if (BC(i, j + 1) > -1)
+				{
+					coefIJ++;
+					ipCSR.AssignValue(BC(i, j), BC(i, j + 1), -oneOverdy2);
+				}
+			}
+
+			//// Dirichlet Boundary Condition
+			if (i>iStart)
+			{
+				if (BC(i - 1, j) == BC_DIR)	coefIJ++;
+			}
+			if (i<iEnd)
+			{
+				if (BC(i + 1, j) == BC_DIR)	coefIJ++;
+			}
+			if (j>iStart)
+			{
+				if (BC(i, j - 1) == BC_DIR)	coefIJ++;
+			}
+			if (j<jEnd)
+			{
+				if (BC(i, j + 1) == BC_DIR)	coefIJ++;
+			}
+
+			if ((i == Surfactant.iStartI) && (j == Surfactant.jStartI))
+			{
+				//if (BC(i - 1, j) == BC_NEUM)
+				//{
+				//	coefIJ ++;
+				//}
+				//if (BC(i + 1, j) == BC_NEUM)
+				//{
+				//	coefIJ ++;
+				//}
+				//if (BC(i, j - 1) == BC_NEUM)
+				//{
+				//	coefIJ ++;
+				//}
+				//if (BC(i, j + 1) == BC_NEUM)
+				//{
+				//	coefIJ ++;
+				//}
+			}
+			else
+			{
+				if (i>iStart)
+				{
+					if (BC(i - 1, j) == BC_NEUM) coefIJ += 0;
+				}
+				if (i<iEnd)
+				{
+					if (BC(i + 1, j) == BC_NEUM) coefIJ += 0;
+				}
+				if (j>iStart)
+				{
+					if (BC(i, j - 1) == BC_NEUM) coefIJ += 0;
+				}
+				if (j<jEnd)
+				{
+					if (BC(i, j + 1) == BC_NEUM) coefIJ += 0;
+				}
+			}
+
+			if (coefIJ == 0)
+			{
+				coefIJ = 1;
+			}
+
+			ipCSR.AssignValue(BC(i, j), BC(i, j), oneOverdx2*coefIJ + 1./dt);
+
 		}
 	}
+
 }
 
-inline void MovingInterface::GenerateLinearSystem1(VectorND<double>& vectorB, const double & scaling)
+inline void MovingInterface::GenerateLinearSystem1(VectorND<double>& vectorB)
 {
-	int innerIStart = grid.iStart + 1;
-	int innerIEnd = grid.iEnd - 1;
-	int innerJStart = grid.jStart + 1;
-	int innerJEnd = grid.jEnd - 1;
-	int innerIRes = grid.iRes - 2;
-	int innerJRes = grid.jRes - 2;
-
+	Array2D<int>& BC = Surfactant.BC;
 	SurfactantNormalTerm(Surfactant, levelSet, term);
-	int index;
-#pragma omp parallel for private(index)
-	for (int i = innerIStart; i <= innerIEnd; i++)
+	double oneOverdt = 1 / dt;
+#pragma omp parallel for
+	for (int j = Surfactant.jStart; j <= Surfactant.jEnd; j++)
 	{
-		for (int j = innerJStart; j <= innerJEnd; j++)
+		for (int i = Surfactant.iStart; i <= Surfactant.iEnd; i++)
 		{
-			index = (i - innerIStart) + (j - innerJStart)*innerIRes;
-			vectorB(index) = Surfactant(i, j) + dt*term(i, j);
-
-			if (i == innerIStart)
+			if (BC(i, j) < 0)
 			{
-				vectorB(index) += dt*grid.oneOverdx2*ExactSurfactant(grid(i - 1, j).x, grid(i - 1, j).y, totalT);
+				continue;
 			}
-			if (i == innerIEnd)
-			{
-				vectorB(index) += dt*grid.oneOverdx2*ExactSurfactant(grid(i + 1, j).x, grid(i + 1, j).y, totalT);
-			}
-			if (j == innerJStart)
-			{
-				vectorB(index) += dt*grid.oneOverdy2*ExactSurfactant(grid(i, j - 1).x, grid(i, j - 1).y, totalT);
+			vectorB(BC(i, j)) = Surfactant(i, j)*oneOverdt + term(i, j);
 
-			}
-			if (j == innerJEnd)
+			if (i > Surfactant.jStart)
 			{
-				vectorB(index) += dt*grid.oneOverdy2*ExactSurfactant(grid(i, j + 1).x, grid(i, j + 1).y, totalT);
-			}
-			vectorB(index) *= scaling;
-		}
-	}
-}
-
-inline void MovingInterface::GenerateLinearSystem2(Array2D<double>& matrixA, const double & scaling)
-{
-	cout << "Start Generate Linear System : matrix A" << endl;
-	int innerIStart = grid.iStart + 1;
-	int innerIEnd = grid.iEnd - 1;
-	int innerJStart = grid.jStart + 1;
-	int innerJEnd = grid.jEnd - 1;
-	int innerIRes = grid.iRes - 2;
-	int innerJRes = grid.jRes - 2;
-
-	int index, leftIndex, rightIndex, bottomIndex, topIndex;
-#pragma omp parallel for private(index, leftIndex, rightIndex, bottomIndex, topIndex)
-	for (int j = innerJStart; j <= innerJEnd; j++)
-	{
-		for (int i = innerIStart; i <= innerIEnd; i++)
-		{
-			index = (i - innerIStart)*innerIRes*innerJRes + (i - innerIStart)
-				+ (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart)*innerIRes;
-			leftIndex = (i - innerIStart)*innerIRes*innerJRes + (i - innerIStart - 1)
-				+ (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart)*innerIRes;
-			rightIndex = (i - innerIStart)*innerIRes*innerJRes + (i - innerIStart + 1)
-				+ (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart)*innerIRes;
-			bottomIndex = (i - innerIStart)*innerIRes*innerJRes + (i - innerIStart)
-				+ (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart - 1)*innerIRes;
-			topIndex = (i - innerIStart)*innerIRes*innerJRes + (i - innerIStart)
-				+ (j - innerJStart)*innerIRes*innerIRes*innerJRes + (j - innerJStart + 1)*innerIRes;
-			//// Boundary condition.
-			if (j == innerJStart)
-			{
-				if (i == innerIStart)
+				if (BC(i - 1, j) == BC_DIR)
 				{
-					matrixA(index) = scaling*(1 + 1 * dt*grid.oneOverdx2 + 1 * dt*grid.oneOverdy2);
-					matrixA(rightIndex) = scaling * -1.0 / 2.0 * dt*grid.oneOverdx2;
-					matrixA(topIndex) = scaling * -1.0 / 2.0 * dt*grid.oneOverdy2;
-				}
-				else if (i == innerIEnd)
-				{
-					matrixA(index) = scaling*(1 + 1 * dt*grid.oneOverdx2 + 1 * dt*grid.oneOverdy2);
-					matrixA(leftIndex) = scaling * -1.0 / 2.0 * dt*grid.oneOverdx2;
-					matrixA(topIndex) = scaling * -1.0 / 2.0 * dt*grid.oneOverdy2;
-				}
-				else
-				{
-					matrixA(index) = scaling*(1 + 1 * dt*grid.oneOverdx2 + 1 * dt*grid.oneOverdy2);
-					matrixA(leftIndex) = scaling * -1.0 / 2.0 * dt*grid.oneOverdx2;
-					matrixA(rightIndex) = scaling * -1.0 / 2.0 * dt*grid.oneOverdx2;
-					matrixA(topIndex) = scaling * -1 / 2.0 * dt*grid.oneOverdy2;
+					Surfactant(i - 1, j) = ExactSurfactant(grid(i - 1, j).x, grid(i - 1, j).y, totalT);
+					vectorB(BC(i, j)) += Surfactant(i - 1, j)*Surfactant.oneOverdx2;
 				}
 			}
-			else if (j > innerJStart && j < innerJEnd)
+			if (i < Surfactant.iEnd)
 			{
-				if (i == innerIStart)
+				if (BC(i + 1, j) == BC_DIR)
 				{
-					matrixA(index) = scaling*(1 + 1 * dt*grid.oneOverdx2 + 1 * dt*grid.oneOverdy2);
-					matrixA(rightIndex) = scaling * -1.0 / 2.0 * dt*grid.oneOverdx2;
-					matrixA(bottomIndex) = scaling * -1.0 / 2.0 * dt*grid.oneOverdy2;
-					matrixA(topIndex) = scaling * -1.0 / 2.0 * dt*grid.oneOverdy2;
-
-				}
-				else if (i == innerIEnd)
-				{
-					matrixA(index) = scaling*(1 + 1 * dt*grid.oneOverdx2 + 1 * dt*grid.oneOverdy2);
-					matrixA(leftIndex) = scaling * -1.0 / 2.0 * dt*grid.oneOverdx2;
-					matrixA(bottomIndex) = scaling * -1.0 / 2.0 * dt*grid.oneOverdy2;
-					matrixA(topIndex) = scaling * -1.0 / 2.0 * dt*grid.oneOverdy2;
-
-				}
-				else
-				{
-					matrixA(index) = scaling*(1 + 1 * dt*grid.oneOverdx2 + 1 * dt*grid.oneOverdy2);
-					matrixA(leftIndex) = scaling * -1.0 / 2.0 * dt*grid.oneOverdx2;
-					matrixA(rightIndex) = scaling * -1.0 / 2.0 * dt*grid.oneOverdx2;
-					matrixA(bottomIndex) = scaling * -1.0 / 2.0 * dt*grid.oneOverdy2;
-					matrixA(topIndex) = scaling * -1.0 / 2.0 * dt*grid.oneOverdy2;
+					Surfactant(i + 1, j) = ExactSurfactant(grid(i + 1, j).x, grid(i + 1, j).y, totalT);
+					vectorB(BC(i, j)) += Surfactant(i + 1, j)*Surfactant.oneOverdx2;
 				}
 			}
-			else if (j == innerJEnd)
+			if (j > Surfactant.iStart)
 			{
-				if (i == innerIStart)
+				if (BC(i, j - 1) == BC_DIR)
 				{
-					matrixA(index) = scaling*(1 + 1 * dt*grid.oneOverdx2 + 1 * dt*grid.oneOverdy2);
-					matrixA(rightIndex) = scaling * -1.0 / 2.0 * dt*grid.oneOverdx2;
-					matrixA(bottomIndex) = scaling * -1.0 / 2.0 * dt*grid.oneOverdy2;
+					Surfactant(i, j - 1)= ExactSurfactant(grid(i, j - 1).x, grid(i, j - 1).y, totalT);
+					vectorB(BC(i, j)) += Surfactant(i, j - 1)*Surfactant.oneOverdy2;
 				}
-				else if (i == innerIEnd)
+			}
+			if (j < Surfactant.jEnd)
+			{
+				if (BC(i, j + 1) == BC_DIR)
 				{
-					matrixA(index) = scaling*(1 + 1 * dt*grid.oneOverdx2 + 1 * dt*grid.oneOverdy2);
-					matrixA(leftIndex) = scaling * -1.0 / 2.0 * dt*grid.oneOverdx2;
-					matrixA(bottomIndex) = scaling * -1.0 / 2.0 * dt*grid.oneOverdy2;
-				}
-				else
-				{
-					matrixA(index) = scaling*(1 + 1 * dt*grid.oneOverdx2 + 1 * dt*grid.oneOverdy2);
-					matrixA(leftIndex) = scaling * -1.0 / 2.0 * dt*grid.oneOverdx2;
-					matrixA(rightIndex) = scaling * -1.0 / 2.0 * dt*grid.oneOverdx2;
-					matrixA(bottomIndex) = scaling * -1.0 / 2.0 * dt*grid.oneOverdy2;
+					Surfactant(i, j + 1)= ExactSurfactant(grid(i, j + 1).x, grid(i, j + 1).y, totalT);
+					vectorB(BC(i, j)) += Surfactant(i, j + 1)*Surfactant.oneOverdy2;
 				}
 			}
 		}
 	}
+	
+	Surfactant(Surfactant.iStart, Surfactant.jStart) = ExactSurfactant(grid(grid.iStart, grid.jStart).x, grid(grid.iStart, grid.jStart).y, totalT);
+	Surfactant(Surfactant.iStart, Surfactant.jEnd) = ExactSurfactant(grid(grid.iStart, grid.jEnd).x, grid(grid.iStart, grid.jEnd).y, totalT);
+	Surfactant(Surfactant.iEnd, Surfactant.jStart) = ExactSurfactant(grid(grid.iEnd, grid.jStart).x, grid(grid.iEnd, grid.jStart).y, totalT);
+	Surfactant(Surfactant.iEnd, Surfactant.jEnd) = ExactSurfactant(grid(grid.iEnd, grid.jEnd).x, grid(grid.iEnd, grid.jEnd).y, totalT);
 }
 
-inline void MovingInterface::GenerateLinearSystem2(VectorND<double>& vectorB, const double & scaling)
+inline void MovingInterface::GenerateLinearSystem2(CSR<double>& ipCSR)
 {
-	int innerIStart = grid.iStart + 1;
-	int innerIEnd = grid.iEnd - 1;
-	int innerJStart = grid.jStart + 1;
-	int innerJEnd = grid.jEnd - 1;
-	int innerIRes = grid.iRes - 2;
-	int innerJRes = grid.jRes - 2;
+	int iStart = Surfactant.iStart, iEnd = Surfactant.iEnd, jStart = Surfactant.jStart, jEnd = Surfactant.jEnd;
+
+	double dx = Surfactant.dx, dy = Surfactant.dy;
+	double dx2 = dx*dx, dy2 = dy*dy, dxdy = dx*dy;
+	double oneOverdx = 1 / dx, oneOverdx2 = 1 / dx2;
+	double oneOverdy = 1 / dy, oneOverdy2 = 1 / dy2;
+	double oneOverdt = 1 / dt;
+	Array2D<int>& BC = Surfactant.BC;
+
+	double coefIJ;
+
+	for (int j = jStart; j <= jEnd; j++)
+	{
+		for (int i = iStart; i <= iEnd; i++)
+		{
+			coefIJ = 0;
+
+			if (BC(i, j) < 0)
+			{
+				continue;
+			}
+
+			//// If neighbor is full cell
+			if (i>iStart)
+			{
+				if (BC(i - 1, j) > -1)
+				{
+					coefIJ++;
+					ipCSR.AssignValue(BC(i, j), BC(i - 1, j), -oneOverdx2 / 2);
+				}
+			}
+			if (i<iEnd)
+			{
+				if (BC(i + 1, j) > -1)
+				{
+					coefIJ++;
+					ipCSR.AssignValue(BC(i, j), BC(i + 1, j), -oneOverdx2 / 2);
+				}
+			}
+			if (j>iStart)
+			{
+				if (BC(i, j - 1) > -1)
+				{
+					coefIJ++;
+					ipCSR.AssignValue(BC(i, j), BC(i, j - 1), -oneOverdy2 / 2);
+				}
+			}
+			if (j<jEnd)
+			{
+				if (BC(i, j + 1) > -1)
+				{
+					coefIJ++;
+					ipCSR.AssignValue(BC(i, j), BC(i, j + 1), -oneOverdy2 / 2);
+				}
+			}
+
+			//// Dirichlet Boundary Condition
+			if (i>iStart)
+			{
+				if (BC(i - 1, j) == BC_DIR)	coefIJ++;
+			}
+			if (i<iEnd)
+			{
+				if (BC(i + 1, j) == BC_DIR)	coefIJ++;
+			}
+			if (j>iStart)
+			{
+				if (BC(i, j - 1) == BC_DIR)	coefIJ++;
+			}
+			if (j<jEnd)
+			{
+				if (BC(i, j + 1) == BC_DIR)	coefIJ++;
+			}
+
+			if ((i == Surfactant.iStartI) && (j == Surfactant.jStartI))
+			{
+				//if (BC(i - 1, j) == BC_NEUM)
+				//{
+				//	coefIJ ++;
+				//}
+				//if (BC(i + 1, j) == BC_NEUM)
+				//{
+				//	coefIJ ++;
+				//}
+				//if (BC(i, j - 1) == BC_NEUM)
+				//{
+				//	coefIJ ++;
+				//}
+				//if (BC(i, j + 1) == BC_NEUM)
+				//{
+				//	coefIJ ++;
+				//}
+			}
+			else
+			{
+				if (i>iStart)
+				{
+					if (BC(i - 1, j) == BC_NEUM) coefIJ += 0;
+				}
+				if (i<iEnd)
+				{
+					if (BC(i + 1, j) == BC_NEUM) coefIJ += 0;
+				}
+				if (j>iStart)
+				{
+					if (BC(i, j - 1) == BC_NEUM) coefIJ += 0;
+				}
+				if (j<jEnd)
+				{
+					if (BC(i, j + 1) == BC_NEUM) coefIJ += 0;
+				}
+			}
+
+			if (coefIJ == 0)
+			{
+				coefIJ = 1;
+			}
+
+			ipCSR.AssignValue(BC(i, j), BC(i, j), oneOverdx2*coefIJ / 2 + oneOverdt);
+		}
+	}
+}
+
+inline void MovingInterface::GenerateLinearSystem2(VectorND<double>& vectorB)
+{
+	Array2D<int>& BC = Surfactant.BC;
 
 	termOld = term;
+
 	SurfactantNormalTerm(Surfactant, levelSet, term);
-	//SurfactantNormalTerm(SurfactantOld, levelSetOld, termOld);
-
-	int index;
-#pragma omp parallel for private(index)
-	for (int i = innerIStart; i <= innerIEnd; i++)
+	double oneOverdt = 1 / dt;
+#pragma omp parallel for
+	for (int j = Surfactant.jStart; j <= Surfactant.jEnd; j++)
 	{
-		for (int j = innerJStart; j <= innerJEnd; j++)
+		for (int i = Surfactant.iStart; i <= Surfactant.iEnd; i++)
 		{
-			index = (i - innerIStart) + (j - innerJStart)*innerIRes;
-			vectorB(index) = Surfactant(i, j) + dt / 2.0*(Surfactant.dxxPhi(i, j) + Surfactant.dyyPhi(i, j))
-				+ 3.0 / 2.0*dt*term(i, j) - 1.0 / 2.0*dt*termOld(i, j);
-
-			if (i == innerIStart)
+			if (BC(i, j) < 0)
 			{
-				vectorB(index) += dt / 2.0*grid.oneOverdx2*ExactSurfactant(grid(i - 1, j).x, grid(i - 1, j).y, totalT);
+				continue;
 			}
-			if (i == innerIEnd)
+			vectorB(BC(i, j)) = Surfactant(i, j)*oneOverdt + 0.5 *(Surfactant.dxxPhi(i, j) + Surfactant.dyyPhi(i, j))
+				+ 1.5*term(i, j) - 0.5*termOld(i, j);
+			if (i > Surfactant.jStart)
 			{
-				vectorB(index) += dt / 2.0*grid.oneOverdx2*ExactSurfactant(grid(i + 1, j).x, grid(i + 1, j).y, totalT);
+				if (BC(i - 1, j) == BC_DIR)
+				{
+					Surfactant(i - 1, j) = ExactSurfactant(grid(i - 1, j).x, grid(i - 1, j).y, totalT);
+					vectorB(BC(i, j)) += Surfactant(i - 1, j)*Surfactant.oneOverdx2 * 0.5;
+				}
 			}
-			if (j == innerJStart)
+			if (i < Surfactant.iEnd)
 			{
-				vectorB(index) += dt / 2.0*grid.oneOverdy2*ExactSurfactant(grid(i, j - 1).x, grid(i, j - 1).y, totalT);
-
+				if (BC(i + 1, j) == BC_DIR)
+				{
+					Surfactant(i + 1, j) = ExactSurfactant(grid(i + 1, j).x, grid(i + 1, j).y, totalT);
+					vectorB(BC(i, j)) += Surfactant(i + 1, j)*Surfactant.oneOverdx2 * 0.5;
+				}
 			}
-			if (j == innerJEnd)
+			if (j > Surfactant.iStart)
 			{
-				vectorB(index) += dt / 2.0*grid.oneOverdy2*ExactSurfactant(grid(i, j + 1).x, grid(i, j + 1).y, totalT);
+				if (BC(i, j - 1) == BC_DIR)
+				{
+					Surfactant(i, j - 1) = ExactSurfactant(grid(i, j - 1).x, grid(i, j - 1).y, totalT);
+					vectorB(BC(i, j)) += Surfactant(i, j - 1)*Surfactant.oneOverdy2 * 0.5;
+				}
 			}
-			vectorB(index) *= scaling;
+			if (j < Surfactant.jEnd)
+			{
+				if (BC(i, j + 1) == BC_DIR)
+				{
+					Surfactant(i, j + 1) = ExactSurfactant(grid(i, j + 1).x, grid(i, j + 1).y, totalT);
+					vectorB(BC(i, j)) += Surfactant(i, j + 1)*Surfactant.oneOverdy2 * 0.5;
+				}
+			}
 		}
 	}
-}
 
+	Surfactant(Surfactant.iStart, Surfactant.jStart) = ExactSurfactant(grid(grid.iStart, grid.jStart).x, grid(grid.iStart, grid.jStart).y, totalT);
+	Surfactant(Surfactant.iStart, Surfactant.jEnd) = ExactSurfactant(grid(grid.iStart, grid.jEnd).x, grid(grid.iStart, grid.jEnd).y, totalT);
+	Surfactant(Surfactant.iEnd, Surfactant.jStart) = ExactSurfactant(grid(grid.iEnd, grid.jStart).x, grid(grid.iEnd, grid.jStart).y, totalT);
+	Surfactant(Surfactant.iEnd, Surfactant.jEnd) = ExactSurfactant(grid(grid.iEnd, grid.jEnd).x, grid(grid.iEnd, grid.jEnd).y, totalT);
+}
 
 /////////////////////////////////////////////////////////////////////////////////////////
 ////
@@ -1172,7 +1194,7 @@ inline void MovingInterface::LSurfactantDiffusionSolver(const int & example)
 		Surfactant.Variable("Surfactant");
 		exact.Variable("exact");
 		MATLAB.Command("SurTube1 = Surfactant.*(Tube<=1);");
-		MATLAB.Command("surf(X,Y,SurTube1), hold on, contour(X,Y,Tube),hold off,set(gca,'fontsize',20);");
+		MATLAB.Command("surf(X,Y,SurTube1), hold on, contour(X,Y,Tube),hold off,set(gca,'fontsize',20);axis([-2 2 -2 2 0 3])");
 		MATLAB.Command("loss = sum(sum(SurTube1-exact.*(Tube==1)).^2)*(Y(2)-Y(1))*(Y(2)-Y(1));");
 		MATLAB.Variable("i", i);
 		MATLAB.Variable("totalT", totalT);
@@ -1226,7 +1248,8 @@ inline void MovingInterface::EulerianMovingInterfaceSolver(const int & example)
 		Surfactant.Variable("Surfactant");
 		levelSet.tube.Variable("Tube");
 		MATLAB.Command("SurTube1 = Surfactant.*(Tube<=1);");
-		MATLAB.Command("surf(X,Y,SurTube1),axis equal,axis([X(1) X(end) Y(1) Y(end)]), hold on, contour(X,Y,Tube,'r'),hold off;set(gca,'fontsize',20)");
+		//MATLAB.Command("surf(X,Y,SurTube1),axis equal,axis([X(1) X(end) Y(1) Y(end)]), hold on, contour(X,Y,Tube,'r'),hold off;set(gca,'fontsize',20)");
+		MATLAB.Command("surf(X,Y,Surfactant),axis equal %, hold on, contour(X,Y,Tube,'r'),hold off;set(gca,'fontsize',20)");
 
 		if (ExamNum == 4)
 		{
@@ -1308,15 +1331,9 @@ inline void MovingInterface::SurfactantTube2Extrapolation()
 
 inline void MovingInterface::LSurfactantDiffusion(const int & iter)
 {
-	A = Array2D<double>(1, levelSet.numTube1, 1, levelSet.numTube1);
-
 	if (iter == 1)
 	{
-		LGenerateLinearSystem1(A, 1);
-
-		Acsr = CSR<double>(A);
-
-		A.Delete();
+		LGenerateLinearSystem1(Acsr);
 
 		LOneStepSemiImplicit();
 	}
@@ -1324,28 +1341,77 @@ inline void MovingInterface::LSurfactantDiffusion(const int & iter)
 	if (iter >= 2)
 	{
 		SurfactantTube2Extrapolation();
-
-		LGenerateLinearSystem2(A, 1);
-
-		Acsr = CSR<double>(A);
-
-		A.Delete();
+		
+		LGenerateLinearSystem2(Acsr);
 
 		LTwoStepSemiImplicit();
 	}
 
 }
 
+inline void MovingInterface::LCountNonZero()
+{
+	int & num_all_full_cells = Surfactant.num_all_full_cells;
+	int & nnz = Surfactant.nnz;
+	int & iStart = Surfactant.iStart;
+	int & iEnd = Surfactant.iEnd;
+	int & jStart = Surfactant.jStart;
+	int & jEnd = Surfactant.jEnd;
+
+	VI leftIndex, rightIndex, bottomIndex, topIndex;
+	int i, j, l, m, n, k;
+
+	num_all_full_cells = 0;
+	nnz = 0;
+
+	for (int k = 1; k <= levelSet.numTube1; k++)
+	{
+		i = levelSet.tube1Index(k).i;
+		j = levelSet.tube1Index(k).j;
+
+		num_all_full_cells++;
+		nnz++;
+
+		if (i>iStart)
+		{
+			leftIndex = VI(i - 1, j);
+			l = levelSet.tubeIJ2K(leftIndex);
+			levelSet.TubeIndex(l, m, n);
+			if (levelSet.tube(m, n) == 1) nnz++;
+		}
+		
+		if (i<iEnd)
+		{
+			rightIndex = VI(i + 1, j);
+			l = levelSet.tubeIJ2K(rightIndex);
+			levelSet.TubeIndex(l, m, n);
+			if (levelSet.tube(m, n) == 1) nnz++;
+		}
+		
+		if (j>jStart)
+		{
+			bottomIndex = VI(i, j - 1);
+			l = levelSet.tubeIJ2K(bottomIndex);
+			levelSet.TubeIndex(l, m, n);
+			if (levelSet.tube(m, n) == 1) nnz++;
+		}
+		
+		if (j<jEnd)
+		{
+			topIndex = VI(i, j + 1);
+			l = levelSet.tubeIJ2K(topIndex);
+			levelSet.TubeIndex(l, m, n);
+			if (levelSet.tube(m, n) == 1) nnz++;
+		}
+		
+	}
+}
+
 inline void MovingInterface::LOneStepSemiImplicit()
 {
 	//// Linear Equation
-	vectorB = VectorND<double>(levelSet.numTube1);
-	LGenerateLinearSystem1(vectorB, 1);
-
-	tempSur = VectorND<double>(levelSet.numTube1);
-
+	LGenerateLinearSystem1(vectorB);
 	CGSolver::Solver(Acsr, vectorB, tempSur);
-
 
 	int i, j;
 #pragma omp parallel for private(i, j)
@@ -1353,13 +1419,18 @@ inline void MovingInterface::LOneStepSemiImplicit()
 	{
 		i = levelSet.tube1Index(k).i;
 		j = levelSet.tube1Index(k).j;
+
+		Surfactant(i, j) = tempSur(k - 1);
+	}
+
+#pragma omp parallel for private(i, j)
+	for (int k = 1; k <= levelSet.numTube; k++)
+	{
+		i = levelSet.tubeIndex(k).i;
+		j = levelSet.tubeIndex(k).j;
 		if (levelSet.tube(i, j) == 3)
 		{
 			Surfactant(i, j) = 0;
-		}
-		else
-		{
-			Surfactant(i, j) = tempSur(k - 1);
 		}
 	}
 }
@@ -1368,11 +1439,7 @@ inline void MovingInterface::LTwoStepSemiImplicit()
 {
 	//// Linear Equation
 	termOld = term;
-	vectorB = VectorND<double>(levelSet.numTube1);
-	LGenerateLinearSystem2(vectorB, 1);
-
-	tempSur = VectorND<double>(levelSet.numTube1);
-
+	LGenerateLinearSystem2(vectorB);
 	CGSolver::Solver(Acsr, vectorB, tempSur);
 
 	int i, j;
@@ -1381,7 +1448,8 @@ inline void MovingInterface::LTwoStepSemiImplicit()
 	{
 		i = levelSet.tube1Index(k).i;
 		j = levelSet.tube1Index(k).j;
-		Surfactant(i, j) = tempSur(k - 1);
+
+			Surfactant(i, j) = tempSur(k - 1);
 	}
 
 #pragma omp parallel for private(i, j)
@@ -1453,200 +1521,302 @@ inline void MovingInterface::LSurfactantNormalTerm(FD & ipField, LS & ipLevelSet
 	}
 }
 
-inline void MovingInterface::LGenerateLinearSystem1(Array2D<double>& matrixA, const double & scaling)
+inline void MovingInterface::LGenerateLinearSystem1(CSR<double>& ipCSR)
 {
-	cout << "Start Generate Linear System : matrix A" << endl;
+	LCountNonZero();
+	vectorB = VectorND<double>(Surfactant.num_all_full_cells);
+	tempSur = VectorND<double>(Surfactant.num_all_full_cells);
+	Acsr = CSR<double>(Surfactant.num_all_full_cells, Surfactant.nnz);
+
+	int iStart = Surfactant.iStart, iEnd = Surfactant.iEnd, jStart = Surfactant.jStart, jEnd = Surfactant.jEnd;
+
+	double dx = Surfactant.dx, dy = Surfactant.dy;
+	double dx2 = dx*dx, dy2 = dy*dy, dxdy = dx*dy;
+	double oneOverdx = 1 / dx, oneOverdx2 = 1 / dx2;
+	double oneOverdy = 1 / dy, oneOverdy2 = 1 / dy2;
+	double oneOverdt = 1 / dt;
+	double coefIJ;
+
 	VI leftIndex, rightIndex, bottomIndex, topIndex;
-	int i, j, l, m, n;
-#pragma omp parallel for private(i, j, l, m, n, leftIndex, rightIndex, bottomIndex, topIndex)
+	int i, j, l, m, n, k1, l1;
 	for (int k = 1; k <= levelSet.numTube1; k++)
 	{
+		//coefIJ = 0;
 		i = levelSet.tube1Index(k).i;
 		j = levelSet.tube1Index(k).j;
+		k1 = k - 1;
+		
+		coefIJ = 4;
+		ipCSR.AssignValue(k1, k1, oneOverdx2 * coefIJ + oneOverdt);
 
-		matrixA(k, k) = scaling*(1 + 2 * dt*grid.oneOverdx2 + 2 * dt*grid.oneOverdy2);
-
-		leftIndex = VI(i - 1, j);
-		l = levelSet.tubeIJ2K(leftIndex);
-		levelSet.TubeIndex(l, m, n);
-		if (levelSet.tube(m, n) == 1)
+		if (i>iStart)
 		{
-			l = levelSet.tube1(m, n);
-			matrixA(k, l) = scaling * -1 * dt*grid.oneOverdx2;
+			leftIndex = VI(i - 1, j);
+			l = levelSet.tubeIJ2K(leftIndex);
+			levelSet.TubeIndex(l, m, n);
+			if (levelSet.tube(m, n) == 1)
+			{
+				l = levelSet.tube1(m, n);
+				l1 = l - 1;
+				//coefIJ++;
+				ipCSR.AssignValue(k1, l1, -oneOverdx2);
+			}
 		}
-
-		rightIndex = VI(i + 1, j);
-		l = levelSet.tubeIJ2K(rightIndex);
-		levelSet.TubeIndex(l, m, n);
-		if (levelSet.tube(m, n) == 1)
+		
+		if (i<iEnd)
 		{
-			l = levelSet.tube1(m, n);
-			matrixA(k, l) = scaling * -1 * dt*grid.oneOverdx2;
+			rightIndex = VI(i + 1, j);
+			l = levelSet.tubeIJ2K(rightIndex);
+			levelSet.TubeIndex(l, m, n);
+			if (levelSet.tube(m, n) == 1)
+			{
+				l = levelSet.tube1(m, n);
+				l1 = l - 1;
+				//coefIJ++;
+				ipCSR.AssignValue(k1, l1, -oneOverdx2);
+			}
 		}
-
-		bottomIndex = VI(i, j - 1);
-		l = levelSet.tubeIJ2K(bottomIndex);
-		levelSet.TubeIndex(l, m, n);
-		if (levelSet.tube(m, n) == 1)
+		
+		if (j>jStart)
 		{
-			l = levelSet.tube1(m, n);
-			matrixA(l, k) = scaling * -1 * dt*grid.oneOverdy2;
+			bottomIndex = VI(i, j - 1);
+			l = levelSet.tubeIJ2K(bottomIndex);
+			levelSet.TubeIndex(l, m, n);
+			if (levelSet.tube(m, n) == 1)
+			{
+				l = levelSet.tube1(m, n);
+				l1 = l - 1;
+				//coefIJ++;
+				ipCSR.AssignValue(k1, l1, -oneOverdy2);
+			}
 		}
-
-		topIndex = VI(i, j + 1);
-		l = levelSet.tubeIJ2K(topIndex);
-		levelSet.TubeIndex(l, m, n);
-		if (levelSet.tube(m, n) == 1)
+		
+		if (j<jEnd)
 		{
-			l = levelSet.tube1(m, n);
-			matrixA(l, k) = scaling * -1 * dt*grid.oneOverdy2;
+			topIndex = VI(i, j + 1);
+			l = levelSet.tubeIJ2K(topIndex);
+			levelSet.TubeIndex(l, m, n);
+			if (levelSet.tube(m, n) == 1)
+			{
+				l = levelSet.tube1(m, n);
+				l1 = l - 1;
+				//coefIJ++;
+				ipCSR.AssignValue(k1, l1, -oneOverdy2);
+			}
 		}
 	}
 }
 
-inline void MovingInterface::LGenerateLinearSystem1(VectorND<double>& vectorB, const double & scaling)
+inline void MovingInterface::LGenerateLinearSystem1(VectorND<double>& vectorB)
 {
+	int iStart = Surfactant.iStart, iEnd = Surfactant.iEnd, jStart = Surfactant.jStart, jEnd = Surfactant.jEnd;
+
 	LSurfactantNormalTerm(Surfactant, levelSet, term);
 	VI leftIndex, rightIndex, bottomIndex, topIndex;
+	double oneOverdt = 1 / dt;
 	int i, j, l, m, n;
 #pragma omp parallel for private(i, j, l, m, n, leftIndex, rightIndex, bottomIndex, topIndex)
 	for (int k = 1; k <= levelSet.numTube1; k++)
 	{
 		i = levelSet.tube1Index(k).i;
 		j = levelSet.tube1Index(k).j;
-		vectorB(k - 1) = Surfactant(i, j) + dt*term(i, j);
+		vectorB(k - 1) = Surfactant(i, j)*oneOverdt + term(i, j);
 
-		leftIndex = VI(i - 1, j);
-		l = levelSet.tubeIJ2K(leftIndex);
-		levelSet.TubeIndex(l, m, n);
-		if (levelSet.tube(m, n) == 2)
+		if (i>iStart)
 		{
-			vectorB(k - 1) += dt*grid.oneOverdx2*Surfactant(m, n);
+			leftIndex = VI(i - 1, j);
+			l = levelSet.tubeIJ2K(leftIndex);
+			levelSet.TubeIndex(l, m, n);
+			if (levelSet.tube(m, n) == 2)
+			{
+				vectorB(k - 1) += grid.oneOverdx2*Surfactant(m, n);
+			}
 		}
-
-		rightIndex = VI(i + 1, j);
-		l = levelSet.tubeIJ2K(rightIndex);
-		levelSet.TubeIndex(l, m, n);
-		if (levelSet.tube(m, n) == 2)
+		
+		if (i<iEnd)
 		{
-			vectorB(k - 1) += dt*grid.oneOverdx2*Surfactant(m, n);
+			rightIndex = VI(i + 1, j);
+			l = levelSet.tubeIJ2K(rightIndex);
+			levelSet.TubeIndex(l, m, n);
+			if (levelSet.tube(m, n) == 2)
+			{
+				vectorB(k - 1) += grid.oneOverdx2*Surfactant(m, n);
+			}
 		}
-
-		bottomIndex = VI(i, j - 1);
-		l = levelSet.tubeIJ2K(bottomIndex);
-		levelSet.TubeIndex(l, m, n);
-		if (levelSet.tube(m, n) == 2)
+		
+		if (j>jStart)
 		{
-			vectorB(k - 1) += dt*grid.oneOverdy2*Surfactant(m, n);
+			bottomIndex = VI(i, j - 1);
+			l = levelSet.tubeIJ2K(bottomIndex);
+			levelSet.TubeIndex(l, m, n);
+			if (levelSet.tube(m, n) == 2)
+			{
+				vectorB(k - 1) += grid.oneOverdy2*Surfactant(m, n);
+			}
 		}
-
-		topIndex = VI(i, j + 1);
-		l = levelSet.tubeIJ2K(topIndex);
-		levelSet.TubeIndex(l, m, n);
-		if (levelSet.tube(m, n) == 2)
+		
+		if (j<jEnd)
 		{
-			vectorB(k - 1) += dt*grid.oneOverdy2*Surfactant(m, n);
+			topIndex = VI(i, j + 1);
+			l = levelSet.tubeIJ2K(topIndex);
+			levelSet.TubeIndex(l, m, n);
+			if (levelSet.tube(m, n) == 2)
+			{
+				vectorB(k - 1) += grid.oneOverdy2*Surfactant(m, n);
+			}
 		}
-		vectorB(k - 1) *= scaling;
 	}
 }
 
-inline void MovingInterface::LGenerateLinearSystem2(Array2D<double>& matrixA, const double & scaling)
+inline void MovingInterface::LGenerateLinearSystem2(CSR<double>& ipCSR)
 {
-	cout << "Start Generate Linear System : matrix A" << endl;
+	LCountNonZero();
+	vectorB = VectorND<double>(Surfactant.num_all_full_cells);
+	tempSur = VectorND<double>(Surfactant.num_all_full_cells);
+	Acsr = CSR<double>(Surfactant.num_all_full_cells, Surfactant.nnz);
+
+	int iStart = Surfactant.iStart, iEnd = Surfactant.iEnd, jStart = Surfactant.jStart, jEnd = Surfactant.jEnd;
+
+	double dx = Surfactant.dx, dy = Surfactant.dy;
+	double dx2 = dx*dx, dy2 = dy*dy, dxdy = dx*dy;
+	double oneOverdx = 1 / dx, oneOverdx2 = 1 / dx2;
+	double oneOverdy = 1 / dy, oneOverdy2 = 1 / dy2;
+	double oneOverdt = 1 / dt;
+	double coefIJ;
+
 	VI leftIndex, rightIndex, bottomIndex, topIndex;
-	int i, j, l, m, n;
-#pragma omp parallel for private(i, j, l, m, n, leftIndex, rightIndex, bottomIndex, topIndex)
+	int i, j, l, m, n, k1, l1;
 	for (int k = 1; k <= levelSet.numTube1; k++)
 	{
+		//coefIJ = 0;
 		i = levelSet.tube1Index(k).i;
 		j = levelSet.tube1Index(k).j;
+		k1 = k - 1;
+		
+		coefIJ = 2;
+		ipCSR.AssignValue(k1, k1, oneOverdx2 * coefIJ + oneOverdt);
 
-		matrixA(k, k) = scaling*(1 + 1 * dt*grid.oneOverdx2 + 1 * dt*grid.oneOverdy2);
-
-		leftIndex = VI(i - 1, j);
-		l = levelSet.tubeIJ2K(leftIndex);
-		levelSet.TubeIndex(l, m, n);
-		if (levelSet.tube(m, n) == 1)
+		if (i>iStart)
 		{
-			l = levelSet.tube1(m, n);
-			matrixA(k, l) = scaling * -1.0 / 2.0 * dt*grid.oneOverdx2;
+			leftIndex = VI(i - 1, j);
+			l = levelSet.tubeIJ2K(leftIndex);
+			levelSet.TubeIndex(l, m, n);
+			if (levelSet.tube(m, n) == 1)
+			{
+				l = levelSet.tube1(m, n);
+				l1 = l - 1;
+				//coefIJ++;
+				ipCSR.AssignValue(k1, l1, -oneOverdx2 * 0.5);
+			}
 		}
-
-		rightIndex = VI(i + 1, j);
-		l = levelSet.tubeIJ2K(rightIndex);
-		levelSet.TubeIndex(l, m, n);
-		if (levelSet.tube(m, n) == 1)
+		
+		if (i<iEnd)
 		{
-			l = levelSet.tube1(m, n);
-			matrixA(k, l) = scaling * -1.0 / 2.0 * dt*grid.oneOverdx2;
+			rightIndex = VI(i + 1, j);
+			l = levelSet.tubeIJ2K(rightIndex);
+			levelSet.TubeIndex(l, m, n);
+			if (levelSet.tube(m, n) == 1)
+			{
+				l = levelSet.tube1(m, n);
+				l1 = l - 1;
+				//coefIJ++;
+				ipCSR.AssignValue(k1, l1, -oneOverdx2 * 0.5);
+			}
 		}
-
-		bottomIndex = VI(i, j - 1);
-		l = levelSet.tubeIJ2K(bottomIndex);
-		levelSet.TubeIndex(l, m, n);
-		if (levelSet.tube(m, n) == 1)
+		
+		if (j>jStart)
 		{
-			l = levelSet.tube1(m, n);
-			matrixA(l, k) = scaling * -1.0 / 2.0 * dt*grid.oneOverdy2;
+			bottomIndex = VI(i, j - 1);
+			l = levelSet.tubeIJ2K(bottomIndex);
+			levelSet.TubeIndex(l, m, n);
+			if (levelSet.tube(m, n) == 1)
+			{
+				l = levelSet.tube1(m, n);
+				l1 = l - 1;
+				//coefIJ++;
+				ipCSR.AssignValue(k1, l1, -oneOverdy2 * 0.5);
+			}
 		}
-
-		topIndex = VI(i, j + 1);
-		l = levelSet.tubeIJ2K(topIndex);
-		levelSet.TubeIndex(l, m, n);
-		if (levelSet.tube(m, n) == 1)
+		
+		if (j<jEnd)
 		{
-			l = levelSet.tube1(m, n);
-			matrixA(l, k) = scaling * -1.0 / 2.0 * dt*grid.oneOverdy2;
+			topIndex = VI(i, j + 1);
+			l = levelSet.tubeIJ2K(topIndex);
+			levelSet.TubeIndex(l, m, n);
+			if (levelSet.tube(m, n) == 1)
+			{
+				l = levelSet.tube1(m, n);
+				l1 = l - 1;
+				//coefIJ++;
+				ipCSR.AssignValue(k1, l1, -oneOverdy2 * 0.5);
+			}
 		}
 	}
 }
 
-inline void MovingInterface::LGenerateLinearSystem2(VectorND<double>& vectorB, const double & scaling)
+inline void MovingInterface::LGenerateLinearSystem2(VectorND<double>& vectorB)
 {
+	int iStart = Surfactant.iStart, iEnd = Surfactant.iEnd, jStart = Surfactant.jStart, jEnd = Surfactant.jEnd;
 	LSurfactantNormalTerm(Surfactant, levelSet, term);
 	VI leftIndex, rightIndex, bottomIndex, topIndex;
+	double oneOverdt = 1 / dt;
 	int i, j, l, m, n;
 #pragma omp parallel for private(i, j, l, m, n, leftIndex, rightIndex, bottomIndex, topIndex)
 	for (int k = 1; k <= levelSet.numTube1; k++)
 	{
 		i = levelSet.tube1Index(k).i;
 		j = levelSet.tube1Index(k).j;
-		vectorB(k - 1) = Surfactant(i, j) + dt / 2.0*(Surfactant.dxxPhi(i, j) + Surfactant.dyyPhi(i, j))
-			+ 3.0 / 2.0*dt*term(i, j) - 1.0 / 2.0*dt*termOld(i, j);
+		vectorB(k - 1) = Surfactant(i, j) * oneOverdt + 0.5 *(Surfactant.dxxPhi(i, j) + Surfactant.dyyPhi(i, j))
+			+ 1.5 * term(i, j) - 0.5 * termOld(i, j);
 
-		leftIndex = VI(i - 1, j);
-		l = levelSet.tubeIJ2K(leftIndex);
-		levelSet.TubeIndex(l, m, n);
-		if (levelSet.tube(m, n) == 2)
+		if (levelSet.tube(i, j) > 1)
 		{
-			vectorB(k - 1) += dt / 2.0*grid.oneOverdx2*Surfactant(m, n);
+			continue;
 		}
 
-		rightIndex = VI(i + 1, j);
-		l = levelSet.tubeIJ2K(rightIndex);
-		levelSet.TubeIndex(l, m, n);
-		if (levelSet.tube(m, n) == 2)
+		if (i>iStart)
 		{
-			vectorB(k - 1) += dt / 2.0*grid.oneOverdx2*Surfactant(m, n);
+			leftIndex = VI(i - 1, j);
+			l = levelSet.tubeIJ2K(leftIndex);
+			levelSet.TubeIndex(l, m, n);
+			if (levelSet.tube(m, n) == 2)
+			{
+				vectorB(k - 1) += grid.oneOverdx2*Surfactant(m, n) * 0.5;
+			}
 		}
-
-		bottomIndex = VI(i, j - 1);
-		l = levelSet.tubeIJ2K(bottomIndex);
-		levelSet.TubeIndex(l, m, n);
-		if (levelSet.tube(m, n) == 2)
+		
+		if (i<iEnd)
 		{
-			vectorB(k - 1) += dt / 2.0*grid.oneOverdy2*Surfactant(m, n);
+			rightIndex = VI(i + 1, j);
+			l = levelSet.tubeIJ2K(rightIndex);
+			levelSet.TubeIndex(l, m, n);
+			if (levelSet.tube(m, n) == 2)
+			{
+				vectorB(k - 1) += grid.oneOverdx2*Surfactant(m, n) * 0.5;
+			}
 		}
-
-		topIndex = VI(i, j + 1);
-		l = levelSet.tubeIJ2K(topIndex);
-		levelSet.TubeIndex(l, m, n);
-		if (levelSet.tube(m, n) == 2)
+		
+		if (j>jStart)
 		{
-			vectorB(k - 1) += dt / 2.0*grid.oneOverdy2*Surfactant(m, n);
+			bottomIndex = VI(i, j - 1);
+			l = levelSet.tubeIJ2K(bottomIndex);
+			levelSet.TubeIndex(l, m, n);
+			if (levelSet.tube(m, n) == 2)
+			{
+				vectorB(k - 1) += grid.oneOverdy2*Surfactant(m, n) * 0.5;
+			}
 		}
-		vectorB(k - 1) *= scaling;
+		
+		if (j<jEnd)
+		{
+			topIndex = VI(i, j + 1);
+			l = levelSet.tubeIJ2K(topIndex);
+			levelSet.TubeIndex(l, m, n);
+			if (levelSet.tube(m, n) == 2)
+			{
+				vectorB(k - 1) += grid.oneOverdy2*Surfactant(m, n) * 0.5;
+			}
+		}
 	}
 }
 
@@ -1665,7 +1835,6 @@ inline void MovingInterface::DimlessNonlinearLangmu1rEOS()
 		{
 			SurfaceTension(i, j) = 1;
 		}
-
 	}
 }
 

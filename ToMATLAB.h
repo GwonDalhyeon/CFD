@@ -53,11 +53,8 @@ inline void ToMATLAB::WriteImage(const char * filename, const int & fileNum, con
 template<class TT>
 inline void ToMATLAB::Variable(const char * varName, const TT & values)
 {
-	mxArray* tempValue = mxCreateDoubleMatrix(1, 1, mxREAL);
-	
-	double* TTValue = mxGetPr(tempValue);
-	*TTValue = double(values);
-	engPutVariable(ME, varName, tempValue);
+	string str = string(varName) + "=double(" + to_string(values) + ");";
+	engEvalString(ME, str.c_str());
 }
 
 template<class TT>
@@ -68,22 +65,22 @@ inline void ToMATLAB::Variable(const char * varName, const int & rowNum, const i
 		mxArray* dataArray = mxCreateNumericMatrix(rowNum, colNum, mxINT32_CLASS, mxREAL);
 		memcpy((int*)mxGetPr(dataArray), (int*)values, sizeof(int) * rowNum*colNum);
 		engPutVariable(ME, varName, dataArray);
-		string str = string(varName)+ "=double(transpose("+ (varName)+ "));";
-		const char* cmd = str.c_str();
-		
+		string str = string(varName) + "=double(transpose(" + (varName)+"));";
 		// Tranaspose array.
-		engEvalString(ME, cmd);
+		engEvalString(ME, str.c_str());
+		mxDestroyArray(dataArray);
+		dataArray = 0;
 	}
 	else if (sizeof(TT) == 8)
 	{
 		mxArray* dataArray = mxCreateDoubleMatrix(rowNum, colNum, mxREAL);
 		memcpy((void*)mxGetPr(dataArray), (void*)values, sizeof(double) * rowNum*colNum);
 		engPutVariable(ME, varName, dataArray);
-		string str = string(varName) + "=transpose(" + (varName)+");";
-		const char* cmd = str.c_str();
-
+		string str = string(varName) + "=double(transpose(" + (varName)+"));";
 		// Tranaspose array.
-		engEvalString(ME, cmd);
+		engEvalString(ME, str.c_str());
+		mxDestroyArray(dataArray);
+		dataArray = 0;
 	}
 	else if (sizeof(TT) == 1)
 	{
@@ -91,10 +88,10 @@ inline void ToMATLAB::Variable(const char * varName, const int & rowNum, const i
 		memcpy((TT*)mxGetPr(dataArray), (TT*)values, sizeof(TT) * rowNum*colNum);
 		engPutVariable(ME, varName, dataArray);
 		string str = string(varName) + "=double(transpose(" + (varName)+"));";
-		const char* cmd = str.c_str();
-
 		// Tranaspose array.
-		engEvalString(ME, cmd);
+		engEvalString(ME, str.c_str());
+		mxDestroyArray(dataArray);
+		dataArray = 0;
 	}
 	else
 	{

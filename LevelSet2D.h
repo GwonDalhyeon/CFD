@@ -947,9 +947,9 @@ inline void LevelSet2D::InitialTube()
 	numTube = 0;
 	numTube1 = 0;
 	double absConst;
-	for (int i = phi.grid.iStart; i <= phi.grid.iEnd; i++)
+	for (int j = phi.grid.iStart; j <= phi.grid.jEnd; j++)
 	{
-		for (int j = phi.grid.iStart; j <= phi.grid.jEnd; j++)
+		for (int i = phi.grid.iStart; i <= phi.grid.iEnd; i++)
 		{
 			absConst = abs(phi(i, j));
 			if (absConst < gamma3)
@@ -985,9 +985,9 @@ inline void LevelSet2D::InitialTube()
 	}
 
 	double threshold = gamma2;
-	for (int i = phi.grid.iStart; i <= phi.grid.iEnd; i++)
+	for (int j = phi.grid.iStart; j <= phi.grid.jEnd; j++)
 	{
-		for (int j = phi.grid.iStart; j <= phi.grid.jEnd; j++)
+		for (int i = phi.grid.iStart; i <= phi.grid.iEnd; i++)
 		{
 			if (phi(i, j) < -threshold)
 			{

@@ -31,6 +31,24 @@ public:
 	FD Nu; 
 	double reynoldNum;
 
+	//////////////////////////////////////////////////////////
+	////			Variable for						  ////
+	////		two-phase flows with insoluble surfactant ////
+	//////////////////////////////////////////////////////////
+	double Ca;
+	double Xi;
+	double El;
+	double Pe;
+
+	//////////////////////////////////////////////////////////
+	////			Variable for						  ////
+	////		Coalescing Drop                           ////
+	//////////////////////////////////////////////////////////
+	double Oh;
+	double We;
+
+
+
 	FD AdvectionU;
 	FD AdvectionV;
 
@@ -53,6 +71,7 @@ public:
 	int maxIteration;
 	int writeOutputIteration;
 	int	iteration = 0;
+	bool isPlot = true;
 
 
 	inline void InitialCondition(const int& example);
@@ -148,7 +167,7 @@ inline void FluidSolver2D::InitialCondition(const int & example)
 		cout << "*************************" << endl;
 		cout << endl;
 
-		int numP = 51;
+		int numP = 101;
 		double ddx = 0.01;
 		grid = Grid2D(0, ddx*double(numP - 1), numP, 0, ddx*double(numP - 1), numP);
 
@@ -165,7 +184,7 @@ inline void FluidSolver2D::InitialCondition(const int & example)
 		{
 			for (int i = Pressure.iStart; i <= Pressure.iEnd; i++)
 			{
-				if (i == Pressure.iStart && j == Pressure.jStartI)
+				if (i == Pressure.iStart && j == Pressure.jEndI)
 				{
 					Pressure.BC(i, j) = BC_DIR;
 					Pressure(i, j) = 1;
@@ -176,7 +195,7 @@ inline void FluidSolver2D::InitialCondition(const int & example)
 					Pressure.BC(i, j) = BC_NEUM;
 					continue;
 				}
-				Pressure.BC(i, j) = tempBC++;;
+				Pressure.BC(i, j) = tempBC++;
 			}
 		}
 
@@ -206,7 +225,6 @@ inline void FluidSolver2D::InitialCondition(const int & example)
 
 		V = FD(gridV);
 
-//#pragma omp parallel for
 		tempBC = 0;
 		for (int j = V.jStart; j <= V.jEnd; j++)
 		{
@@ -235,7 +253,7 @@ inline void FluidSolver2D::InitialCondition(const int & example)
 		MuV = FD(gridV);
 		Nu = FD(grid);
 
-		reynoldNum = 400;
+		reynoldNum = 1000;
 
 		AdvectionU = FD(gridU);
 		AdvectionV = FD(gridV);
@@ -245,61 +263,424 @@ inline void FluidSolver2D::InitialCondition(const int & example)
 
 		levelSet = LS(grid);
 
-		// initial condition
-
-
 		Phi = FD(grid);
 		Phixxyy = FD(grid);
 		gradientPx = FD(U.innerGrid);
 		gradientPy = FD(V.innerGrid);
 
-		//BdryTop = 1;
-		//BdryBottom = 1;
-		//BdryLeft = 1;
-		//BdryRight = 1;
-
 		//// Projection Accuracy Order
-		
 		ProjectionOrder = 1;
 		if (ProjectionOrder == 1)
 		{
-			Pressure.CountNonZero();
-			Pb = VectorND<double>(Pressure.num_all_full_cells);
-			tempP = VectorND<double>(Pressure.num_all_full_cells);
-
-			P_CSR = CSR<double>(Pressure.num_all_full_cells, Pressure.nnz);
-
 			GenerateLinearSystemPressure(P_CSR);
-			//P_CSR.indPrt.Variable("PindPrt");
-			//P_CSR.values.Variable("Pvalues");
-			//P_CSR.columns.Variable("Pcolumns");
+			//P_CSR.indPrt.Variable("PindPrt2");
+			//P_CSR.values.Variable("Pvalues2");
+			//P_CSR.columns.Variable("Pcolumns2");
 
 		}
 		else if (ProjectionOrder == 2)
 		{
-			U.CountNonZero();
-			Ub = VectorND<double>(U.num_all_full_cells);
-			tempU = VectorND<double>(U.num_all_full_cells);
-
-			V.CountNonZero();
-			Vb = VectorND<double>(V.num_all_full_cells);
-			tempV = VectorND<double>(V.num_all_full_cells);
-
-			Phi.CountNonZero();
-			Phib = VectorND<double>(Phi.num_all_full_cells);
-			tempPhi = VectorND<double>(Phi.num_all_full_cells);
-
 			GenerateLinearSystemUV2Order(UCN_CSR, VCN_CSR);
 			GenerateLinearSystempPhi2Order(PhiCN_CSR);
 		}
 
 		cflCondition = 0.1;
 		dt = cflCondition*grid.dx;
-		finalT = 2;
+		finalT = 10;
 		maxIteration = int(finalT / dt);
 		totalT = 0;
 		writeOutputIteration = 10;
 		iteration = 0;
+	}
+
+	if (example == 2)
+	{
+		cout << "*************************" << endl;
+		cout << "    Navier-Stokes equation" << endl;
+		cout << "    Chorin's Projection Method" << endl;
+		cout << "    Tube" << endl;
+		cout << "*************************" << endl;
+		cout << endl;
+
+		int numP = 51;
+		double ddx = 0.01;
+		grid = Grid2D(0, ddx*double(numP - 1), numP, 0, ddx*double(numP - 1), numP);
+
+		gridU = Grid2D(grid.xMin - grid.dx / 2, grid.xMax + grid.dx / 2, grid.iRes + 1,
+			grid.yMin, grid.yMax, grid.jRes);
+
+		gridV = Grid2D(grid.xMin, grid.xMax, grid.iRes,
+			grid.yMin - grid.dy / 2, grid.yMax + grid.dy / 2, grid.jRes + 1);
+
+		Pressure = FD(grid);
+		int tempBC = 0;
+		//// Boundary Condition
+		for (int j = Pressure.jStart; j <= Pressure.jEnd; j++)
+		{
+			for (int i = Pressure.iStart; i <= Pressure.iEnd; i++)
+			{
+				if (i == Pressure.iStart || i == Pressure.iEnd)
+				{
+					Pressure.BC(i, j) = BC_DIR;
+					Pressure(i, j) = 1;
+					continue;
+				}
+				if (j == Pressure.jStart || j == Pressure.jEnd )
+				{
+					Pressure.BC(i, j) = BC_NEUM;
+					continue;
+				}
+				Pressure.BC(i, j) = tempBC++;;
+			}
+		}
+
+		U = FD(gridU);
+
+#pragma omp parallel for
+		for (int i = gridU.iStart; i <= gridU.iEnd; i++)
+		{
+			U(i, U.jStart) = 0;
+			U.BC(i, U.jStart) = BC_DIR;
+			U(i, U.jEnd) = 0;
+			U.BC(i, U.jEnd) = BC_DIR;
+			
+		}
+		tempBC = 0;
+		for (int j = U.jStartI; j <= U.jEndI; j++)
+		{
+			for (int i = U.iStart; i <= U.iEnd; i++)
+			{
+				U(i, j) = 1;
+				if (i == U.iStart || i == U.iEnd)
+				{
+					U.BC(i, j) = BC_DIR;
+					continue;
+				}
+				U.BC(i, j) = tempBC++;
+			}
+		}
+		originU = U;
+
+		V = FD(gridV);
+
+		tempBC = 0;
+		for (int j = V.jStart; j <= V.jEnd; j++)
+		{
+			for (int i = V.iStart; i <= V.iEnd; i++)
+			{
+				if (i == V.iStart || i == V.iEnd)
+				{
+					V.BC(i, j) = BC_DIR;
+					continue;
+				}
+				if (j == V.jStart || j == V.jEnd)
+				{
+					V.BC(i, j) = BC_REFLECTION;
+					continue;
+				}
+				V.BC(i, j) = tempBC++;
+			}
+		}
+		originV = V;
+
+		Density = FD(grid);
+		DensityU = FD(gridU);
+		DensityV = FD(gridV);
+		Mu = FD(grid);
+		MuU = FD(gridU);
+		MuV = FD(gridV);
+		Nu = FD(grid);
+
+		reynoldNum = 1000;
+
+		AdvectionU = FD(gridU);
+		AdvectionV = FD(gridV);
+
+		DiffusionU = FD(gridU);
+		DiffusionV = FD(gridV);
+
+		levelSet = LS(grid);
+
+		Phi = FD(grid);
+		Phixxyy = FD(grid);
+		gradientPx = FD(U.innerGrid);
+		gradientPy = FD(V.innerGrid);
+
+		//// Projection Accuracy Order
+		ProjectionOrder = 1;
+		if (ProjectionOrder == 1)
+		{
+			GenerateLinearSystemPressure(P_CSR);
+			//P_CSR.indPrt.Variable("PindPrt2");
+			//P_CSR.values.Variable("Pvalues2");
+			//P_CSR.columns.Variable("Pcolumns2");
+
+		}
+		else if (ProjectionOrder == 2)
+		{
+			GenerateLinearSystemUV2Order(UCN_CSR, VCN_CSR);
+			GenerateLinearSystempPhi2Order(PhiCN_CSR);
+		}
+
+		cflCondition = 0.1;
+		dt = cflCondition*grid.dx;
+		finalT = 10;
+		maxIteration = int(finalT / dt);
+		totalT = 0;
+		writeOutputIteration = 10;
+		iteration = 0;
+	}
+
+	if (example == 3)
+	{
+		/////////////////////////////////////////////////////////
+		/////  A level-set continuum method
+		/////  for two-phase flows with insoluble surfactant
+		/////  --JJ Xu, Y Yang, J Lowengrub--
+		/////  Example 1
+		/////////////////////////////////////////////////////////
+		int numP = grid.iRes;
+		double ddx = grid.dx;
+
+		gridU = Grid2D(grid.xMin - grid.dx / 2, grid.xMax + grid.dx / 2, grid.iRes + 1,
+			grid.yMin, grid.yMax, grid.jRes);
+		gridV = Grid2D(grid.xMin, grid.xMax, grid.iRes,
+			grid.yMin - grid.dy / 2, grid.yMax + grid.dy / 2, grid.jRes + 1);
+
+		Pressure = FD(grid);
+		int tempBC = 0;
+		//// Boundary Condition
+		for (int j = Pressure.jStart; j <= Pressure.jEnd; j++)
+		{
+			for (int i = Pressure.iStart; i <= Pressure.iEnd; i++)
+			{
+				if (i==Pressure.iStart && j==Pressure.jStartI)
+				{
+					Pressure.BC(i, j) = BC_DIR;
+					Pressure(i, j) = 1;
+					continue;
+				}
+				if (i == Pressure.iStart || i == Pressure.iEnd)
+				{
+					Pressure.BC(i, j) = BC_NEUM;
+					continue;
+				}
+				if (j == Pressure.jStart || j == Pressure.jEnd)
+				{
+					Pressure.BC(i, j) = BC_NEUM;
+					continue;
+				}
+				Pressure.BC(i, j) = tempBC++;;
+			}
+		}
+
+		U = FD(gridU);
+		tempBC = 0;
+		for (int j = U.jStart; j <= U.jEnd; j++)
+		{
+			for (int i = U.iStart; i <= U.iEnd; i++)
+			{
+				U(i, j) = gridU(i, j).y;
+
+				if (i == U.iStart || i == U.iEnd)
+				{
+					U.BC(i, j) = BC_DIR;
+
+					continue;
+				}
+				if (j == U.jStart || j == U.jEnd)
+				{
+					U.BC(i, j) = BC_DIR;
+					continue;
+				}
+				U.BC(i, j) = tempBC++;
+			}
+		}
+		originU = U;
+
+		V = FD(gridV);
+		tempBC = 0;
+		for (int j = V.jStart; j <= V.jEnd; j++)
+		{
+			for (int i = V.iStart; i <= V.iEnd; i++)
+			{
+				if (i == V.iStart || i == V.iEnd)
+				{
+					V.BC(i, j) = BC_NEUM;
+					continue;
+				}
+				if (j == V.jStart || j == V.jEnd)
+				{
+					V.BC(i, j) = BC_NEUM;
+					continue;
+				}
+				V.BC(i, j) = tempBC++;
+			}
+		}
+		originV = V;
+
+		Density = FD(grid);
+		DensityU = FD(gridU);
+		DensityV = FD(gridV);
+		Mu = FD(grid);
+		MuU = FD(gridU);
+		MuV = FD(gridV);
+		Nu = FD(grid);
+
+		reynoldNum = 1000;
+
+		AdvectionU = FD(gridU);
+		AdvectionV = FD(gridV);
+
+		DiffusionU = FD(gridU);
+		DiffusionV = FD(gridV);
+
+		levelSet = LS(grid);
+
+		Phi = FD(grid);
+		Phixxyy = FD(grid);
+		gradientPx = FD(U.innerGrid);
+		gradientPy = FD(V.innerGrid);
+
+		//// Projection Accuracy Order
+		ProjectionOrder = 1;
+		if (ProjectionOrder == 1)
+		{
+			GenerateLinearSystemPressure(P_CSR);
+			//P_CSR.indPrt.Variable("PindPrt2");
+			//P_CSR.values.Variable("Pvalues2");
+			//P_CSR.columns.Variable("Pcolumns2");
+
+		}
+		else if (ProjectionOrder == 2)
+		{
+			GenerateLinearSystemUV2Order(UCN_CSR, VCN_CSR);
+			GenerateLinearSystempPhi2Order(PhiCN_CSR);
+		}
+
+		cflCondition = 0.1;
+		dt = cflCondition*grid.dx;
+		finalT = 10;
+		maxIteration = int(finalT / dt);
+		totalT = 0;
+		writeOutputIteration = 10;
+		iteration = 0;
+
+		isPlot = false;
+	}
+
+	if (example == 5)
+	{
+		/////////////////////////////////////////////////////////
+		/////  Simulations of surfactant effects
+		/////  on the dynamics of coalescing drops and bubbles
+		/////  --DW Martin and F Blanchette--
+		/////  Example 1
+		/////////////////////////////////////////////////////////
+		int numP = grid.iRes;
+		double ddx = grid.dx;
+
+		gridU = Grid2D(grid.xMin - grid.dx / 2, grid.xMax + grid.dx / 2, grid.iRes + 1,
+			grid.yMin, grid.yMax, grid.jRes);
+		gridV = Grid2D(grid.xMin, grid.xMax, grid.iRes,
+			grid.yMin - grid.dy / 2, grid.yMax + grid.dy / 2, grid.jRes + 1);
+
+		Pressure = FD(grid);
+		int tempBC = 0;
+		for (int j = Pressure.jStart; j <= Pressure.jEnd; j++)
+		{
+			for (int i = Pressure.iStart; i <= Pressure.iEnd; i++)
+			{
+				if (i == Pressure.iStart && j == Pressure.jStartI)
+				{
+					Pressure.BC(i, j) = BC_DIR;
+					Pressure(i, j) = 1;
+					continue;
+				}
+				if (i == Pressure.iStart || i == Pressure.iEnd || j == Pressure.jStart || j == Pressure.jEnd)
+				{
+					Pressure.BC(i, j) = BC_NEUM;
+					continue;
+				}
+				Pressure.BC(i, j) = tempBC++;
+			}
+		}
+
+		U = FD(gridU);
+		tempBC = 0;
+		for (int j = U.jStart; j <= U.jEnd; j++)
+		{
+			for (int i = U.iStart; i <= U.iEnd; i++)
+			{
+				if (i == U.iStart || i == U.iEnd || j == U.jStart || j == U.jEnd)
+				{
+					U.BC(i, j) = BC_NEUM;
+					continue;
+				}
+				U.BC(i, j) = tempBC++;
+			}
+		}
+		originU = U;
+
+		V = FD(gridV);
+		tempBC = 0;
+		for (int j = V.jStart; j <= V.jEnd; j++)
+		{
+			for (int i = V.iStart; i <= V.iEnd; i++)
+			{
+				if (i == V.iStart || i == V.iEnd || j == V.jStart || j == V.jEnd)
+				{
+					V.BC(i, j) = BC_NEUM;
+					continue;
+				}
+				V.BC(i, j) = tempBC++;
+			}
+		}
+		originV = V;
+
+
+
+		Density = FD(grid);
+		DensityU = FD(gridU);
+		DensityV = FD(gridV);
+		Mu = FD(grid);
+		MuU = FD(gridU);
+		MuV = FD(gridV);
+		Nu = FD(grid);
+
+		reynoldNum = 1000;
+
+		AdvectionU = FD(gridU);
+		AdvectionV = FD(gridV);
+
+		DiffusionU = FD(gridU);
+		DiffusionV = FD(gridV);
+
+		levelSet = LS(grid);
+
+		Phi = FD(grid);
+		Phixxyy = FD(grid);
+		gradientPx = FD(U.innerGrid);
+		gradientPy = FD(V.innerGrid);
+
+		isPlot = false;
+		ProjectionOrder = 1;
+
+		if (ProjectionOrder == 1)
+		{
+			//GenerateLinearSystem(PMatrix, -grid.dx*grid.dx);
+			GenerateLinearSystemPressure(P_CSR);
+		}
+		else
+		{
+			GenerateLinearSystemUV2Order(UCN_CSR, VCN_CSR);
+			GenerateLinearSystempPhi2Order(PhiCN_CSR);
+
+			//GenerateLinearSystemUV(Fluid.UCNMatrix, Fluid.U.innerGrid, 1, Fluid.UCN_CSR);
+			//GenerateLinearSystemUV(Fluid.VCNMatrix, Fluid.V.innerGrid, 1, Fluid.VCN_CSR);
+
+		}
+
 	}
 }
 
@@ -313,8 +694,11 @@ inline void FluidSolver2D::Solver(const int & example)
 	grid.Variable("Xp", "Yp");
 	gridU.Variable("Xu", "Yu");
 	gridV.Variable("Xv", "Yv");
-
-	PlotVelocity();
+	
+	if (isPlot)
+	{
+		PlotVelocity();
+	}
 
 	for (iteration = 1; iteration <= maxIteration; iteration++)
 	{
@@ -328,13 +712,17 @@ inline void FluidSolver2D::Solver(const int & example)
 		cout << "********************************" << endl;
 		//P.Variable("P");
 
-		PlotVelocity();
-		MATLAB.Command("divU =U(:,2:end)-U(:,1:end-1),divV =V(2:end,:)-V(1:end-1,:);div=divU+divV;");
-		if (iteration == 1 || iteration % 1 == 0)
+		if (isPlot)
 		{
-			MATLAB.WriteImage("fluid", iteration, "fig");
-			MATLAB.WriteImage("fluid", iteration, "png");
+			PlotVelocity();
+			MATLAB.Command("divU =U(:,2:end)-U(:,1:end-1),divV =V(2:end,:)-V(1:end-1,:);div=divU+divV;");
+			if ((iteration == 1 || iteration % 10 == 0) && false)
+			{
+				MATLAB.WriteImage("fluid", iteration, "fig");
+				MATLAB.WriteImage("fluid", iteration, "png");
+			}
 		}
+		
 
 		if (writeFile && iteration%writeOutputIteration == 0)
 		{
@@ -507,8 +895,8 @@ inline void FluidSolver2D::EulerMethodStep1()
 	TreatVelocityBC(U, V);
 
 
-	//U.Variable("Ustar");
-	//V.Variable("Vstar");
+	//U.Variable("Ustar2");
+	//V.Variable("Vstar2");
 	//MATLAB.Command("divUstar =Ustar(:,2:end)-Ustar(:,1:end-1),divVstar =Vstar(2:end,:)-Vstar(1:end-1,:);divstar=divUstar+divVstar;");
 	//MATLAB.Command("quiver(Xp,Yp,Ustar(:,1:end-1),Vstar(1:end-1,:))");
 }
@@ -547,7 +935,7 @@ inline void FluidSolver2D::EulerMethodStep2()
 			Pressure(Pressure.iEnd, j) = Pressure(Pressure.iEndI, j);
 		}
 	}
-	//Pressure.Variable("P");
+	//Pressure.Variable("P2");
 }
 
 inline void FluidSolver2D::EulerMethodStep3()
@@ -578,8 +966,8 @@ inline void FluidSolver2D::EulerMethodStep3()
 	}
 	TreatVelocityBC(U, V);
 
-	//U.Variable("Unew");
-	//V.Variable("Vnew");
+	//U.Variable("Unew2");
+	//V.Variable("Vnew2");
 	//MATLAB.Command("divUnew =Unew(:,2:end)-Unew(:,1:end-1),divVnew =Vnew(2:end,:)-Vnew(1:end-1,:);divnew=divUnew+divVnew;");
 	//MATLAB.Command("quiver(Xp,Yp,Unew(1:end-1,:),Vnew(:,1:end-1))");
 }
@@ -587,6 +975,12 @@ inline void FluidSolver2D::EulerMethodStep3()
 
 inline void FluidSolver2D::GenerateLinearSystemPressure(CSR<double>& ipCSR)
 {
+	Pressure.CountNonZero();
+	Pb = VectorND<double>(Pressure.num_all_full_cells);
+	tempP = VectorND<double>(Pressure.num_all_full_cells);
+
+	P_CSR = CSR<double>(Pressure.num_all_full_cells, Pressure.nnz);
+
 	//Array2D<double> tempA(ipCSR.rowNum, ipCSR.rowNum);
 	int iStart = Pressure.iStart, iEnd = Pressure.iEnd, jStart = Pressure.jStart, jEnd = Pressure.jEnd;
 	
@@ -950,7 +1344,7 @@ inline void FluidSolver2D::PlotVelocity()
 	str = string("axis([Xp(1)-(Xp(end)-Xp(1))/10 Xp(end)+(Xp(end)-Xp(1))/10 Yp(1)-(Yp(end)-Yp(1))/10 Yp(end)+(Yp(end)-Yp(1))/10])");
 	MATLAB.Command(str.c_str());
 	str = string("quiver(Xp,Yp,U(:,1:end-1)/2+U(:,2:end)/2,V(1:end-1,:)/2+V(2:end,:)/2,2),axis([Xp(1)-(Xp(end)-Xp(1))/10 Xp(end)+(Xp(end)-Xp(1))/10 Yp(1)-(Yp(end)-Yp(1))/10 Yp(end)+(Yp(end)-Yp(1))/10]);");
-	str = str + string("hold on,streamline(Xp,Yp,U(:,1:end-1)/2+U(:,2:end)/2,V(1:end-1,:)/2+V(2:end,:)/2,-100:0.1:100,-100:0.1:100),hold off;");
+	str = str + string("hold on,streamline(Xp,Yp,U(:,1:end-1)/2+U(:,2:end)/2,V(1:end-1,:)/2+V(2:end,:)/2,Xp(1:30:end),Yp(1:30:end)), hold off;");
 	MATLAB.Command(str.c_str());
 	str = string("title(['iteration : ', num2str(") + to_string(iteration) + string("),', time : ', num2str(") + to_string(totalT) + string(")]);");
 	MATLAB.Command(str.c_str());
@@ -960,8 +1354,31 @@ inline void FluidSolver2D::EulerMethod2ndOrder()
 {
 }
 
+inline void FluidSolver2D::EulerMethod2ndOrder1()
+{
+}
+
+inline void FluidSolver2D::EulerMethod2ndOrder2()
+{
+}
+
+inline void FluidSolver2D::EulerMethod2ndOrder3()
+{
+}
+
+inline void FluidSolver2D::EulerMethod2ndOrder1stIteration1()
+{
+}
+
 inline void FluidSolver2D::GenerateLinearSystemUV2Order(CSR<double>& ipU_CSR, CSR<double>& ipV_CSR)
 {
+	U.CountNonZero();
+	Ub = VectorND<double>(U.num_all_full_cells);
+	tempU = VectorND<double>(U.num_all_full_cells);
+
+	V.CountNonZero();
+	Vb = VectorND<double>(V.num_all_full_cells);
+	tempV = VectorND<double>(V.num_all_full_cells);
 }
 
 inline void FluidSolver2D::GenerateLinearSystemUV2Order(VectorND<double>& vectorB)
@@ -971,6 +1388,9 @@ inline void FluidSolver2D::GenerateLinearSystemUV2Order(VectorND<double>& vector
 
 inline void FluidSolver2D::GenerateLinearSystempPhi2Order(CSR<double>& ipCSR)
 {
+	Phi.CountNonZero();
+	Phib = VectorND<double>(Phi.num_all_full_cells);
+	tempPhi = VectorND<double>(Phi.num_all_full_cells);
 }
 
 inline void FluidSolver2D::GenerateLinearSystempPhi2Order(VectorND<double>& vectorB)

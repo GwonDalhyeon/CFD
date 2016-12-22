@@ -233,17 +233,14 @@ inline void CSR<TT>::Multiply(const VectorND<TT>& x, VectorND<TT>& b) const
 //		b.values[row] = v;
 //	}
 
-	int num = rowNum;
-	int j;
-#pragma omp parallel for private (v, j)
-	for (int i = 0; i < num; i++)
+#pragma omp parallel for private (v)
+	for (int i = 0; i < rowNum; i++)
 	{
 		v = 0;
 //#pragma omp parallel for private (j) reduction(+:v) 
 		for (int n = indPrt[i]; n < indPrt[i + 1]; n++)
 		{
-			j = int(columns[n]);
-			v += values[n] * x[j];
+			v += values[n] * x[columns[n]];
 		}
 		b[i] = v;
 	}

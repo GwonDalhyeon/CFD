@@ -1878,15 +1878,15 @@ inline void AdvectionMethod2D<TT>::LLSQuantityExtension(LS & ipLS, FD & ipQuanti
 {
 	int i, j;
 	int updatedRegion = 2;
-#pragma omp parallel for private(i, j)
-	for (int k = 1; k <= ipLS.numTube; k++)
-	{
-		ipLS.TubeIndex(k, i, j);
-		if (ipLS.tube(i, j) == updatedRegion)
-		{
-			ipQuantity(i, j) = 0;
-		}
-	}
+//#pragma omp parallel for private(i, j)
+//	for (int k = 1; k <= ipLS.numTube; k++)
+//	{
+//		ipLS.TubeIndex(k, i, j);
+//		if (ipLS.tube(i, j) == updatedRegion)
+//		{
+//			ipQuantity(i, j) = 0;
+//		}
+//	}
 
 	for (int m = 1;  m <= iter;  m++)
 	{

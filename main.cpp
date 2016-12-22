@@ -183,7 +183,7 @@ void main()
 	}
 	else
 	{
-		problem = 4;
+		problem = 15;
 		example = 1;
 	}
 
@@ -222,22 +222,11 @@ void main()
 	}
 	else if (problem == 4) // NAVIER STOKES EQUATION SOLVER : EXAMPLE 1 ??
 	{
-		int version = 1;
-		if (version==1)
-		{
-			EulerianFluidSolver2D Euler;
-			if (example == 1 || example == 2 || example == 4)
-			{
-				Euler.FluidSolver(example);
-			}
-		}
-		else
+		if (example == 1 || example == 2 || example == 4)
 		{
 			FluidSolver2D Fluid;
 			Fluid.Solver(example);
 		}
-		
-
 	}
 	else if (problem == 5) // SURFACE RECONSTRUCTION USING SPLIT BREGMAN : EXAMPLE 1 ~ 6 ??
 	{
@@ -279,7 +268,7 @@ void main()
 	}
 	else if (problem == 12)  // Eulerian Moving Interface.(JJ Xu, HK Zhao) : Example 1
 	{
-		EulerianFluidSolver2D Fluid;
+		FluidSolver2D Fluid;
 		MovingInterface Eulerian(Fluid);
 		if (example <= 2) // Whole domain
 		{
@@ -308,7 +297,7 @@ void main()
 	}
 	else if (problem == 14)
 	{
-		EulerianFluidSolver2D Fluid;
+		FluidSolver2D Fluid;
 		MovingInterface Surfactant(Fluid);
 		InsolubleSurfactant ContinuumMethod(Fluid, Surfactant);
 		ContinuumMethod.ContinuumMethodWithSurfactantSolver(example);
@@ -316,7 +305,7 @@ void main()
 	}
 	else if (problem == 15)
 	{
-		EulerianFluidSolver2D Fluid;
+		FluidSolver2D Fluid;
 		MovingInterface Surfactant(Fluid);
 		CoalescingDrop Coalescing(Fluid, Surfactant);
 		Coalescing.CoalescingBubbleSolver(example);

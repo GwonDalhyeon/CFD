@@ -220,7 +220,7 @@ inline void EulerianFluidSolver2D::InitialCondition(const int & example)
 		diffusionV = FD(V.innerGrid);
 
 		//// Accuracy Order
-		accuracyOrder = 2;
+		accuracyOrder = 1;
 
 		reynoldNum = 1000;
 		cflCondition = 0.1;
@@ -527,7 +527,7 @@ inline void EulerianFluidSolver2D::FluidSolver(const int & example)
 	//P.Variable("P");
 
 	str = string("quiver(Xp,Yp,U(:,1:end-1)/2+U(:,2:end)/2,V(1:end-1,:)/2+V(2:end,:)/2,2),axis([Xp(1)-(Xp(end)-Xp(1))/10 Xp(end)+(Xp(end)-Xp(1))/10 Yp(1)-(Yp(end)-Yp(1))/10 Yp(end)+(Yp(end)-Yp(1))/10]);");
-	str = str + string("hold on,streamline(Xp,Yp,U(:,1:end-1)/2+U(:,2:end)/2,V(1:end-1,:)/2+V(2:end,:)/2,-100:0.1:100,-100:0.1:100),hold off;");
+	str = str + string("hold on,streamline(Xp,Yp,U(:,1:end-1)/2+U(:,2:end)/2,V(1:end-1,:)/2+V(2:end,:)/2,Xp(1:60:end),Yp(1:60:end)),hold off;");
 	MATLAB.Command(str.c_str());
 	str = string("title(['iteration : ', num2str(") + to_string(0) + string(")]);");
 	MATLAB.Command(str.c_str());
@@ -547,7 +547,7 @@ inline void EulerianFluidSolver2D::FluidSolver(const int & example)
 		MATLAB.Command("axis([Xp(1)-(Xp(end)-Xp(1))/10 Xp(end)+(Xp(end)-Xp(1))/10 Yp(1)-(Yp(end)-Yp(1))/10 Yp(end)+(Yp(end)-Yp(1))/10])");
 
 		str = string("quiver(Xp,Yp,U(:,1:end-1)/2+U(:,2:end)/2,V(1:end-1,:)/2+V(2:end,:)/2,2),axis([Xp(1)-(Xp(end)-Xp(1))/10 Xp(end)+(Xp(end)-Xp(1))/10 Yp(1)-(Yp(end)-Yp(1))/10 Yp(end)+(Yp(end)-Yp(1))/10]);");
-		str = str + string("hold on,streamline(Xp,Yp,U(:,1:end-1)/2+U(:,2:end)/2,V(1:end-1,:)/2+V(2:end,:)/2,-100:0.1:100,-100:0.1:100),hold off;");
+		str = str + string("hold on,streamline(Xp,Yp,U(:,1:end-1)/2+U(:,2:end)/2,V(1:end-1,:)/2+V(2:end,:)/2,Xp(1:60:end),Yp(1:60:end)),hold off;");
 		MATLAB.Command(str.c_str());
 		str = string("title(['iteration : ', num2str(") + to_string(iteration) + string("),', time : ', num2str(") + to_string(totalT) + string(")]);");
 		MATLAB.Command(str.c_str());
@@ -924,7 +924,7 @@ inline void EulerianFluidSolver2D::EulerMethod1()
 inline void EulerianFluidSolver2D::EulerMethod2()
 {
 	GenerateLinearSystem(Pb, -gridP.dx2);
-	//Pb.Variable("vectorB");
+	//Pb.Variable("Pb");
 	CGSolver::Solver(P_CSR, Pb, tempP);
 	//PCGSolver::Solver(P_CSR, Pb, tempP);
 	//tempP.Variable("tempP");
