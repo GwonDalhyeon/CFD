@@ -223,8 +223,8 @@ inline void CoalescingDrop::CoalescingBubbleSolver(const int & example)
 	MATLAB.Command("IntSur0 = sum(sum(Surfactant0.*(Tube==1)))*(Y(2)-Y(1))*(Y(2)-Y(1));");
 
 	PlotVelocity();
-	MATLAB.WriteImage("surfactant", 0, "fig");
-	MATLAB.WriteImage("surfactant", 0, "png");
+	MATLAB.WriteImage("Coalescing", 0, "fig");
+	MATLAB.WriteImage("Coalescing", 0, "png");
 
 	int reinitialIter = int(levelSet.gamma1 / min(levelSet.phi.dx, levelSet.phi.dy)) * 2;
 	int extensionIter = (int)ceil((levelSet.gamma2 - levelSet.gamma1) / (0.2*min(grid.dx, grid.dy)));
@@ -235,8 +235,9 @@ inline void CoalescingDrop::CoalescingBubbleSolver(const int & example)
 		totalT += dt;
 		//// Step 1-1 : Surfactant Diffusion
 		cout << "Diffusion Start" << endl;
-		InterfaceSurfactant.LSurfactantDiffusion(iteration);
+		//InterfaceSurfactant.LSurfactantDiffusion(iteration);
 		cout << "Diffusion End" << endl;
+		cout << endl;
 
 		//// Step 1-2 : New Surface Tension
 		//InterfaceSurfactant.DimlessNonlinearLangmu1rEOS(2);
@@ -257,14 +258,14 @@ inline void CoalescingDrop::CoalescingBubbleSolver(const int & example)
 		levelSet.UpdateLLS();
 
 
-		//MATLAB.Command("subplot(2,1,1)");
-		//PlotSurfactant();
-		//MATLAB.Command("subplot(2,1,2)");
+		MATLAB.Command("subplot(1,2,1)");
+		PlotSurfactant();
+		MATLAB.Command("subplot(1,2,2)");
 		PlotVelocity();
-		if (iteration % 10000000 == 0)
+		if (iteration % 10 == 0)
 		{
-			MATLAB.WriteImage("surfactant", iteration, "fig");
-			MATLAB.WriteImage("surfactant", iteration, "png");
+			//MATLAB.WriteImage("Coalescing", iteration, "fig");
+			MATLAB.WriteImage("Coalescing", iteration, "png");
 		}
 		cout << "       Iteration " << to_string(iteration) << " : End" << endl;
 		cout << "*******************************************************************" << endl;
@@ -730,7 +731,8 @@ inline void CoalescingDrop::PlotSurfactant()
 	levelSet.tube.Variable("Tube");
 	MATLAB.Command("SurTube1 = Surfactant.*(Tube<=1);");
 	//MATLAB.Command("contour(X,Y,Tube,'r'),axis equal,axis([X(1) X(end) Y(1) Y(end)]), hold on,surf(X,Y,SurTube1), h=colorbar,h.Limits=[0 max(max(SurTube1))],hold off;set(gca,'fontsize',20)");
-	MATLAB.Command("surf(X,Y,SurTube1), h=colorbar,h.Limits=[0 max(max(SurTube1))],axis equal,axis([X(1) X(end) Y(1) Y(end)]), hold on,hold off;set(gca,'fontsize',20)");
+	//MATLAB.Command("surf(X,Y,SurTube1), h=colorbar,h.Limits=[0 max(max(SurTube1))],axis equal,axis([X(1) X(end) Y(1) Y(end)]), hold on,hold off;set(gca,'fontsize',20)");
+	MATLAB.Command("surf(X,Y,Surfactant), h=colorbar,h.Limits=[0 max(max(SurTube1))],axis equal,set(gca,'fontsize',20)");
 
 	//// Measure Surfactant Loss ////
 	MATLAB.Command("IntSur = sum(sum(SurTube1.*(Tube==1)))*(Y(2)-Y(1))*(Y(2)-Y(1));");
@@ -751,7 +753,7 @@ inline void CoalescingDrop::PlotVelocity()
 
 	str = string("quiver(X,Y,U(:,1:end-1)/2+U(:,2:end)/2,V(1:end-1,:)/2+V(2:end,:)/2,2),axis([X(1)-(X(end)-X(1))/10 X(end)+(X(end)-X(1))/10 Y(1)-(Y(end)-Y(1))/10 Y(end)+(Y(end)-Y(1))/10]);");
 	//str = str + string("hold on,streamline(X,Y,U(:,1:end-1)/2+U(:,2:end)/2,V(1:end-1,:)/2+V(2:end,:)/2,-100:0.1:100,-100:0.1:100),hold off;");
-	str = str + string("hold on, contour(X,Y,phi,[0 0],'r'), hold off;axis([X(1)-(X(end)-X(1))/10 X(end)+(X(end)-X(1))/10 Y(1)-(Y(end)-Y(1))/10 Y(end)+(Y(end)-Y(1))/10]),axis equal");
+	str = str + string("hold on, contour(X,Y,phi,[0 0],'r'), hold off; axis equal; axis([X(1)-(X(end)-X(1))/10 X(end)+(X(end)-X(1))/10 Y(1)-(Y(end)-Y(1))/10 Y(end)+(Y(end)-Y(1))/10])");
 	MATLAB.Command(str.c_str());
 	str = string("title(['iteration : ', num2str(") + to_string(iteration) + string("),', time : ', num2str(") + to_string(totalT) + string(")]);");
 	MATLAB.Command(str.c_str());

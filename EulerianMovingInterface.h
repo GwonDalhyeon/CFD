@@ -652,18 +652,11 @@ inline void MovingInterface::SurfactantDiffusion(const int & iter)
 {
 	if (iter == 1)
 	{
-		Surfactant.CountNonZero();
-		vectorB = VectorND<double>(Surfactant.num_all_full_cells);
-		tempSur = VectorND<double>(Surfactant.num_all_full_cells);
-		Acsr = CSR<double>(Surfactant.num_all_full_cells, Surfactant.nnz);
-
 		GenerateLinearSystem1(Acsr);
 	}
 	if (iter == 2)
 	{
-		Acsr = CSR<double>(Surfactant.num_all_full_cells, Surfactant.nnz);
 		GenerateLinearSystem2(Acsr);
-
 	}
 	if (iter == 1)
 	{
@@ -774,6 +767,12 @@ inline double MovingInterface::ExactSurfactant(const double & x, const double & 
 
 inline void MovingInterface::GenerateLinearSystem1(CSR<double>& ipCSR)
 {
+	Surfactant.CountNonZero();
+	vectorB = VectorND<double>(Surfactant.num_all_full_cells);
+	tempSur = VectorND<double>(Surfactant.num_all_full_cells);
+	Acsr = CSR<double>(Surfactant.num_all_full_cells, Surfactant.nnz);
+
+
 	int iStart = Surfactant.iStart, iEnd = Surfactant.iEnd, jStart = Surfactant.jStart, jEnd = Surfactant.jEnd;
 
 	double dx = Surfactant.dx, dy = Surfactant.dy;
@@ -813,7 +812,7 @@ inline void MovingInterface::GenerateLinearSystem1(CSR<double>& ipCSR)
 					ipCSR.AssignValue(BC(i, j), BC(i + 1, j), -oneOverdx2);
 				}
 			}
-			if (j>iStart)
+			if (j>jStart)
 			{
 				if (BC(i, j - 1) > -1)
 				{
@@ -839,7 +838,7 @@ inline void MovingInterface::GenerateLinearSystem1(CSR<double>& ipCSR)
 			{
 				if (BC(i + 1, j) == BC_DIR)	coefIJ++;
 			}
-			if (j>iStart)
+			if (j>jStart)
 			{
 				if (BC(i, j - 1) == BC_DIR)	coefIJ++;
 			}
@@ -877,7 +876,7 @@ inline void MovingInterface::GenerateLinearSystem1(CSR<double>& ipCSR)
 				{
 					if (BC(i + 1, j) == BC_NEUM) coefIJ += 0;
 				}
-				if (j>iStart)
+				if (j>jStart)
 				{
 					if (BC(i, j - 1) == BC_NEUM) coefIJ += 0;
 				}
@@ -915,7 +914,7 @@ inline void MovingInterface::GenerateLinearSystem1(VectorND<double>& vectorB)
 			}
 			vectorB(BC(i, j)) = Surfactant(i, j)*oneOverdt + term(i, j);
 
-			if (i > Surfactant.jStart)
+			if (i > Surfactant.iStart)
 			{
 				if (BC(i - 1, j) == BC_DIR)
 				{
@@ -931,7 +930,7 @@ inline void MovingInterface::GenerateLinearSystem1(VectorND<double>& vectorB)
 					vectorB(BC(i, j)) += Surfactant(i + 1, j)*Surfactant.oneOverdx2;
 				}
 			}
-			if (j > Surfactant.iStart)
+			if (j > Surfactant.jStart)
 			{
 				if (BC(i, j - 1) == BC_DIR)
 				{
@@ -997,7 +996,7 @@ inline void MovingInterface::GenerateLinearSystem2(CSR<double>& ipCSR)
 					ipCSR.AssignValue(BC(i, j), BC(i + 1, j), -oneOverdx2 / 2);
 				}
 			}
-			if (j>iStart)
+			if (j>jStart)
 			{
 				if (BC(i, j - 1) > -1)
 				{
@@ -1023,7 +1022,7 @@ inline void MovingInterface::GenerateLinearSystem2(CSR<double>& ipCSR)
 			{
 				if (BC(i + 1, j) == BC_DIR)	coefIJ++;
 			}
-			if (j>iStart)
+			if (j>jStart)
 			{
 				if (BC(i, j - 1) == BC_DIR)	coefIJ++;
 			}
@@ -1061,7 +1060,7 @@ inline void MovingInterface::GenerateLinearSystem2(CSR<double>& ipCSR)
 				{
 					if (BC(i + 1, j) == BC_NEUM) coefIJ += 0;
 				}
-				if (j>iStart)
+				if (j>jStart)
 				{
 					if (BC(i, j - 1) == BC_NEUM) coefIJ += 0;
 				}
@@ -1116,7 +1115,7 @@ inline void MovingInterface::GenerateLinearSystem2(VectorND<double>& vectorB)
 					vectorB(BC(i, j)) += Surfactant(i + 1, j)*Surfactant.oneOverdx2 * 0.5;
 				}
 			}
-			if (j > Surfactant.iStart)
+			if (j > Surfactant.jStart)
 			{
 				if (BC(i, j - 1) == BC_DIR)
 				{
@@ -1627,7 +1626,7 @@ inline void MovingInterface::LGenerateLinearSystem1(VectorND<double>& vectorB)
 			leftIndex = VI(i - 1, j);
 			l = levelSet.tubeIJ2K(leftIndex);
 			levelSet.TubeIndex(l, m, n);
-			if (levelSet.tube(m, n) == 2)
+			if (levelSet.tube(m, n) == 2 || (levelSet.tube(m, n) == 1 && i == iStart + 1))
 			{
 				vectorB(k - 1) += grid.oneOverdx2*Surfactant(m, n);
 			}
@@ -1638,7 +1637,7 @@ inline void MovingInterface::LGenerateLinearSystem1(VectorND<double>& vectorB)
 			rightIndex = VI(i + 1, j);
 			l = levelSet.tubeIJ2K(rightIndex);
 			levelSet.TubeIndex(l, m, n);
-			if (levelSet.tube(m, n) == 2)
+			if (levelSet.tube(m, n) == 2 || (levelSet.tube(m, n) == 1 && i == iEnd - 1))
 			{
 				vectorB(k - 1) += grid.oneOverdx2*Surfactant(m, n);
 			}
@@ -1649,7 +1648,7 @@ inline void MovingInterface::LGenerateLinearSystem1(VectorND<double>& vectorB)
 			bottomIndex = VI(i, j - 1);
 			l = levelSet.tubeIJ2K(bottomIndex);
 			levelSet.TubeIndex(l, m, n);
-			if (levelSet.tube(m, n) == 2)
+			if (levelSet.tube(m, n) == 2 || (levelSet.tube(m, n) == 1 && j == jStart + 1))
 			{
 				vectorB(k - 1) += grid.oneOverdy2*Surfactant(m, n);
 			}
@@ -1660,7 +1659,7 @@ inline void MovingInterface::LGenerateLinearSystem1(VectorND<double>& vectorB)
 			topIndex = VI(i, j + 1);
 			l = levelSet.tubeIJ2K(topIndex);
 			levelSet.TubeIndex(l, m, n);
-			if (levelSet.tube(m, n) == 2)
+			if (levelSet.tube(m, n) == 2 || (levelSet.tube(m, n) == 1 && j == jEnd - 1))
 			{
 				vectorB(k - 1) += grid.oneOverdy2*Surfactant(m, n);
 			}
@@ -1779,40 +1778,40 @@ inline void MovingInterface::LGenerateLinearSystem2(VectorND<double>& vectorB)
 			leftIndex = VI(i - 1, j);
 			l = levelSet.tubeIJ2K(leftIndex);
 			levelSet.TubeIndex(l, m, n);
-			if (levelSet.tube(m, n) == 2)
+			if (levelSet.tube(m, n) == 2 || (levelSet.tube(m, n) == 1 && i == iStart + 1))
 			{
 				vectorB(k - 1) += grid.oneOverdx2*Surfactant(m, n) * 0.5;
 			}
 		}
-		
+
 		if (i<iEnd)
 		{
 			rightIndex = VI(i + 1, j);
 			l = levelSet.tubeIJ2K(rightIndex);
 			levelSet.TubeIndex(l, m, n);
-			if (levelSet.tube(m, n) == 2)
+			if (levelSet.tube(m, n) == 2 || (levelSet.tube(m, n) == 1 && i == iEnd - 1))
 			{
 				vectorB(k - 1) += grid.oneOverdx2*Surfactant(m, n) * 0.5;
 			}
 		}
-		
+
 		if (j>jStart)
 		{
 			bottomIndex = VI(i, j - 1);
 			l = levelSet.tubeIJ2K(bottomIndex);
 			levelSet.TubeIndex(l, m, n);
-			if (levelSet.tube(m, n) == 2)
+			if (levelSet.tube(m, n) == 2 || (levelSet.tube(m, n) == 1 && j == jStart + 1))
 			{
 				vectorB(k - 1) += grid.oneOverdy2*Surfactant(m, n) * 0.5;
 			}
 		}
-		
+
 		if (j<jEnd)
 		{
 			topIndex = VI(i, j + 1);
 			l = levelSet.tubeIJ2K(topIndex);
 			levelSet.TubeIndex(l, m, n);
-			if (levelSet.tube(m, n) == 2)
+			if (levelSet.tube(m, n) == 2 || (levelSet.tube(m, n) == 1 && j == jEnd - 1))
 			{
 				vectorB(k - 1) += grid.oneOverdy2*Surfactant(m, n) * 0.5;
 			}

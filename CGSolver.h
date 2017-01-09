@@ -201,7 +201,7 @@ inline VectorND<double> CGSolver::SolverCSR(const CSR<double>& A, const VectorND
 		{
 			p[i] = rNew[i] + beta*p[i];
 		}
-		rOld = rNew;
+		//rOld = rNew;
 
 		residualOld = residual;
 
@@ -209,7 +209,7 @@ inline VectorND<double> CGSolver::SolverCSR(const CSR<double>& A, const VectorND
 
 	result = (double)(clock() - before) / CLOCKS_PER_SEC;
 	cout << "time : " << result << "\n";
-	cout << "End : CG " << endl;
+	cout << "--------  End : CG  -------- " << endl;
 	cout << endl;
 
 	return x;
@@ -220,7 +220,7 @@ inline VectorND<double> CGSolver::SolverCSR(const CSR<double>& A, const VectorND
 	clock_t before;
 	double  result;
 	before = clock();
-	cout << "Start : CG " << endl;
+	cout << "--------  Start : CG  --------" << endl;
 
 	int num = A.rowNum;
 	double tolerance = tol;
@@ -308,7 +308,7 @@ inline VectorND<double> CGSolver::SolverCSR(const CSR<double>& A, const VectorND
 	cout << "CG iterataion : " << 2 * num << " " << temp << endl;
 	result = (double)(clock() - before) / CLOCKS_PER_SEC;
 	cout << "time : " << result << "\n";
-	cout << "End : CG " << endl;
+	cout << "--------  End : CG  -------- " << endl;
 	cout << endl;
 	return x;
 }
@@ -318,7 +318,7 @@ inline void CGSolver::SolverCSR(const CSR<double>& A, const VectorND<double>& b,
 	clock_t before;
 	double  result;
 	before = clock();
-	cout << "Start : CG " << endl;
+	cout << "--------  Start : CG  --------" << endl;
 
 	int num = A.rowNum;
 
@@ -399,7 +399,7 @@ inline void CGSolver::SolverCSR(const CSR<double>& A, const VectorND<double>& b,
 	cout << "CG iterataion : " << 2 * num << " " << temp << endl;
 	result = (double)(clock() - before) / CLOCKS_PER_SEC;
 	cout << "time : " << result << "\n";
-	cout << "End : CG " << endl;
+	cout << "--------  End : CG  -------- " << endl;
 	cout << endl;
 }
 
@@ -409,7 +409,7 @@ inline void CGSolver::Solver(const CSR<double>& A, const VectorND<double>& b, Ve
 	double  result;
 	before = clock();
 	cout << "--------  Start : CG  --------" << endl;
-	x = 0;
+	//x = 0;
 	int N = x.iLength;
 
 	VTN res(N);
@@ -434,7 +434,7 @@ inline void CGSolver::Solver(const CSR<double>& A, const VectorND<double>& b, Ve
 		A.Multiply(p, Ap);
 
 		k = DotProduct(p, Ap);
-		if (abs(k) < DBL_EPSILON)
+		if (num_iteration == 0 && abs(k) < DBL_EPSILON)
 		{
 			cout << "First Time!!" << endl;
 			cout << endl;

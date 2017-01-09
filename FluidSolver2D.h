@@ -12,7 +12,7 @@ public:
 	Grid2D grid;
 	Grid2D gridU;
 	Grid2D gridV;
-	
+
 	//// Physical Variable
 	FD Pressure; // Pressure
 
@@ -21,14 +21,14 @@ public:
 
 	FD V; // y velocity
 	FD originV;
-	
+
 	FD Density; // density
 	FD DensityU; // density for x velocity
 	FD DensityV; // density for y velocity
 	FD Mu; // Viscosity
 	FD MuU; // Viscosity for x velocity
 	FD MuV; // Viscosity for y velocity
-	FD Nu; 
+	FD Nu;
 	double reynoldNum;
 
 	//////////////////////////////////////////////////////////
@@ -48,7 +48,7 @@ public:
 	double We;
 
 
-
+	bool isENOAdvection = true;;
 	FD AdvectionU;
 	FD AdvectionV;
 
@@ -61,8 +61,11 @@ public:
 	CSR<double> P_CSR;
 	VectorND<double> Pb;
 	VectorND<double> tempP;
-
-	//// Numerical Variable
+	CSR<double> M;
+	bool isPCG = true;
+	//////////////////////////////////////////////////////////
+	////			Numerical Variable              //////////
+	//////////////////////////////////////////////////////////
 	int ProjectionOrder = 1;
 	double cflCondition;
 	double dt;
@@ -88,7 +91,9 @@ public:
 
 	inline void AdvectionTerm(FD& U, FD& V, FD& TermU, FD& TermV);
 	inline void DiffusionTerm(const FD& U, const FD& V, FD& TermU, FD& TermV);
-	
+
+	inline void TreatBCAlongXaxis(FD& ipField);
+	inline void TreatBCAlongYaxis(FD& ipField);
 	inline void TreatVelocityBC(FD& U, FD& V);
 	inline void VectorToGrid(const VTN & ipVector, FD& ipField);
 
@@ -100,8 +105,6 @@ public:
 	//     Sec 5.2 Projection Methods with a Lagged Pressure Term
 	//
 	/////////////////////////////////////////////////////////////////////////
-
-
 
 	// Second Order Projection Method
 	FD oldU;
@@ -166,11 +169,10 @@ inline void FluidSolver2D::InitialCondition(const int & example)
 		cout << "    Cavity Flow" << endl;
 		cout << "*************************" << endl;
 		cout << endl;
-
-		int numP = 101;
-		double ddx = 0.01;
-		grid = Grid2D(0, ddx*double(numP - 1), numP, 0, ddx*double(numP - 1), numP);
-
+		
+		double domainLength = 1;
+		int domainRes = 41;
+		grid = Grid2D(-domainLength, domainLength, domainRes, -domainLength, domainLength, domainRes);
 		gridU = Grid2D(grid.xMin - grid.dx / 2, grid.xMax + grid.dx / 2, grid.iRes + 1,
 			grid.yMin, grid.yMax, grid.jRes);
 
@@ -184,32 +186,13 @@ inline void FluidSolver2D::InitialCondition(const int & example)
 		{
 			for (int i = Pressure.iStart; i <= Pressure.iEnd; i++)
 			{
-				if (i == Pressure.iStart && j == Pressure.jEndI)
-				{
-					Pressure.BC(i, j) = BC_DIR;
-					Pressure(i, j) = 1;
-					continue;
-				}
-				if (j == Pressure.jStart || j == Pressure.jEnd || i == Pressure.iStart || i == Pressure.iEnd)
-				{
-					Pressure.BC(i, j) = BC_NEUM;
-					continue;
-				}
 				Pressure.BC(i, j) = tempBC++;
 			}
 		}
 
 		U = FD(gridU);
-
-#pragma omp parallel for
-		for (int i = gridU.iStart; i <= gridU.iEnd; i++)
-		{
-			U(i, U.jEnd) = 1;
-			U.BC(i, U.jEnd) = BC_DIR;
-			U.BC(i, U.jStart) = BC_DIR;
-		}
 		tempBC = 0;
-		for (int j = U.jStartI; j <= U.jEndI; j++)
+		for (int j = U.jStart; j <= U.jEnd; j++)
 		{
 			for (int i = U.iStart; i <= U.iEnd; i++)
 			{
@@ -218,9 +201,22 @@ inline void FluidSolver2D::InitialCondition(const int & example)
 					U.BC(i, j) = BC_REFLECTION;
 					continue;
 				}
+				if (j == U.jStart)
+				{
+					U.BC(i, j) = BC_DIR;
+					U(i, j) = 0;
+					continue;
+				}
+				if (j == U.jEnd)
+				{
+					U.BC(i, j) = BC_DIR;
+					U(i, j) = 1;
+					continue;
+				}
 				U.BC(i, j) = tempBC++;
 			}
 		}
+		TreatBCAlongYaxis(U);
 		originU = U;
 
 		V = FD(gridV);
@@ -235,7 +231,7 @@ inline void FluidSolver2D::InitialCondition(const int & example)
 					V.BC(i, j) = BC_DIR;
 					continue;
 				}
-				if (j==V.jStart || j==V.jEnd)
+				if (j == V.jStart || j == V.jEnd)
 				{
 					V.BC(i, j) = BC_REFLECTION;
 					continue;
@@ -269,14 +265,11 @@ inline void FluidSolver2D::InitialCondition(const int & example)
 		gradientPy = FD(V.innerGrid);
 
 		//// Projection Accuracy Order
-		ProjectionOrder = 1;
+		ProjectionOrder = 1; 
+		//isPCG = false;
 		if (ProjectionOrder == 1)
 		{
 			GenerateLinearSystemPressure(P_CSR);
-			//P_CSR.indPrt.Variable("PindPrt2");
-			//P_CSR.values.Variable("Pvalues2");
-			//P_CSR.columns.Variable("Pcolumns2");
-
 		}
 		else if (ProjectionOrder == 2)
 		{
@@ -284,12 +277,12 @@ inline void FluidSolver2D::InitialCondition(const int & example)
 			GenerateLinearSystempPhi2Order(PhiCN_CSR);
 		}
 
-		cflCondition = 0.1;
+		cflCondition = 0.4;
 		dt = cflCondition*grid.dx;
-		finalT = 10;
-		maxIteration = int(finalT / dt);
+		finalT = 30;
+		maxIteration = ceil(finalT / dt);
 		totalT = 0;
-		writeOutputIteration = 10;
+		writeOutputIteration = 30;
 		iteration = 0;
 	}
 
@@ -302,10 +295,7 @@ inline void FluidSolver2D::InitialCondition(const int & example)
 		cout << "*************************" << endl;
 		cout << endl;
 
-		int numP = 51;
-		double ddx = 0.01;
-		grid = Grid2D(0, ddx*double(numP - 1), numP, 0, ddx*double(numP - 1), numP);
-
+		grid = Grid2D(-0.5, 0.5, 41, -0.5, 0.5, 41);
 		gridU = Grid2D(grid.xMin - grid.dx / 2, grid.xMax + grid.dx / 2, grid.iRes + 1,
 			grid.yMin, grid.yMax, grid.jRes);
 
@@ -319,18 +309,7 @@ inline void FluidSolver2D::InitialCondition(const int & example)
 		{
 			for (int i = Pressure.iStart; i <= Pressure.iEnd; i++)
 			{
-				if (i == Pressure.iStart || i == Pressure.iEnd)
-				{
-					Pressure.BC(i, j) = BC_DIR;
-					Pressure(i, j) = 1;
-					continue;
-				}
-				if (j == Pressure.jStart || j == Pressure.jEnd )
-				{
-					Pressure.BC(i, j) = BC_NEUM;
-					continue;
-				}
-				Pressure.BC(i, j) = tempBC++;;
+				Pressure.BC(i, j) = tempBC++;
 			}
 		}
 
@@ -343,7 +322,7 @@ inline void FluidSolver2D::InitialCondition(const int & example)
 			U.BC(i, U.jStart) = BC_DIR;
 			U(i, U.jEnd) = 0;
 			U.BC(i, U.jEnd) = BC_DIR;
-			
+
 		}
 		tempBC = 0;
 		for (int j = U.jStartI; j <= U.jEndI; j++)
@@ -351,9 +330,14 @@ inline void FluidSolver2D::InitialCondition(const int & example)
 			for (int i = U.iStart; i <= U.iEnd; i++)
 			{
 				U(i, j) = 1;
-				if (i == U.iStart || i == U.iEnd)
+				if (i == U.iStart)
 				{
 					U.BC(i, j) = BC_DIR;
+					continue;
+				}
+				if (i == U.iEnd)
+				{
+					U.BC(i, j) = BC_NEUM;
 					continue;
 				}
 				U.BC(i, j) = tempBC++;
@@ -411,10 +395,6 @@ inline void FluidSolver2D::InitialCondition(const int & example)
 		if (ProjectionOrder == 1)
 		{
 			GenerateLinearSystemPressure(P_CSR);
-			//P_CSR.indPrt.Variable("PindPrt2");
-			//P_CSR.values.Variable("Pvalues2");
-			//P_CSR.columns.Variable("Pcolumns2");
-
 		}
 		else if (ProjectionOrder == 2)
 		{
@@ -454,7 +434,7 @@ inline void FluidSolver2D::InitialCondition(const int & example)
 		{
 			for (int i = Pressure.iStart; i <= Pressure.iEnd; i++)
 			{
-				if (i==Pressure.iStart && j==Pressure.jStartI)
+				if (i == Pressure.iStart && j == Pressure.jStartI)
 				{
 					Pressure.BC(i, j) = BC_DIR;
 					Pressure(i, j) = 1;
@@ -694,10 +674,13 @@ inline void FluidSolver2D::Solver(const int & example)
 	grid.Variable("Xp", "Yp");
 	gridU.Variable("Xu", "Yu");
 	gridV.Variable("Xv", "Yv");
-	
+
+	//isPlot = false;
 	if (isPlot)
 	{
+		MATLAB.Command("figure('units','normalized','outerposition',[0 0 1 1])");
 		PlotVelocity();
+		MATLAB.WriteImage("fluid", iteration, "png");
 	}
 
 	for (iteration = 1; iteration <= maxIteration; iteration++)
@@ -710,19 +693,30 @@ inline void FluidSolver2D::Solver(const int & example)
 		totalT += dt;
 		cout << "       Iteration " << to_string(iteration) << " : End" << endl;
 		cout << "********************************" << endl;
-		//P.Variable("P");
 
 		if (isPlot)
 		{
-			PlotVelocity();
-			MATLAB.Command("divU =U(:,2:end)-U(:,1:end-1),divV =V(2:end,:)-V(1:end-1,:);div=divU+divV;");
-			if ((iteration == 1 || iteration % 10 == 0) && false)
+			if (iteration == 1 || iteration % 1 == 0)
 			{
-				MATLAB.WriteImage("fluid", iteration, "fig");
-				MATLAB.WriteImage("fluid", iteration, "png");
+				//MATLAB.Command("subplot(1,2,1)");
+				//PlotVelocity();
+				//MATLAB.Command("subplot(1,2,2)");
+				//Pressure.Variable("P");
+				//MATLAB.Command("surf(P)");
+				//MATLAB.Command("divU =U(:,2:end)-U(:,1:end-1),divV =V(2:end,:)-V(1:end-1,:);div=divU+divV;");
+				if ((iteration == 1 || iteration % 10 == 0) && true)
+				{
+					MATLAB.Command("subplot(1,2,1)");
+					PlotVelocity();
+					MATLAB.Command("subplot(1,2,2)");
+					Pressure.Variable("P");
+					MATLAB.Command("surf(P)");
+					//MATLAB.WriteImage("fluid", iteration, "fig");
+					MATLAB.WriteImage("fluid", iteration, "png");
+				}
 			}
 		}
-		
+
 
 		if (writeFile && iteration%writeOutputIteration == 0)
 		{
@@ -834,17 +828,33 @@ inline void FluidSolver2D::EulerMethod()
 	////     Projection Method 1 : advection    ////
 	////////////////////////////////////////////////
 	EulerMethodStep1();
+	
+	TreatBCAlongYaxis(U);
+	TreatBCAlongXaxis(V);
 
+	//U.Variable("Ustar");
+	//V.Variable("Vstar");
+	//MATLAB.Command("divUstar =Ustar(:,2:end)-Ustar(:,1:end-1),divVstar =Vstar(2:end,:)-Vstar(1:end-1,:);divstar=divUstar+divVstar;");
+	//MATLAB.Command("quiver(Xp,Yp,Ustar(:,1:end-1),Vstar(1:end-1,:))");
+	
 	////////////////////////////////////////////////
 	////     Projection Method 2 : Poisson Eq   ////
 	////////////////////////////////////////////////
 	EulerMethodStep2();
 
+
 	//////////////////////////////////////////////
 	////     Projection Method 3 : New U,V    ////
 	//////////////////////////////////////////////
 	EulerMethodStep3();
-	//MATLAB.Command("diffU=sum(sum(abs((Ustar-Unew).^2))),diffV=sum(sum(abs((Vstar-Vnew).^2)))");
+	
+	//U.Variable("Unew");
+	//V.Variable("Vnew");
+	//MATLAB.Command("divUnew =Unew(:,2:end)-Unew(:,1:end-1),divVnew =Vnew(2:end,:)-Vnew(1:end-1,:);divnew=divUnew+divVnew;");
+	//MATLAB.Command("quiver(Xp,Yp,Unew(1:end-1,:),Vnew(:,1:end-1))");
+
+	TreatBCAlongYaxis(U);
+	TreatBCAlongXaxis(V);
 }
 
 inline void FluidSolver2D::EulerMethodStep1()
@@ -854,26 +864,21 @@ inline void FluidSolver2D::EulerMethodStep1()
 
 	AdvectionTerm(U, V, AdvectionU, AdvectionV);
 	DiffusionTerm(U, V, DiffusionU, DiffusionV);
+	double oneOverRe = 1 / reynoldNum;
 	//AdvectionU.Variable("advectionU");
 	//DiffusionU.Variable("diffusionU");
 	//AdvectionV.Variable("advectionV");
 	//DiffusionV.Variable("diffusionV");
 
-	//MATLAB.Command("adU=sum(sum(advectionU.^2))");
-	//MATLAB.Command("adV=sum(sum(advectionV.^2))");
-	//MATLAB.Command("diU=sum(sum(diffusionU.^2))");
-	//MATLAB.Command("diV=sum(sum(diffusionV.^2))");
 #pragma omp parallel for
 	for (int i = U.iStart; i <= U.iEnd; i++)
 	{
 		for (int j = U.jStart; j <= U.jEnd; j++)
 		{
-			if (U.BC(i,j) < 0)
-			{
-				continue;
-			}
-			K1U(i, j) = dt*(-AdvectionU(i, j) + 1. / reynoldNum*DiffusionU(i, j));
-			U(i, j) = U(i, j) + K1U(i, j);
+			if (U.BC(i, j) < 0) continue;
+
+			K1U(i, j) = dt*(-AdvectionU(i, j) + oneOverRe*DiffusionU(i, j));
+			U(i, j) += K1U(i, j);
 		}
 	}
 #pragma omp parallel for
@@ -881,95 +886,70 @@ inline void FluidSolver2D::EulerMethodStep1()
 	{
 		for (int j = V.jStart; j <= V.jEnd; j++)
 		{
-			if (V.BC(i, j) < 0)
-			{
-				continue;
-			}
-			K1V(i, j) = dt*(-AdvectionV(i, j) + 1. / reynoldNum*DiffusionV(i, j));
-			V(i, j) = V(i, j) + K1V(i, j);
+			if (V.BC(i, j) < 0) continue;
+
+			K1V(i, j) = dt*(-AdvectionV(i, j) + oneOverRe*DiffusionV(i, j));
+			V(i, j) += K1V(i, j);
 		}
 	}
 	//K1U.Variable("k1u");
 	//K1V.Variable("k1v");
-	//// Boundary : Linear extension.
-	TreatVelocityBC(U, V);
-
-
-	//U.Variable("Ustar2");
-	//V.Variable("Vstar2");
-	//MATLAB.Command("divUstar =Ustar(:,2:end)-Ustar(:,1:end-1),divVstar =Vstar(2:end,:)-Vstar(1:end-1,:);divstar=divUstar+divVstar;");
-	//MATLAB.Command("quiver(Xp,Yp,Ustar(:,1:end-1),Vstar(1:end-1,:))");
 }
 
 inline void FluidSolver2D::EulerMethodStep2()
 {
 	GenerateLinearSystemPressure(Pb);
-	//Pb.Variable("Pb2");
-	CGSolver::Solver(P_CSR, Pb, tempP);
-	//PCGSolver::Solver(P_CSR, Pb, tempP);
-	//tempP.Variable("tempP");
-
-	VectorToGrid(tempP, Pressure);
-
+	Array2D<int> BC = Pressure.BC;
 #pragma omp parallel for
 	for (int i = Pressure.iStart; i <= Pressure.iEnd; i++)
 	{
-		if (Pressure.BC(i, Pressure.jStart) == BC_NEUM)
+		for (int j = Pressure.jStart; j <= Pressure.jEnd; j++)
 		{
-			Pressure(i, Pressure.jStart) = Pressure(i, Pressure.jStartI);
-		}
-		if (Pressure.BC(i, Pressure.jEnd) == BC_NEUM)
-		{
-			Pressure(i, Pressure.jEnd) = Pressure(i, Pressure.jEndI);
+			if (BC(i, j)<0) continue;
+
+			tempP(BC(i, j)) = Pressure(i, j);
 		}
 	}
-#pragma omp parallel for
-	for (int j = Pressure.jStart; j <= Pressure.jEnd; j++)
+	//Pb.Variable("Pb2");
+
+	isPCG = false;
+	if (isPCG)
 	{
-		if (Pressure.BC(Pressure.iStart, j) == BC_NEUM)
-		{
-			Pressure(Pressure.iStart, j) = Pressure(Pressure.iStartI, j);
-		}
-		if (Pressure.BC(Pressure.iEnd, j) == BC_NEUM)
-		{
-			Pressure(Pressure.iEnd, j) = Pressure(Pressure.iEndI, j);
-		}
+		PCGSolver::Solver(P_CSR, M, Pb, tempP, BC);
 	}
-	//Pressure.Variable("P2");
+	else
+	{
+		CGSolver::Solver(P_CSR, Pb, tempP);
+	}
+
+	VectorToGrid(tempP, Pressure);
 }
 
 inline void FluidSolver2D::EulerMethodStep3()
 {
+	double oneOverdx = Pressure.oneOverdx;
 #pragma omp parallel for
 	for (int i = U.iStart; i <= U.iEnd; i++)
 	{
 		for (int j = U.jStart; j <= U.jEnd; j++)
 		{
-			if (U.BC(i,j)<0)
-			{
-				continue;
-			}
-			U(i, j) = U(i, j) - dt * (Pressure(i, j) - Pressure(i - 1, j))*Pressure.oneOverdx;
+			if (U.BC(i, j) < 0) continue;
+
+			U(i, j) -= dt * (Pressure(i, j) - Pressure(i - 1, j))*oneOverdx;
 		}
 	}
+
+	double oneOverdy = Pressure.oneOverdy;
 #pragma omp parallel for
 	for (int i = V.iStart; i <= V.iEnd; i++)
 	{
 		for (int j = V.jStart; j <= V.jEnd; j++)
 		{
-			if (V.BC(i, j)<0)
-			{
-				continue;
-			}
-			V(i, j) = V(i, j) - dt * (Pressure(i, j) - Pressure(i, j - 1))*Pressure.oneOverdy;
+			if (V.BC(i, j) < 0) continue;
+
+			V(i, j) -= dt * (Pressure(i, j) - Pressure(i, j - 1))*oneOverdy;
 		}
 	}
-	TreatVelocityBC(U, V);
-
-	//U.Variable("Unew2");
-	//V.Variable("Vnew2");
-	//MATLAB.Command("divUnew =Unew(:,2:end)-Unew(:,1:end-1),divVnew =Vnew(2:end,:)-Vnew(1:end-1,:);divnew=divUnew+divVnew;");
-	//MATLAB.Command("quiver(Xp,Yp,Unew(1:end-1,:),Vnew(:,1:end-1))");
 }
 
 
@@ -978,31 +958,25 @@ inline void FluidSolver2D::GenerateLinearSystemPressure(CSR<double>& ipCSR)
 	Pressure.CountNonZero();
 	Pb = VectorND<double>(Pressure.num_all_full_cells);
 	tempP = VectorND<double>(Pressure.num_all_full_cells);
-
 	P_CSR = CSR<double>(Pressure.num_all_full_cells, Pressure.nnz);
 
-	//Array2D<double> tempA(ipCSR.rowNum, ipCSR.rowNum);
 	int iStart = Pressure.iStart, iEnd = Pressure.iEnd, jStart = Pressure.jStart, jEnd = Pressure.jEnd;
-	
+
 	double dx = Pressure.dx, dy = Pressure.dy;
 	double dx2 = dx*dx, dy2 = dy*dy, dxdy = dx*dy;
 	double oneOverdx = 1 / dx, oneOverdx2 = 1 / dx2;
 	double oneOverdy = 1 / dy, oneOverdy2 = 1 / dy2;
-	
+
 	Array2D<int>& BC = Pressure.BC;
-	
+
 	double coefIJ;
-//#pragma omp parallel for
 	for (int j = jStart; j <= jEnd; j++)
 	{
 		for (int i = iStart; i <= iEnd; i++)
 		{
 			coefIJ = 0;
 
-			if (BC(i, j) < 0)
-			{
-				continue;
-			}
+			if (BC(i, j) < 0) continue;
 
 			//// If neighbor is full cell
 			if (i>iStart)
@@ -1011,7 +985,6 @@ inline void FluidSolver2D::GenerateLinearSystemPressure(CSR<double>& ipCSR)
 				{
 					coefIJ++;
 					ipCSR.AssignValue(BC(i, j), BC(i - 1, j), -oneOverdx2);
-					//tempA(BC(i, j), BC(i - 1, j)) = -oneOverdx2;
 				}
 			}
 			if (i<iEnd)
@@ -1020,16 +993,14 @@ inline void FluidSolver2D::GenerateLinearSystemPressure(CSR<double>& ipCSR)
 				{
 					coefIJ++;
 					ipCSR.AssignValue(BC(i, j), BC(i + 1, j), -oneOverdx2);
-					//tempA(BC(i, j), BC(i + 1, j)) = -oneOverdx2;
 				}
 			}
-			if (j>iStart)
+			if (j>jStart)
 			{
 				if (BC(i, j - 1) > -1)
 				{
 					coefIJ++;
 					ipCSR.AssignValue(BC(i, j), BC(i, j - 1), -oneOverdy2);
-					//tempA(BC(i, j), BC(i, j - 1)) = -oneOverdy2;
 				}
 			}
 			if (j<jEnd)
@@ -1038,124 +1009,78 @@ inline void FluidSolver2D::GenerateLinearSystemPressure(CSR<double>& ipCSR)
 				{
 					coefIJ++;
 					ipCSR.AssignValue(BC(i, j), BC(i, j + 1), -oneOverdy2);
-					//tempA(BC(i, j), BC(i, j + 1)) = -oneOverdy2;
 				}
 			}
 
-			//// Dirichlet Boundary Condition
-			if (i>iStart)
-			{
-				if (BC(i - 1, j) == BC_DIR)	coefIJ++;
-			}
-			if (i<iEnd)
-			{
-				if (BC(i + 1, j) == BC_DIR)	coefIJ++;
-			}
-			if (j>iStart)
-			{
-				if (BC(i, j - 1) == BC_DIR)	coefIJ++;
-			}
-			if (j<jEnd)
-			{
-				if (BC(i, j + 1) == BC_DIR)	coefIJ++;
-			}
+			////// Dirichlet Boundary Condition
+			//if (i>iStart)	if (BC(i - 1, j) == BC_DIR)	coefIJ++;
+			//if (i<iEnd)		if (BC(i + 1, j) == BC_DIR)	coefIJ++;
+			//if (j>jStart)	if (BC(i, j - 1) == BC_DIR)	coefIJ++;
+			//if (j<jEnd)		if (BC(i, j + 1) == BC_DIR)	coefIJ++;
 
-			if ((i == Pressure.iStartI) && (j == Pressure.jStartI))
-			{
-				//if (BC(i - 1, j) == BC_NEUM)
-				//{
-				//	coefIJ ++;
-				//}
-				//if (BC(i + 1, j) == BC_NEUM)
-				//{
-				//	coefIJ ++;
-				//}
-				//if (BC(i, j - 1) == BC_NEUM)
-				//{
-				//	coefIJ ++;
-				//}
-				//if (BC(i, j + 1) == BC_NEUM)
-				//{
-				//	coefIJ ++;
-				//}
-			}
-			else
-			{
-				if (i>iStart)
-				{
-					if (BC(i - 1, j) == BC_NEUM) coefIJ += 0;
-				}
-				if (i<iEnd)
-				{
-					if (BC(i + 1, j) == BC_NEUM) coefIJ += 0;
-				}
-				if (j>iStart)
-				{
-					if (BC(i, j - 1) == BC_NEUM) coefIJ += 0;
-				}
-				if (j<jEnd)
-				{
-					if (BC(i, j + 1) == BC_NEUM) coefIJ += 0;
-				}
-			}
+			//if (i == Pressure.iStartI && j == Pressure.jStartI)
+			//{
+			//	if (BC(i - 1, j) == BC_NEUM) coefIJ++;
+			//	if (BC(i + 1, j) == BC_NEUM) coefIJ++;
+			//	if (BC(i, j - 1) == BC_NEUM) coefIJ++;
+			//	if (BC(i, j + 1) == BC_NEUM) coefIJ++;
+			//}
+			//else
+			//{
+			//	if (i>iStart)	if (BC(i - 1, j) == BC_NEUM) coefIJ += 0;
+			//	if (i<iEnd)		if (BC(i + 1, j) == BC_NEUM) coefIJ += 0;
+			//	if (j>jStart)	if (BC(i, j - 1) == BC_NEUM) coefIJ += 0;
+			//	if (j<jEnd)		if (BC(i, j + 1) == BC_NEUM) coefIJ += 0;
+			//}
 
-			if (coefIJ == 0)
-			{
-				coefIJ = 1;
-			}
-
+			//if (coefIJ == 0) coefIJ = 1;
+			
 			ipCSR.AssignValue(BC(i, j), BC(i, j), oneOverdx2*coefIJ);
-			//tempA(BC(i, j), BC(i, j)) = oneOverdx2*coefIJ;
-
 		}
 	}
-	//tempA.Variable("matA");
+
+	if (isPCG)
+	{
+		int N = Pressure.num_all_full_cells;
+		int nz = P_CSR.valueNum;
+
+		M = CSR<double>(Pressure.num_all_full_cells, (nz - N) / 2 + N);
+		PCGSolver::IncompleteCholeskyDecomposition(P_CSR, M, Pressure.BC);
+	}
 }
 
 inline void FluidSolver2D::GenerateLinearSystemPressure(VectorND<double>& vectorB)
 {
+	double tempSum = 0;
 	Array2D<int>& BC = Pressure.BC;
-#pragma omp parallel for
+	double oneOverdt = 1. / dt;
+	double oneOverdx = U.oneOverdx;
+	double oneOverdy = U.oneOverdy;
+	double oneOverdx2 = Pressure.oneOverdx2;
+	double oneOverdy2 = Pressure.oneOverdy2;
+//#pragma omp parallel for reduction(+ : tempSum)
 	for (int j = Pressure.jStart; j <= Pressure.jEnd; j++)
 	{
 		for (int i = Pressure.iStart; i <= Pressure.iEnd; i++)
 		{
-			if (BC(i, j) < 0)
-			{
-				continue;
-			}
+			if (BC(i, j) < 0) continue;
 
-			vectorB(BC(i, j)) = -((U(i + 1, j) - U(i, j))*U.oneOverdx + (V(i, j + 1) - V(i, j))*V.oneOverdy);
+			vectorB(BC(i, j)) = -oneOverdt * ((U(i + 1, j) - U(i, j))*oneOverdx + (V(i, j + 1) - V(i, j))*oneOverdy);
+			
+			if (i > Pressure.iStart)	if (BC(i - 1, j) == BC_DIR) vectorB(BC(i, j)) += Pressure(i - 1, j)*oneOverdx2;
+			if (i < Pressure.iEnd)		if (BC(i + 1, j) == BC_DIR) vectorB(BC(i, j)) += Pressure(i + 1, j)*oneOverdx2;
+			if (j > Pressure.jStart)	if (BC(i, j - 1) == BC_DIR) vectorB(BC(i, j)) += Pressure(i, j - 1)*oneOverdy2;
+			if (j < Pressure.jEnd)		if (BC(i, j + 1) == BC_DIR) vectorB(BC(i, j)) += Pressure(i, j + 1)*oneOverdy2;
 
-			if (i > Pressure.jStart)
-			{
-				if (BC(i - 1, j) == BC_DIR)
-				{
-					vectorB(BC(i, j)) += Pressure(i - 1, j)*Pressure.oneOverdx2;
-				}
-			}
-			if (i < Pressure.iEnd)
-			{
-				if (BC(i + 1, j) == BC_DIR)
-				{
-					vectorB(BC(i, j)) += Pressure(i + 1, j)*Pressure.oneOverdx2;
-				}
-			}
-			if (j > Pressure.iStart)
-			{
-				if (BC(i, j - 1) == BC_DIR)
-				{
-					vectorB(BC(i, j)) += Pressure(i, j - 1)*Pressure.oneOverdy2;
-				}
-			}
-			if (j < Pressure.jEnd)
-			{
-				if (BC(i, j + 1) == BC_DIR)
-				{
-					vectorB(BC(i, j)) += Pressure(i, j + 1)*Pressure.oneOverdy2;
-				}
-			}
+			tempSum += vectorB(BC(i, j));
 		}
+	}
+	
+	double ave = tempSum / (double) vectorB.iLength;
+#pragma omp parallel for
+	for (int i = 0; i < vectorB.iLength; i++)
+	{
+		vectorB(i) -= ave;
 	}
 }
 
@@ -1165,14 +1090,23 @@ inline void FluidSolver2D::AdvectionTerm(FD & U, FD & V, FD & TermU, FD & TermV)
 	Array2D<double>& dUdxP = U.dfdxP;
 	Array2D<double>& dUdyM = U.dfdyM;
 	Array2D<double>& dUdyP = U.dfdyP;
-	AdvectionMethod2D<double>::ENO3rdDerivation(U, dUdxM, dUdxP, dUdyM, dUdyP);
+
 	Array2D<double>& dVdxM = V.dfdxM;
 	Array2D<double>& dVdxP = V.dfdxP;
 	Array2D<double>& dVdyM = V.dfdyM;
 	Array2D<double>& dVdyP = V.dfdyP;
-	AdvectionMethod2D<double>::ENO3rdDerivation(V, dVdxM, dVdxP, dVdyM, dVdyP);
-
-
+	//isENOAdvection = false;
+	if (isENOAdvection)
+	{
+		AdvectionMethod2D<double>::ENO3rdDerivation(U, dUdxM, dUdxP, dUdyM, dUdyP);
+		AdvectionMethod2D<double>::ENO3rdDerivation(V, dVdxM, dVdxP, dVdyM, dVdyP);
+	}
+	else
+	{
+		AdvectionMethod2D<double>::WENO3rdDerivation(U, dUdxM, dUdxP, dUdyM, dUdyP);
+		AdvectionMethod2D<double>::WENO3rdDerivation(V, dVdxM, dVdxP, dVdyM, dVdyP);
+	}
+	
 	double Ux, Uy;
 	double aveV;
 #pragma omp parallel for private(aveV, Ux, Uy)
@@ -1180,11 +1114,10 @@ inline void FluidSolver2D::AdvectionTerm(FD & U, FD & V, FD & TermU, FD & TermV)
 	{
 		for (int j = TermU.jStart; j <= TermU.jEnd; j++)
 		{
-			if (U.BC(i,j) < 0)
-			{
-				continue;
-			}
+			if (U.BC(i, j) < 0) continue;
+
 			aveV = (V(i - 1, j) + V(i, j) + V(i - 1, j + 1) + V(i, j + 1)) / 4.;
+			
 			if (U(i, j) > 0)
 			{
 				Ux = dUdxM(i, j);
@@ -1213,12 +1146,10 @@ inline void FluidSolver2D::AdvectionTerm(FD & U, FD & V, FD & TermU, FD & TermV)
 	{
 		for (int j = TermV.jStart; j <= TermV.jEnd; j++)
 		{
-			if (V.BC(i,j) < 0)
-			{
-				continue;
-			}
+			if (V.BC(i, j) < 0) continue;
+
 			aveU = (U(i, j - 1) + U(i + 1, j - 1) + U(i, j) + U(i + 1, j)) / 4.;
-			if (aveU > 0 && i > TermV.iStart)
+			if (aveU > 0)
 			{
 				Vx = dVdxM(i, j);
 			}
@@ -1247,10 +1178,8 @@ inline void FluidSolver2D::DiffusionTerm(const FD & U, const FD & V, FD & TermU,
 	{
 		for (int j = U.jStart; j <= U.jEnd; j++)
 		{
-			if (U.BC(i,j) < 0)
-			{
-				continue;
-			}
+			if (U.BC(i, j) < 0) continue;
+
 			TermU(i, j) = 2 * ((U(i + 1, j) - U(i, j))*U.oneOverdx - (U(i, j) - U(i - 1, j))*U.oneOverdx)*U.oneOverdx
 				+ ((U(i, j + 1) - U(i, j))*U.oneOverdy + (V(i, j + 1) - V(i - 1, j + 1))*V.oneOverdx
 					- ((U(i, j) - U(i, j - 1))*U.oneOverdy + (V(i, j) - V(i - 1, j))*V.oneOverdx))*U.oneOverdy;
@@ -1262,10 +1191,7 @@ inline void FluidSolver2D::DiffusionTerm(const FD & U, const FD & V, FD & TermU,
 	{
 		for (int j = TermV.jStart; j <= TermV.jEnd; j++)
 		{
-			if (V.BC(i,j) < 0)
-			{
-				continue;
-			}
+			if (V.BC(i, j) < 0) continue;
 
 			TermV(i, j) = 2 * ((V(i, j + 1) - V(i, j))*V.oneOverdy - (V(i, j) - V(i, j - 1))*V.oneOverdy)*V.oneOverdy
 				+ ((U(i + 1, j) - U(i + 1, j - 1))*U.oneOverdy + (V(i + 1, j) - V(i, j))*V.oneOverdx
@@ -1274,48 +1200,65 @@ inline void FluidSolver2D::DiffusionTerm(const FD & U, const FD & V, FD & TermU,
 	}
 }
 
+inline void FluidSolver2D::TreatBCAlongXaxis(FD & ipField)
+{
+#pragma omp parallel for 
+	for (int i = ipField.iStart; i <= ipField.iEnd; i++)
+	{
+		if (ipField.BC(i, ipField.jStart) == BC_NEUM)		ipField(i, ipField.jStart) = ipField(i, ipField.jStartI);
+		if (ipField.BC(i, ipField.jStart) == BC_REFLECTION) ipField(i, ipField.jStart) = -ipField(i, ipField.jStartI);
+		if (ipField.BC(i, ipField.jEnd) == BC_NEUM)			ipField(i, ipField.jEnd)   = ipField(i, ipField.jEndI);
+		if (ipField.BC(i, ipField.jEnd) == BC_REFLECTION)	ipField(i, ipField.jEnd)   = -ipField(i, ipField.jEndI);
+	}
+}
+
+inline void FluidSolver2D::TreatBCAlongYaxis(FD & ipField)
+{
+#pragma omp parallel for 
+	for (int j = ipField.jStart; j <= ipField.jEnd; j++)
+	{
+		if (ipField.BC(ipField.iStart, j) == BC_NEUM)		ipField(ipField.iStart, j) = ipField(ipField.iStartI, j);
+		if (ipField.BC(ipField.iStart, j) == BC_REFLECTION) ipField(ipField.iStart, j) = -ipField(ipField.iStartI, j);
+		if (ipField.BC(ipField.iEnd, j) == BC_NEUM)			ipField(ipField.iEnd, j)   = ipField(ipField.iEndI, j);
+		if (ipField.BC(ipField.iEnd, j) == BC_REFLECTION)	ipField(ipField.iEnd, j)   = -ipField(ipField.iEndI, j);
+	}
+}
+
+
 inline void FluidSolver2D::TreatVelocityBC(FD & U, FD & V)
 {
 #pragma omp parallel for 
+	for (int i = U.iStart; i <= U.iEnd; i++)
+	{
+		if (U.BC(i, U.jStart) == BC_NEUM)		U(i, U.jStart) =  U(i, U.jStartI);
+		if (U.BC(i, U.jEnd)   == BC_NEUM)		U(i, U.jEnd)   =  U(i, U.jEndI);
+		if (U.BC(i, U.jStart) == BC_REFLECTION) U(i, U.jStart) = -U(i, U.jStartI);
+		if (U.BC(i, U.jEnd)   == BC_REFLECTION)	U(i, U.jEnd)   = -U(i, U.jEndI);
+	}
+#pragma omp parallel for 
 	for (int j = U.jStart; j <= U.jEnd; j++)
 	{
-		if (U.BC(U.iStart, j) == BC_NEUM)
-		{
-			U(U.iStart, j) = U(U.iStartI, j);
-		}
-		if (U.BC(U.iEnd, j) == BC_NEUM)
-		{
-			U(U.iEnd, j) = U(U.iEndI, j);
-		}
-		if (U.BC(U.iStart, j) == BC_REFLECTION)
-		{
-			U(U.iStart, j) = -U(U.iStartI, j);
-		}
-		if (U.BC(U.iEnd, j) == BC_REFLECTION)
-		{
-			U(U.iEnd, j) = -U(U.iEndI, j);
-		}	
+		if (U.BC(U.iStart, j) == BC_NEUM)		U(U.iStart, j) =  U(U.iStartI, j); 
+		if (U.BC(U.iEnd, j)   == BC_NEUM)		U(U.iEnd, j)   =  U(U.iEndI,   j);
+		if (U.BC(U.iStart, j) == BC_REFLECTION) U(U.iStart, j) = -U(U.iStartI, j);
+		if (U.BC(U.iEnd, j)   == BC_REFLECTION) U(U.iEnd, j)   = -U(U.iEndI,   j);
 	}
 
 #pragma omp parallel for 
+	for (int j = V.jStart; j <= V.jEnd; j++)
+	{
+		if (V.BC(V.iStart, j) == BC_NEUM)		V(V.iStart, j) =  V(V.iStartI, j);
+		if (V.BC(V.iEnd, j)   == BC_NEUM)		V(V.iEnd, j)   =  V(V.iEndI,   j);
+		if (V.BC(V.iStart, j) == BC_REFLECTION) V(V.iStart, j) = -V(V.iStartI, j);
+		if (V.BC(V.iEnd, j)   == BC_REFLECTION) V(V.iEnd, j)   = -V(V.iEndI,   j);
+	}
+#pragma omp parallel for 
 	for (int i = V.iStart; i <= V.iEnd; i++)
 	{
-		if (V.BC(i, V.jStart) == BC_NEUM)
-		{
-			V(i, V.jStart) = V(i, V.jStartI);
-		}
-		if (V.BC(i,V.jEnd) == BC_NEUM)
-		{
-			V(i, V.jEnd) = V(i, V.jStartI);
-		}
-		if (V.BC(i, V.jStart) == BC_REFLECTION)
-		{
-			V(i, V.jStart) = -V(i, V.jStartI);
-		}
-		if (V.BC(i,V.jEnd) == BC_REFLECTION)
-		{
-			V(i, V.jEnd) = -V(i, V.jStartI);
-		}
+		if (V.BC(i, V.jStart) == BC_NEUM)		V(i, V.jStart) =  V(i, V.jStartI);
+		if (V.BC(i, V.jEnd)   == BC_NEUM)		V(i, V.jEnd)   =  V(i, V.jEndI);
+		if (V.BC(i, V.jStart) == BC_REFLECTION) V(i, V.jStart) = -V(i, V.jStartI);
+		if (V.BC(i, V.jEnd)   == BC_REFLECTION) V(i, V.jEnd)   = -V(i, V.jEndI);
 	}
 }
 
@@ -1326,10 +1269,8 @@ inline void FluidSolver2D::VectorToGrid(const VTN & ipVector, FD & ipField)
 	{
 		for (int j = ipField.jStart; j <= ipField.jEnd; j++)
 		{
-			if (ipField.BC(i,j)<0)
-			{
-				continue;
-			}
+			if (ipField.BC(i, j)<0) continue;
+
 			ipField(i, j) = ipVector(ipField.BC(i, j));
 		}
 	}
@@ -1341,10 +1282,10 @@ inline void FluidSolver2D::PlotVelocity()
 
 	U.Variable("U");
 	V.Variable("V");
-	str = string("axis([Xp(1)-(Xp(end)-Xp(1))/10 Xp(end)+(Xp(end)-Xp(1))/10 Yp(1)-(Yp(end)-Yp(1))/10 Yp(end)+(Yp(end)-Yp(1))/10])");
-	MATLAB.Command(str.c_str());
+	
 	str = string("quiver(Xp,Yp,U(:,1:end-1)/2+U(:,2:end)/2,V(1:end-1,:)/2+V(2:end,:)/2,2),axis([Xp(1)-(Xp(end)-Xp(1))/10 Xp(end)+(Xp(end)-Xp(1))/10 Yp(1)-(Yp(end)-Yp(1))/10 Yp(end)+(Yp(end)-Yp(1))/10]);");
-	str = str + string("hold on,streamline(Xp,Yp,U(:,1:end-1)/2+U(:,2:end)/2,V(1:end-1,:)/2+V(2:end,:)/2,Xp(1:30:end),Yp(1:30:end)), hold off;");
+	//str = str + string("hold on,streamline(Xp,Yp,U(:,1:end-1)/2+U(:,2:end)/2,V(1:end-1,:)/2+V(2:end,:)/2,Xp(1:30:end),Yp(1:30:end)), hold off;axis equal; axis([Xp(1) Xp(end) Yp(1) Yp(end)]);");
+	str = str + string("hold on,streamslice(Xp,Yp,U(:,1:end-1)/2+U(:,2:end)/2,V(1:end-1,:)/2+V(2:end,:)/2), hold off;axis equal; axis([Xp(1) Xp(end) Yp(1) Yp(end)]);");
 	MATLAB.Command(str.c_str());
 	str = string("title(['iteration : ', num2str(") + to_string(iteration) + string("),', time : ', num2str(") + to_string(totalT) + string(")]);");
 	MATLAB.Command(str.c_str());

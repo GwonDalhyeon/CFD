@@ -502,7 +502,7 @@ inline TT VectorND<TT>::magnitude2()
 #pragma omp parallel for reduction(+:mag2)
 	for (int i = 0; i < iLength; i++)
 	{
-		mag2 = mag2 + values[i] * values[i];
+		mag2 += values[i] * values[i];
 	}
 	return TT(mag2);
 }
@@ -587,7 +587,7 @@ inline TT DotProduct(const VectorND<TT>& ipVector1, const VectorND<TT>& ipVector
 #pragma omp parallel for reduction(+:dotPro)
 	for (int i = 0; i < ipVector1.iLength; i++)
 	{
-		dotPro = dotPro + ipVector1.values[i] * ipVector2.values[i];
+		dotPro += ipVector1.values[i] * ipVector2.values[i];
 	}
 
 	return dotPro;

@@ -65,9 +65,13 @@ inline void ToMATLAB::Variable(const char * varName, const int & rowNum, const i
 		mxArray* dataArray = mxCreateNumericMatrix(rowNum, colNum, mxINT32_CLASS, mxREAL);
 		memcpy((int*)mxGetPr(dataArray), (int*)values, sizeof(int) * rowNum*colNum);
 		engPutVariable(ME, varName, dataArray);
-		string str = string(varName) + "=double(transpose(" + (varName)+"));";
-		// Tranaspose array.
-		engEvalString(ME, str.c_str());
+		string str = string(varName);
+		if (colNum>1)
+		{
+			// Tranaspose array.
+			str = str + "=double(transpose(" + (varName)+"));";
+			engEvalString(ME, str.c_str());
+		}
 		mxDestroyArray(dataArray);
 		dataArray = 0;
 	}
@@ -76,9 +80,13 @@ inline void ToMATLAB::Variable(const char * varName, const int & rowNum, const i
 		mxArray* dataArray = mxCreateDoubleMatrix(rowNum, colNum, mxREAL);
 		memcpy((void*)mxGetPr(dataArray), (void*)values, sizeof(double) * rowNum*colNum);
 		engPutVariable(ME, varName, dataArray);
-		string str = string(varName) + "=double(transpose(" + (varName)+"));";
-		// Tranaspose array.
-		engEvalString(ME, str.c_str());
+		string str = string(varName);
+		if (colNum>1)
+		{
+			// Tranaspose array.
+			str = str + "=double(transpose(" + (varName)+"));";
+			engEvalString(ME, str.c_str());
+		}
 		mxDestroyArray(dataArray);
 		dataArray = 0;
 	}
@@ -87,9 +95,13 @@ inline void ToMATLAB::Variable(const char * varName, const int & rowNum, const i
 		mxArray* dataArray = mxCreateLogicalMatrix(rowNum, colNum);
 		memcpy((TT*)mxGetPr(dataArray), (TT*)values, sizeof(TT) * rowNum*colNum);
 		engPutVariable(ME, varName, dataArray);
-		string str = string(varName) + "=double(transpose(" + (varName)+"));";
-		// Tranaspose array.
-		engEvalString(ME, str.c_str());
+		string str = string(varName);
+		if (colNum>1)
+		{
+			// Tranaspose array.
+			str = str + "=double(transpose(" + (varName)+"));";
+			engEvalString(ME, str.c_str());
+		}
 		mxDestroyArray(dataArray);
 		dataArray = 0;
 	}

@@ -158,6 +158,7 @@ inline void InsolubleSurfactant::ContinuumMethodWithSurfactantSolver(const int &
 		cout << "Diffusion Start" << endl;
 		InterfaceSurfactant.LSurfactantDiffusion(iteration);
 		cout << "Diffusion End" << endl;
+		cout << endl;
 
 		//// Step 1-2 : New Surface Tension
 		InterfaceSurfactant.DimlessNonlinearLangmu1rEOS(2);

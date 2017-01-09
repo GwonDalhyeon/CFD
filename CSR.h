@@ -37,6 +37,8 @@ public:
 	inline void Multiply(const VectorND<TT>& x, VectorND<TT>& b) const;
 	inline void ComputeResidual(const VectorND<TT>& x, const VectorND<TT>& b, VectorND<TT>& residual) const;
 
+	inline void RecoverCSR(const char * name);
+
 private:
 
 };
@@ -268,6 +270,26 @@ inline void CSR<TT>::ComputeResidual(const VectorND<TT>& x, const VectorND<TT>& 
 		// residual = b - A*x
 		residual[row] = b[row] - v;
 	}
+}
+
+template<class TT>
+inline void CSR<TT>::RecoverCSR(const char * name)
+{
+	string str;
+	indPrt.Variable((string(name) + string("indPrt")).c_str());
+	columns.Variable((string(name) + string("columns")).c_str());
+	values.Variable((string(name) + string("values")).c_str());
+
+	MATLAB.Command("i=1");
+	str = string(name) + string("=zeros(size(") + string(name) + string("indPrt,1)-1);");
+	MATLAB.Command(str.c_str());
+	str = string("for v = 1:size(") + string(name) + string("columns, 1);");
+	str += string("if v==") + string(name) + string("indPrt(i+1)+1;");
+	str += string("i=i+1; end;");
+	str += string("j = ") + string(name) + string("columns(v)+1;");
+	str += string(name) + string("(i,j)=") + string(name) + string("values(v);end;");
+	MATLAB.Command(str.c_str());
+
 }
 
 

@@ -238,50 +238,59 @@ inline void AdvectionMethod2D<TT>::ENO3rdDerivation(const Field2D<TT>& ipField, 
 template<class TT>
 inline void AdvectionMethod2D<TT>::ENO3rdDxMinus(const Field2D<TT>& ipField, Array2D<TT>& enoDxMinus)
 {
-	double Q1, Q2, Q3, c1, c2;
-	int k;
-	double D2L, D2R;
-	double D3L, D3R;
-	double dx = ipField.dx;
-#pragma omp parallel for private(Q1, Q2, Q3, c1, c2, k, D2L, D2R, D3L, D3R)
+	double dx(ipField.dx), dy(ipField.dy);
+	double one_over_dx(ipField.oneOverdx), one_over_dy(ipField.oneOverdy), one_over_2dx(ipField.oneOver2dx), one_over_2dy(ipField.oneOver2dx);
+	double one_over_3dx(one_over_dx*(double)1 / 3), one_over_3dy(one_over_dy*(double)1 / 3);
+	double diff_1_x_n_3, diff_1_x_n_2, diff_1_x_n_1, diff_1_x_0, diff_1_x_p_1, diff_2_x_n_2, diff_2_x_n_1, diff_2_x_0, diff_2_x_p_1, diff_3_x_n_2, diff_3_x_n_1, diff_3_x_0;
+
+#pragma omp parallel for private(diff_1_x_n_3, diff_1_x_n_2, diff_1_x_n_1, diff_1_x_0, diff_1_x_p_1, diff_2_x_n_2, diff_2_x_n_1, diff_2_x_0, diff_2_x_p_1, diff_3_x_n_2, diff_3_x_n_1, diff_3_x_0)
 	for (int i = ipField.iStart; i <= ipField.iEnd; i++)
 	{
 		for (int j = ipField.jStart; j <= ipField.jEnd; j++)
 		{
 			if (i < ipField.iStart + 3 || i > ipField.iEnd - 2)
 			{
-				enoDxMinus(i, j) = ipField.dxMinusPhi(i, j);
+				enoDxMinus(i, j) = ipField.dyMinusPhi(i, j);
+				continue;
+			}
+
+			diff_1_x_n_3 = one_over_dx*(ipField(i - 2, j) - ipField(i - 3, j));
+			diff_1_x_n_2 = one_over_dx*(ipField(i - 1, j) - ipField(i - 2, j));
+			diff_1_x_n_1 = one_over_dx*(ipField(i, j) - ipField(i - 1, j));
+			diff_1_x_0 = one_over_dx*(ipField(i + 1, j) - ipField(i, j));
+			diff_1_x_p_1 = one_over_dx*(ipField(i + 2, j) - ipField(i + 1, j));
+
+			diff_2_x_n_2 = one_over_2dx*(diff_1_x_n_2 - diff_1_x_n_3);
+			diff_2_x_n_1 = one_over_2dx*(diff_1_x_n_1 - diff_1_x_n_2);
+			diff_2_x_0 = one_over_2dx*(diff_1_x_0 - diff_1_x_n_1);
+			diff_2_x_p_1 = one_over_2dx*(diff_1_x_p_1 - diff_1_x_0);
+
+			diff_3_x_n_2 = one_over_3dx*(diff_2_x_n_1 - diff_2_x_n_2);
+			diff_3_x_n_1 = one_over_3dx*(diff_2_x_0 - diff_2_x_n_1);
+			diff_3_x_0 = one_over_3dx*(diff_2_x_p_1 - diff_2_x_0);
+
+			
+			if (abs(diff_2_x_n_1) <= abs(diff_2_x_0))
+			{
+				if (abs(diff_3_x_n_2) <= abs(diff_3_x_n_1))
+				{
+					enoDxMinus(i, j) = diff_1_x_n_1 + diff_2_x_n_1*dx + 2 * diff_3_x_n_2*dx*dx;
+				}
+				else
+				{
+					enoDxMinus(i, j) = diff_1_x_n_1 + diff_2_x_n_1*dx + 2 * diff_3_x_n_1*dx*dx;
+				}
 			}
 			else
 			{
-				Q1 = ENOD1x(ipField, i - 1, j);
-				D2L = ENOD2x(ipField, i - 1, j);
-				D2R = ENOD2x(ipField, i, j);
-				if (abs(D2L) <= abs(D2R))
+				if (abs(diff_3_x_n_1) <= abs(diff_3_x_0))
 				{
-					c1 = D2L;
-					k = i - 2;
+					enoDxMinus(i, j) = diff_1_x_n_1 + diff_2_x_0*dx - diff_3_x_n_1*dx*dx;
 				}
 				else
 				{
-					c1 = D2R;
-					k = i - 1;
+					enoDxMinus(i, j) = diff_1_x_n_1 + diff_2_x_0*dx - diff_3_x_0*dx*dx;
 				}
-				Q2 = -c1*dx;
-
-				D3L = ENOD3x(ipField, k, j);
-				D3R = ENOD3x(ipField, k + 1, j);
-				if (abs(D3L) <= abs(D3R))
-				{
-					c2 = D3L;
-				}
-				else
-				{
-					c2 = D3R;
-				}
-				Q3 = (double)c2*(3 * (i - k)*(i - k) - 6 * (i - k) + 2)*dx*dx;
-
-				enoDxMinus(i, j) = Q1 + Q2 + Q3;
 			}
 		}
 	}
@@ -290,12 +299,12 @@ inline void AdvectionMethod2D<TT>::ENO3rdDxMinus(const Field2D<TT>& ipField, Arr
 template<class TT>
 inline void AdvectionMethod2D<TT>::ENO3rdDxPlus(const Field2D<TT>& ipField, Array2D<TT>& enoDxPlus)
 {
-	double Q1, Q2, Q3, c1, c2;
-	int k;
-	double D2L, D2R;
-	double D3L, D3R;
-	double dx = ipField.dx;
-#pragma omp parallel for private(Q1, Q2, Q3, c1, c2, k, D2L, D2R, D3L, D3R)
+	double dx(ipField.dx), dy(ipField.dy);
+	double one_over_dx(ipField.oneOverdx), one_over_dy(ipField.oneOverdy), one_over_2dx(ipField.oneOver2dx), one_over_2dy(ipField.oneOver2dx);
+	double one_over_3dx(one_over_dx*(double)1 / 3), one_over_3dy(one_over_dy*(double)1 / 3);
+	double diff_1_x_n_2, diff_1_x_n_1, diff_1_x_0, diff_1_x_p_1, diff_1_x_p_2, diff_2_x_n_1, diff_2_x_0, diff_2_x_p_1, diff_2_x_p_2, diff_3_x_n_1, diff_3_x_0, diff_3_x_p_1;
+
+#pragma omp parallel for private(diff_1_x_n_2, diff_1_x_n_1, diff_1_x_0, diff_1_x_p_1, diff_1_x_p_2, diff_2_x_n_1, diff_2_x_0, diff_2_x_p_1, diff_2_x_p_2, diff_3_x_n_1, diff_3_x_0, diff_3_x_p_1)
 	for (int i = ipField.iStart; i <= ipField.iEnd; i++)
 	{
 		for (int j = ipField.jStart; j <= ipField.jEnd; j++)
@@ -304,39 +313,46 @@ inline void AdvectionMethod2D<TT>::ENO3rdDxPlus(const Field2D<TT>& ipField, Arra
 			if (i < ipField.iStart + 2 || i > ipField.iEnd - 3)
 			{
 				enoDxPlus(i, j) = ipField.dxPlusPhi(i, j);
+				continue;
+			}
+			
+			diff_1_x_n_2 = one_over_dx*(ipField(i - 1, j) - ipField(i - 2, j));
+			diff_1_x_n_1 = one_over_dx*(ipField(i, j) - ipField(i - 1, j));
+			diff_1_x_0 = one_over_dx*(ipField(i + 1, j) - ipField(i, j));
+			diff_1_x_p_1 = one_over_dx*(ipField(i + 2, j) - ipField(i + 1, j));
+			diff_1_x_p_2 = one_over_dx*(ipField(i + 3, j) - ipField(i + 2, j));
+
+			diff_2_x_n_1 = one_over_2dx*(diff_1_x_n_1 - diff_1_x_n_2);
+			diff_2_x_0 = one_over_2dx*(diff_1_x_0 - diff_1_x_n_1);
+			diff_2_x_p_1 = one_over_2dx*(diff_1_x_p_1 - diff_1_x_0);
+			diff_2_x_p_2 = one_over_2dx*(diff_1_x_p_2 - diff_1_x_p_1);
+
+			diff_3_x_n_1 = one_over_3dx*(diff_2_x_0 - diff_2_x_n_1);
+			diff_3_x_0 = one_over_3dx*(diff_2_x_p_1 - diff_2_x_0);
+			diff_3_x_p_1 = one_over_3dx*(diff_2_x_p_2 - diff_2_x_p_1);
+
+			if (abs(diff_2_x_0) <= abs(diff_2_x_p_1))
+			{
+				if (abs(diff_3_x_n_1) <= abs(diff_3_x_0))
+				{
+					enoDxPlus(i, j) = diff_1_x_0 - diff_2_x_0*dx - diff_3_x_n_1*dx*dx;
+				}
+				else
+				{
+					enoDxPlus(i, j) = diff_1_x_0 - diff_2_x_0*dx - diff_3_x_0*dx*dx;
+				}
 			}
 			else
 			{
-				Q1 = ENOD1x(ipField, i, j);
-				D2L = ENOD2x(ipField, i, j);
-				D2R = ENOD2x(ipField, i + 1, j);
-				if (abs(D2L) <= abs(D2R))
+				if (abs(diff_3_x_0) <= abs(diff_3_x_p_1))
 				{
-					c1 = D2L;
-					k = i - 1;
+					enoDxPlus(i, j) = diff_1_x_0 - diff_2_x_p_1*dx + 2 * diff_3_x_0*dx*dx;
 				}
 				else
 				{
-					c1 = D2R;
-					k = i;
+					enoDxPlus(i, j) = diff_1_x_0 - diff_2_x_p_1*dx + 2 * diff_3_x_p_1*dx*dx;
 				}
-				Q2 = -c1*dx;
-
-				D3L = ENOD3x(ipField, k, j);
-				D3R = ENOD3x(ipField, k + 1, j);
-				if (abs(D3L) <= abs(D3R))
-				{
-					c2 = D3L;
-				}
-				else
-				{
-					c2 = D3R;
-				}
-				Q3 = (double)c2*(3 * (i - k)*(i - k) - 6 * (i - k) + 2)*dx*dx;
-
-				enoDxPlus(i, j) = Q1 + Q2 + Q3;
 			}
-
 		}
 	}
 }
@@ -344,12 +360,12 @@ inline void AdvectionMethod2D<TT>::ENO3rdDxPlus(const Field2D<TT>& ipField, Arra
 template<class TT>
 inline void AdvectionMethod2D<TT>::ENO3rdDyMinus(const Field2D<TT>& ipField, Array2D<TT>& enoDyMinus)
 {
-	double Q1, Q2, Q3, c1, c2;
-	int k;
-	double D2L, D2R;
-	double D3L, D3R;
-	double dy = ipField.dy;
-#pragma omp parallel for private(Q1, Q2, Q3, c1, c2, k, D2L, D2R, D3L, D3R)
+	double dx(ipField.dx), dy(ipField.dy);
+	double one_over_dx(ipField.oneOverdx), one_over_dy(ipField.oneOverdy), one_over_2dx(ipField.oneOver2dx), one_over_2dy(ipField.oneOver2dx);
+	double one_over_3dx(one_over_dx*(double)1 / 3), one_over_3dy(one_over_dy*(double)1 / 3);
+	double diff_1_y_n_3, diff_1_y_n_2, diff_1_y_n_1, diff_1_y_0, diff_1_y_p_1, diff_1_y_p_2, diff_2_y_n_2, diff_2_y_n_1, diff_2_y_0, diff_2_y_p_1, diff_2_y_p_2, diff_3_y_n_2, diff_3_y_n_1, diff_3_y_0, diff_3_y_p_1;
+
+#pragma omp parallel for private(diff_1_y_n_3, diff_1_y_n_2, diff_1_y_n_1, diff_1_y_0, diff_1_y_p_1, diff_1_y_p_2, diff_2_y_n_2, diff_2_y_n_1, diff_2_y_0, diff_2_y_p_1, diff_2_y_p_2, diff_3_y_n_2, diff_3_y_n_1, diff_3_y_0, diff_3_y_p_1)
 	for (int i = ipField.iStart; i <= ipField.iEnd; i++)
 	{
 		for (int j = ipField.jStart; j <= ipField.jEnd; j++)
@@ -357,38 +373,47 @@ inline void AdvectionMethod2D<TT>::ENO3rdDyMinus(const Field2D<TT>& ipField, Arr
 			if (j < ipField.jStart + 3 || j > ipField.jEnd - 2)
 			{
 				enoDyMinus(i, j) = ipField.dyMinusPhi(i, j);
+				continue;
+			}
+
+			diff_1_y_n_3 = one_over_dy*(ipField(i, j - 2) - ipField(i, j - 3));
+			diff_1_y_n_2 = one_over_dy*(ipField(i, j - 1) - ipField(i, j - 2));
+			diff_1_y_n_1 = one_over_dy*(ipField(i, j) - ipField(i, j - 1));
+			diff_1_y_0 = one_over_dy*(ipField(i, j + 1) - ipField(i, j));
+			diff_1_y_p_1 = one_over_dy*(ipField(i, j + 2) - ipField(i, j + 1));
+
+			diff_2_y_n_2 = one_over_2dy*(diff_1_y_n_2 - diff_1_y_n_3);
+			diff_2_y_n_1 = one_over_2dy*(diff_1_y_n_1 - diff_1_y_n_2);
+			diff_2_y_0 = one_over_2dy*(diff_1_y_0 - diff_1_y_n_1);
+			diff_2_y_p_1 = one_over_2dy*(diff_1_y_p_1 - diff_1_y_0);
+
+			diff_3_y_n_2 = one_over_3dy*(diff_2_y_n_1 - diff_2_y_n_2);
+			diff_3_y_n_1 = one_over_3dy*(diff_2_y_0 - diff_2_y_n_1);
+			diff_3_y_0 = one_over_3dy*(diff_2_y_p_1 - diff_2_y_0);
+
+			if (abs(diff_2_y_n_1) <= abs(diff_2_y_0))
+			{
+				if (abs(diff_3_y_n_2) <= abs(diff_3_y_n_1))
+				{
+					enoDyMinus(i, j) = diff_1_y_n_1 + diff_2_y_n_1*dy + 2 * diff_3_y_n_2*dy*dy;
+				}
+				else
+				{
+					enoDyMinus(i, j) = diff_1_y_n_1 + diff_2_y_n_1*dy + 2 * diff_3_y_n_1*dy*dy;
+				}
 			}
 			else
 			{
-				Q1 = ENOD1y(ipField, i, j - 1);
-				D2L = ENOD2y(ipField, i, j - 1);
-				D2R = ENOD2y(ipField, i, j);
-				if (abs(D2L) <= abs(D2R))
+				if (abs(diff_3_y_n_1) <= abs(diff_3_y_0))
 				{
-					c1 = D2L;
-					k = j - 2;
+					enoDyMinus(i, j) = diff_1_y_n_1 + diff_2_y_0*dy - diff_3_y_n_1*dy*dy;
 				}
 				else
 				{
-					c1 = D2R;
-					k = j - 1;
+					enoDyMinus(i, j) = diff_1_y_n_1 + diff_2_y_0*dy - diff_3_y_0*dy*dy;
 				}
-				Q2 = -c1*dy;
-
-				D3L = ENOD3y(ipField, i, k);
-				D3R = ENOD3y(ipField, i, k + 1);
-				if (abs(D3L) <= abs(D3R))
-				{
-					c2 = D3L;
-				}
-				else
-				{
-					c2 = D3R;
-				}
-				Q3 = (double)c2*(3 * (j - k)*(j - k) - 6 * (j - k) + 2)*dy*dy;
-
-				enoDyMinus(i, j) = Q1 + Q2 + Q3;
 			}
+			
 		}
 	}
 }
@@ -396,12 +421,12 @@ inline void AdvectionMethod2D<TT>::ENO3rdDyMinus(const Field2D<TT>& ipField, Arr
 template<class TT>
 inline void AdvectionMethod2D<TT>::ENO3rdDyPlus(const Field2D<TT>& ipField, Array2D<TT>& enoDyPlus)
 {
-	double Q1, Q2, Q3, c1, c2;
-	int k;
-	double D2L, D2R;
-	double D3L, D3R;
-	double dy = ipField.dy;
-#pragma omp parallel for private(Q1, Q2, Q3, c1, c2, k, D2L, D2R, D3L, D3R)
+	double dx(ipField.dx), dy(ipField.dy);
+	double one_over_dx(ipField.oneOverdx), one_over_dy(ipField.oneOverdy), one_over_2dx(ipField.oneOver2dx), one_over_2dy(ipField.oneOver2dx);
+	double one_over_3dx(one_over_dx*(double)1 / 3), one_over_3dy(one_over_dy*(double)1 / 3);
+	double diff_1_y_n_3, diff_1_y_n_2, diff_1_y_n_1, diff_1_y_0, diff_1_y_p_1, diff_1_y_p_2, diff_2_y_n_2, diff_2_y_n_1, diff_2_y_0, diff_2_y_p_1, diff_2_y_p_2, diff_3_y_n_2, diff_3_y_n_1, diff_3_y_0, diff_3_y_p_1;
+
+#pragma omp parallel for private(diff_1_y_n_3, diff_1_y_n_2, diff_1_y_n_1, diff_1_y_0, diff_1_y_p_1, diff_1_y_p_2, diff_2_y_n_2, diff_2_y_n_1, diff_2_y_0, diff_2_y_p_1, diff_2_y_p_2, diff_3_y_n_2, diff_3_y_n_1, diff_3_y_0, diff_3_y_p_1)
 	for (int i = ipField.iStart; i <= ipField.iEnd; i++)
 	{
 		for (int j = ipField.jStart; j <= ipField.jEnd; j++)
@@ -410,38 +435,47 @@ inline void AdvectionMethod2D<TT>::ENO3rdDyPlus(const Field2D<TT>& ipField, Arra
 			if (j < ipField.jStart + 2 || j > ipField.jEnd - 3)
 			{
 				enoDyPlus(i, j) = ipField.dyPlusPhi(i, j);
+				continue;
+			}
+
+			diff_1_y_n_2 = one_over_dy*(ipField(i, j - 1) - ipField(i, j - 2));
+			diff_1_y_n_1 = one_over_dy*(ipField(i, j) - ipField(i, j - 1));
+			diff_1_y_0 = one_over_dy*(ipField(i, j + 1) - ipField(i, j));
+			diff_1_y_p_1 = one_over_dy*(ipField(i, j + 2) - ipField(i, j + 1));
+			diff_1_y_p_2 = one_over_dy*(ipField(i, j + 3) - ipField(i, j + 2));
+
+			diff_2_y_n_1 = one_over_2dy*(diff_1_y_n_1 - diff_1_y_n_2);
+			diff_2_y_0 = one_over_2dy*(diff_1_y_0 - diff_1_y_n_1);
+			diff_2_y_p_1 = one_over_2dy*(diff_1_y_p_1 - diff_1_y_0);
+			diff_2_y_p_2 = one_over_2dy*(diff_1_y_p_2 - diff_1_y_p_1);
+
+			diff_3_y_n_1 = one_over_3dy*(diff_2_y_0 - diff_2_y_n_1);
+			diff_3_y_0 = one_over_3dy*(diff_2_y_p_1 - diff_2_y_0);
+			diff_3_y_p_1 = one_over_3dy*(diff_2_y_p_2 - diff_2_y_p_1);
+			
+			if (abs(diff_2_y_0) <= abs(diff_2_y_p_1))
+			{
+				if (abs(diff_3_y_n_1) <= abs(diff_3_y_0))
+				{
+					enoDyPlus(i, j) = diff_1_y_0 - diff_2_y_0*dy - diff_3_y_n_1*dy*dy;
+				}
+				else
+				{
+					enoDyPlus(i, j) = diff_1_y_0 - diff_2_y_0*dy - diff_3_y_0*dy*dy;
+				}
 			}
 			else
 			{
-				Q1 = ENOD1y(ipField, i, j);
-				D2L = ENOD2y(ipField, i, j);
-				D2R = ENOD2y(ipField, i, j + 1);
-				if (abs(D2L) <= abs(D2R))
+				if (abs(diff_3_y_0) <= abs(diff_3_y_p_1))
 				{
-					c1 = D2L;
-					k = j - 1;
+					enoDyPlus(i, j) = diff_1_y_0 - diff_2_y_p_1*dy + 2 * diff_3_y_0*dy*dy;
 				}
 				else
 				{
-					c1 = D2R;
-					k = j;
+					enoDyPlus(i, j) = diff_1_y_0 - diff_2_y_p_1*dy + 2 * diff_3_y_p_1*dy*dy;
 				}
-				Q2 = -c1*dy;
-
-				D3L = ENOD3y(ipField, i, k);
-				D3R = ENOD3y(ipField, i, k + 1);
-				if (abs(D3L) <= abs(D3R))
-				{
-					c2 = D3L;
-				}
-				else
-				{
-					c2 = D3R;
-				}
-				Q3 = (double)c2*(3 * (j - k)*(j - k) - 6 * (j - k) + 2)*dy*dy;
-
-				enoDyPlus(i, j) = Q1 + Q2 + Q3;
 			}
+
 		}
 	}
 }
