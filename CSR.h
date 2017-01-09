@@ -221,25 +221,12 @@ inline void CSR<TT>::Multiply(const VectorND<TT>& x, VectorND<TT>& b) const
 	assert(rowNum == x.iLength);
 	assert(x.iLength == b.iLength);
 
-	//TT *bval(b.values), *xval(x.values);
 	TT v = 0;
-//#pragma omp parallel for private (v)
-//	for (int row = 0; row < rowNum; row++)
-//	{
-//		v = 0;
-//		for (int vix = indPrt[row]; vix < indPrt[row + 1]; vix++)
-//		{
-//			v += values[vix] * x.values[columns.values[vix]];
-//		}
-//
-//		b.values[row] = v;
-//	}
 
 #pragma omp parallel for private (v)
 	for (int i = 0; i < rowNum; i++)
 	{
 		v = 0;
-//#pragma omp parallel for private (j) reduction(+:v) 
 		for (int n = indPrt[i]; n < indPrt[i + 1]; n++)
 		{
 			v += values[n] * x[columns[n]];
@@ -255,7 +242,6 @@ inline void CSR<TT>::ComputeResidual(const VectorND<TT>& x, const VectorND<TT>& 
 	assert(x.iLength == b.iLength);
 	assert(residual.iLength == rowNum);
 
-	//TT *bval(b.values), *xval(x.values), *rval(residual.values);
 	TT v = 0;
 #pragma omp parallel for private (v)
 	for (int row = 0; row < rowNum; row++)
@@ -289,7 +275,6 @@ inline void CSR<TT>::RecoverCSR(const char * name)
 	str += string("j = ") + string(name) + string("columns(v)+1;");
 	str += string(name) + string("(i,j)=") + string(name) + string("values(v);end;");
 	MATLAB.Command(str.c_str());
-
 }
 
 
@@ -313,23 +298,6 @@ static void IncompleteCholeskyDecomposition(const int& i_res_input, const int& j
 	const int nz = A.nz;
 
 	Field2D<int>& index_field = bc_input;
-
-	//const int i_start(index_field.iStartI), i_end(index_field.iEndI), j_start(index_field.jStartI), j_end(index_field.jEndI);
-
-	//int start_ix(0);
-
-
-	/*ofstream fout;
-	fout.open("index_field");
-	for (int j = 0; j < index_field.grid.j_res; j++)
-	{
-	for (int i = 0; i < index_field.iResI; i++)
-	{
-	fout << index_field(i, j) << " ";
-	}
-	fout << endl;
-	}
-	fout.close();*/
 
 	TT sum, coef;
 	int number(0);

@@ -62,7 +62,7 @@ public:
 	VectorND<double> Pb;
 	VectorND<double> tempP;
 	CSR<double> M;
-	bool isPCG = true;
+	bool isPCG = false;
 	//////////////////////////////////////////////////////////
 	////			Numerical Variable              //////////
 	//////////////////////////////////////////////////////////
@@ -910,9 +910,7 @@ inline void FluidSolver2D::EulerMethodStep2()
 			tempP(BC(i, j)) = Pressure(i, j);
 		}
 	}
-	//Pb.Variable("Pb2");
 
-	isPCG = false;
 	if (isPCG)
 	{
 		PCGSolver::Solver(P_CSR, M, Pb, tempP, BC);

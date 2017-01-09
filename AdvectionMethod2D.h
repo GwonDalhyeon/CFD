@@ -1804,7 +1804,7 @@ inline void AdvectionMethod2D<TT>::LLSQuantityExtension(LS & ipLS, FD & ipQuanti
 	for (int k = 1; k <= ipLS.numTube; k++)
 	{
 		ipLS.TubeIndex(k, i, j);
-		if (ipLS.tube(i, j) == updatedRegion)
+		if (ipLS.tube(i, j) <= updatedRegion)
 		{
 			normal = ipLS.normal(i, j);
 			signPhi = AdvectionMethod2D<double>::sign(ipLS(i, j));
@@ -1843,7 +1843,7 @@ inline void AdvectionMethod2D<TT>::LLSQuantityExtension(LS & ipLS, FD & ipQuanti
 		for (int k = 1; k <= ipLS.numTube; k++)
 		{
 			ipLS.TubeIndex(k, i, j);
-			if (ipLS.tube(i, j) == updatedRegion)
+			if (ipLS.tube(i, j) <= updatedRegion)
 			{
 				normal = ipLS.normal(i, j);
 				signPhi = AdvectionMethod2D<double>::sign(ipLS(i, j));
@@ -1880,7 +1880,7 @@ inline void AdvectionMethod2D<TT>::LLSQuantityExtension(LS & ipLS, FD & ipQuanti
 		for (int k = 1; k <= ipLS.numTube; k++)
 		{
 			ipLS.TubeIndex(k, i, j);
-			if (ipLS.tube(i, j) == updatedRegion)
+			if (ipLS.tube(i, j) <= updatedRegion)
 			{
 				normal = ipLS.normal(i, j);
 				signPhi = AdvectionMethod2D<double>::sign(ipLS(i, j));

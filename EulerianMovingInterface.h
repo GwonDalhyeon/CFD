@@ -68,10 +68,14 @@ public:
 	inline void GenerateLinearSystem2(CSR<double>& ipCSR);
 	inline void GenerateLinearSystem2(VectorND<double>& vectorB);
 
+	inline void PlotSurfactant();
+
 	//////////////////////////////////////////////
 	////   Local Surfactant Diffusion Solver  ////
 	//////////////////////////////////////////////
 	inline void LSurfactantDiffusionSolver(const int& example);
+
+	inline void PlotLocalSurfactant();
 
 	///////////////////////////////////////////
 	//// Eulerian Moving Interface Solver  ////
@@ -257,7 +261,7 @@ inline void MovingInterface::InitialCondition(const int & example)
 		{
 			for (int j = grid.jStart; j <= grid.jEnd; j++)
 			{
-				levelSet(i, j) = sqrt(grid(i, j).x*grid(i, j).x + grid(i, j).y*grid(i, j).y) - radius;
+				levelSet(i, j) = sqrt(grid(i, j).x*grid(i, j).x + grid(i, j).y*grid(i, j).y) - radius - 100*DBL_EPSILON;
 			}
 		}
 		levelSet.InitialTube();
@@ -268,20 +272,13 @@ inline void MovingInterface::InitialCondition(const int & example)
 		for (int k = 1; k <= levelSet.numTube; k++)
 		{
 			levelSet.TubeIndex(k, i, j);
-			if (levelSet.tube(i, j) <= 1)
+			if (levelSet.tube(i, j) <= 2)
 			{
 				Surfactant(i, j) = ExactSurfactant(grid(i, j).x, grid(i, j).y, totalT);
+				//Surfactant(i, j) = sqrt((grid(i, j).x)*(grid(i, j).x) + (grid(i, j).y)*(grid(i, j).y)); ExactSurfactant(grid(i, j).x, grid(i, j).y, totalT);
 			}
 		}
-		//MATLAB.Command("figure('units','normalized','outerposition',[0 0 1 1])");
-		//grid.Variable();
-		//Surfactant.Variable("Surfactant");
-		//levelSet.tube.Variable("Tube");
-		//MATLAB.Command("subplot(1,2,1),surf(X,Y,Surfactant), hold on, contour(X,Y,Tube),hold off;");
-		int extensionIter = (int)ceil((levelSet.gamma2 - levelSet.gamma1) / (0.1*min(grid.dx, grid.dy)));
-		AdvectionMethod2D<double>::LLSQuantityExtension(levelSet, Surfactant, 3, 3, extensionIter);
-		//Surfactant.Variable("Surfactant");
-		//MATLAB.Command("subplot(1,2,2),surf(X,Y,Surfactant), hold on, contour(X,Y,Tube),hold off;");
+
 		AdvectionMethod2D<double>::alpha = 1.5*grid.dx;
 
 		term = Array2D<double>(grid);
@@ -403,14 +400,14 @@ inline void MovingInterface::InitialCondition(const int & example)
 		for (int k = 1; k <= levelSet.numTube; k++)
 		{
 			levelSet.TubeIndex(k, i, j);
-			if (levelSet.tube(i, j) <= 1)
+			if (levelSet.tube(i, j) <= 2)
 			{
 				Surfactant(i, j) = ExactSurfactant(grid(i, j).x, grid(i, j).y, totalT);
 			}
 		}
 
-		int extensionIter = (int)ceil((levelSet.gamma2 - levelSet.gamma1) / (0.1*min(grid.dx, grid.dy)));
-		AdvectionMethod2D<double>::LLSQuantityExtension(levelSet, Surfactant, 3, 3, extensionIter);
+		initialSurfactant = IntegralSurfactant();
+
 		AdvectionMethod2D<double>::alpha = 1.5*grid.dx;
 
 		term = Array2D<double>(grid);
@@ -464,15 +461,16 @@ inline void MovingInterface::InitialCondition(const int & example)
 		for (int k = 1; k <= levelSet.numTube; k++)
 		{
 			levelSet.TubeIndex(k, i, j);
-			if (levelSet.tube(i, j) <= 1)
+			if (levelSet.tube(i, j) <= 2)
 			{
 				Surfactant(i, j) = ExactSurfactant(grid(i, j).x, grid(i, j).y, totalT);
 			}
 		}
 
-		int extensionIter = (int)ceil((levelSet.gamma2 - levelSet.gamma1) / (0.1*min(grid.dx, grid.dy)));
-		AdvectionMethod2D<double>::LLSQuantityExtension(levelSet, Surfactant, 3, 3, extensionIter);
+		initialSurfactant = IntegralSurfactant();
 
+		AdvectionMethod2D<double>::alpha = 1.5*grid.dx;
+		
 		term = Array2D<double>(grid);
 		termOld = Array2D<double>(grid);
 		cflCondition = 1.0 / 4.0;
@@ -532,6 +530,8 @@ inline void MovingInterface::InitialCondition(const int & example)
 		}
 
 		initialSurfactant = IntegralSurfactant();
+
+		AdvectionMethod2D<double>::alpha = 1.5*grid.dx;
 
 		term = Array2D<double>(grid);
 		termOld = Array2D<double>(grid);
@@ -607,8 +607,8 @@ inline void MovingInterface::SurfactantDiffusionSolver(const int & example)
 
 	//// Initial Surfactant
 	MATLAB.Command("figure('units','normalized','outerposition',[0 0 1 1])");
-	Surfactant.Variable("Surfactant");
-	MATLAB.Command("surf(X,Y,Surfactant);");
+	PlotSurfactant();
+
 	str = string("title(['iteration : ', num2str(") + to_string(0) + string("),', time : ', num2str(") + to_string(totalT) + string(")]), ;");
 	MATLAB.Command(str.c_str());
 
@@ -635,11 +635,11 @@ inline void MovingInterface::SurfactantDiffusionSolver(const int & example)
 			}
 		}
 
+		PlotSurfactant();
+
 		MATLAB.Variable("i", i);
 		MATLAB.Variable("totalT", totalT);
-		Surfactant.Variable("Surfactant");
 		exact.Variable("SurfactantExact");
-		MATLAB.Command("surf(X,Y,Surfactant);");
 		//MATLAB.Command("subplot(1,2,2),surf(X,Y,SurfactantExact);set(gca,'fontsize',20)");
 		MATLAB.Command("loss=sum(sum((Surfactant-SurfactantExact).^2.))*(Y(2)-Y(1))^2;");
 		str = string("title(['iteration : ', num2str(i),', time : ', num2str(totalT), ', L2 error  :',num2str(loss)]);");
@@ -1140,6 +1140,12 @@ inline void MovingInterface::GenerateLinearSystem2(VectorND<double>& vectorB)
 	Surfactant(Surfactant.iEnd, Surfactant.jEnd) = ExactSurfactant(grid(grid.iEnd, grid.jEnd).x, grid(grid.iEnd, grid.jEnd).y, totalT);
 }
 
+inline void MovingInterface::PlotSurfactant()
+{
+	Surfactant.Variable("Surfactant");
+	MATLAB.Command("surf(X,Y,Surfactant);");
+}
+
 /////////////////////////////////////////////////////////////////////////////////////////
 ////
 ////       "Local" Surfactant Diffusion Solver
@@ -1159,48 +1165,53 @@ inline void MovingInterface::LSurfactantDiffusionSolver(const int & example)
 	FD exact(grid);
 
 	levelSet.phi.Variable("phi0");
-	levelSet.tube.Variable("Tube");
 	Surfactant.Variable("Surfactant0");
-
+	levelSet.tube.Variable("tube");
 	MATLAB.Command("figure('units','normalized','outerposition',[0 0 1 1])");
-	MATLAB.Command("SurTube1 = Surfactant0.*(Tube<=1);");
-	MATLAB.Command("surf(X,Y,SurTube1),set(gca,'fontsize',20)");
+	PlotLocalSurfactant();
+	MATLAB.Command("IntSur0=sum(sum(Surfactant.*(Tube<=1)));");
 	str = string("title(['iteration : ', num2str(") + to_string(0) + string("),', time : ', num2str(") + to_string(totalT) + string(")]);");
 	cmd = str.c_str();
 	MATLAB.Command(cmd);
-	int extensionIter = (int)ceil((levelSet.gamma2 - levelSet.gamma1) / (0.2*min(grid.dx, grid.dy)));;
+	int extensionIter = (int)ceil(levelSet.gamma2 / (0.5*min(grid.dx, grid.dy)));;
 	for (int i = 1; i <= maxIteration; i++)
 	{
 		cout << "*******************************************************************" << endl;
 		cout << "       Iteration " << to_string(i) << " : Start" << endl;
 		totalT += dt;
-		cout << "Diffusion Start" << endl;
+		cout << "------------- Diffusion Start ------------- " << endl;
+
 		LSurfactantDiffusion(i);
+
 		AdvectionMethod2D<double>::LLSQuantityExtension(levelSet, Surfactant, 3, 3, extensionIter);
 
-		cout << "Diffusion End" << endl;
+		cout << "------------ Diffusion End ------------- " << endl;
 
-
-#pragma omp parallel for
-		for (int i = grid.iStart; i <= grid.iEnd; i++)
-		{
-			for (int j = grid.jStart; j <= grid.jEnd; j++)
-			{
-				exact(i, j) = ExactSurfactant(grid(i, j).x, grid(i, j).y, totalT);
-			}
-		}
-
-		Surfactant.Variable("Surfactant");
-		exact.Variable("exact");
-		MATLAB.Command("SurTube1 = Surfactant.*(Tube<=1);");
-		MATLAB.Command("surf(X,Y,SurTube1), hold on, contour(X,Y,Tube),hold off,set(gca,'fontsize',20);axis([-2 2 -2 2 0 3])");
-		MATLAB.Command("loss = sum(sum(SurTube1-exact.*(Tube==1)).^2)*(Y(2)-Y(1))*(Y(2)-Y(1));");
+		PlotLocalSurfactant();
+		MATLAB.Command("IntSur=sum(sum(Surfactant.*(Tube<=1)));");
+		MATLAB.Command("loss = (IntSur0-IntSur)/IntSur0*100");
 		MATLAB.Variable("i", i);
 		MATLAB.Variable("totalT", totalT);
-		str = string("title(['iteration : ', num2str(i),', time : ', num2str(totalT), ', L2 error  :',num2str(loss)]);");
-		cmd = str.c_str();
-		MATLAB.Command(cmd);
+		str = string("title(['iteration : ', num2str(i),', time : ', num2str(totalT), ', Loss(%)  :',num2str(loss)]);");
+		MATLAB.Command(str.c_str());
 	}
+}
+
+inline void MovingInterface::PlotLocalSurfactant()
+{
+	Surfactant.Variable("Surfactant");
+	MATLAB.Command("SurTube1=Surfactant.*(Tube<=1);");
+	levelSet.tube.Variable("Tube");
+	bool isLookDown = false;
+	if (isLookDown)
+	{
+		MATLAB.Command("surf(X,Y,SurTube1), hold on, contour(X,Y,Tube),h=colorbar,h.Limits=[0 max(max(SurTube1))],hold off,set(gca,'fontsize',20);axis([X(1) X(end) Y(1) Y(end)]),axis equal");
+	}
+	else
+	{
+		MATLAB.Command("surf(X,Y,SurTube1), hold on, contour(X,Y,Tube),h=colorbar,h.Limits=[0 max(max(SurTube1))],hold off,set(gca,'fontsize',20);");
+	}
+
 }
 
 
@@ -1225,88 +1236,51 @@ inline void MovingInterface::EulerianMovingInterfaceSolver(const int & example)
 	Surfactant.Variable("Surfactant");
 
 	MATLAB.Command("figure('units','normalized','outerposition',[0 0 1 1])");
-	//MATLAB.Command("subplot(2,1,1),surf(X,Y,Surfactant),subplot(2,1,2),contour(X,Y,phi0,[0 0],'b'),grid on,axis equal");
-	MATLAB.Command("SurTube1 = Surfactant.*(Tube<=1);");
-	MATLAB.Command("surf(X,Y,SurTube1),grid on,axis equal,set(gca,'fontsize',20)");
+	PlotLocalSurfactant();
+	MATLAB.Command("IntSur0=sum(sum(Surfactant.*(Tube<=1)));");
+
 	str = string("title(['iteration : ', num2str(") + to_string(0) + string("),', time : ', num2str(") + to_string(totalT) + string(")]);");
 	cmd = str.c_str();
 	MATLAB.Command(cmd);
 
 	FD exact(grid);
 	int reinitialIter = int(levelSet.gamma1 / min(levelSet.phi.dx, levelSet.phi.dy)) * 2;
-	int extensionIter = (int)ceil((levelSet.gamma2 - levelSet.gamma1) / (0.2*min(grid.dx, grid.dy)));
+	int extensionIter = (int)ceil(levelSet.gamma2 / (0.5*min(grid.dx, grid.dy)));
 	for (int i = 1; i <= maxIteration; i++)
 	{
 		cout << "*******************************************************************" << endl;
 		cout << "       Iteration " << to_string(i) << " : Start" << endl;
 		totalT += dt;
-		cout << "Diffusion Start" << endl;
+		cout << "------------- Diffusion Start ------------- " << endl;
+
 		LSurfactantDiffusion(i);
-		cout << "Diffusion End" << endl;
 
-		Surfactant.Variable("Surfactant");
-		levelSet.tube.Variable("Tube");
-		MATLAB.Command("SurTube1 = Surfactant.*(Tube<=1);");
-		//MATLAB.Command("surf(X,Y,SurTube1),axis equal,axis([X(1) X(end) Y(1) Y(end)]), hold on, contour(X,Y,Tube,'r'),hold off;set(gca,'fontsize',20)");
-		MATLAB.Command("surf(X,Y,Surfactant),axis equal %, hold on, contour(X,Y,Tube,'r'),hold off;set(gca,'fontsize',20)");
+		AdvectionMethod2D<double>::LLSQuantityExtension(levelSet, Surfactant, 3, 3, extensionIter);
 
-		if (ExamNum == 4)
-		{
-#pragma omp parallel for
-			for (int i = grid.iStart; i <= grid.iEnd; i++)
-			{
-				for (int j = grid.jStart; j <= grid.jEnd; j++)
-				{
-					exact(i, j) = ExactSurfactant(grid(i, j).x, grid(i, j).y, totalT);
-				}
-			}
+		cout << "------------ Diffusion End ------------- " << endl;
 
-			exact.Variable("exact");
-			MATLAB.Command("loss = sum(sum(SurTube1-exact.*(Tube==1)).^2)*(Y(2)-Y(1))*(Y(2)-Y(1));");
-			MATLAB.Variable("i", i);
-			MATLAB.Variable("totalT", totalT);
-			str = string("title(['iteration : ', num2str(i),', time : ', num2str(totalT), ', L2 error  :',num2str(loss)]);");
-			cmd = str.c_str();
-			MATLAB.Command(cmd);
-		}
-		else
-		{
-			if (i == 1)
-			{
-#pragma omp parallel for
-				for (int i = grid.iStart; i <= grid.iEnd; i++)
-				{
-					for (int j = grid.jStart; j <= grid.jEnd; j++)
-					{
-						exact(i, j) = ExactSurfactant(grid(i, j).x, grid(i, j).y, 0);
-					}
-				}
-				exact.Variable("initial");
-				MATLAB.Command("initialF = sum(sum(initial.*(Tube==1)))*(Y(2)-Y(1))*(Y(2)-Y(1));");
-			}
-			MATLAB.Command("SurIntegral = sum(sum(SurTube1))*(Y(2)-Y(1))*(Y(2)-Y(1));");
-			MATLAB.Variable("i", i);
-			MATLAB.Variable("totalT", totalT);
-			MATLAB.Command("loss=(SurIntegral-initialF)/initialF*100;");
-			str = string("title(['iteration : ', num2str(i),', time : ', num2str(totalT), ', loss(%)  :',num2str(loss)]);");
-			cmd = str.c_str();
-			MATLAB.Command(cmd);
-		}
-
-
+		//////////////////////////
+		//// Moving Level Set ////
+		//////////////////////////
 		AdvectionMethod2D<double>::LLSPropagatingTVDRK3(levelSet, U, V, dt);
 		AdvectionMethod2D<double>::LLSReinitializationTVDRK3(levelSet, dt, reinitialIter);
+
 		AdvectionMethod2D<double>::LLSQuantityExtension(levelSet, Surfactant, 3, 3, extensionIter);
 		levelSet.UpdateInterface();
 		levelSet.UpdateLLS();
 
-		cout << "       Iteration " << to_string(i) << " : End" << endl;
+		//// Surfactant Conservation Method
+		ConserveSurfactantFactorBeta();
 
-		//levelSet.phi.Variable("phi");
-		//MATLAB.Command("subplot(2,1,2),contour(X,Y,phi0,[0 0],'b'),grid on,axis equal,hold on,contour(X,Y,Tube),hold off;");
-		//str = string("title(['iteration : ', num2str(") + to_string(i) + string("),', time : ', num2str(") + to_string(totalT) + string(")]);");
-		//cmd = str.c_str();
-		//MATLAB.Command(cmd);
+		PlotLocalSurfactant();
+		MATLAB.Command("IntSur=sum(sum(Surfactant.*(Tube<=1)));");
+		MATLAB.Command("loss = (IntSur0-IntSur)/IntSur0*100");
+		MATLAB.Variable("i", i);
+		MATLAB.Variable("totalT", totalT);
+		str = string("title(['iteration : ', num2str(i),', time : ', num2str(totalT), ', Loss(%)  :',num2str(loss)]);");
+		MATLAB.Command(str.c_str());
+
+		cout << "       Iteration " << to_string(i) << " : End" << endl;
 	}
 
 }
@@ -1330,21 +1304,21 @@ inline void MovingInterface::SurfactantTube2Extrapolation()
 
 inline void MovingInterface::LSurfactantDiffusion(const int & iter)
 {
-	if (iter == 1)
+	//if (iter == 1)
 	{
 		LGenerateLinearSystem1(Acsr);
 
 		LOneStepSemiImplicit();
 	}
 
-	if (iter >= 2)
-	{
-		SurfactantTube2Extrapolation();
-		
-		LGenerateLinearSystem2(Acsr);
+	//if (iter >= 2)
+	//{
+	//	SurfactantTube2Extrapolation();
+	//	
+	//	LGenerateLinearSystem2(Acsr);
 
-		LTwoStepSemiImplicit();
-	}
+	//	LTwoStepSemiImplicit();
+	//}
 
 }
 
@@ -1411,6 +1385,9 @@ inline void MovingInterface::LOneStepSemiImplicit()
 	//// Linear Equation
 	LGenerateLinearSystem1(vectorB);
 	CGSolver::Solver(Acsr, vectorB, tempSur);
+	Acsr.RecoverCSR("A");
+	vectorB.Variable("b");
+	tempSur.Variable("x");
 
 	int i, j;
 #pragma omp parallel for private(i, j)
@@ -1529,6 +1506,9 @@ inline void MovingInterface::LGenerateLinearSystem1(CSR<double>& ipCSR)
 
 	int iStart = Surfactant.iStart, iEnd = Surfactant.iEnd, jStart = Surfactant.jStart, jEnd = Surfactant.jEnd;
 
+	Array2D<int>& tube = levelSet.tube;
+	Array2D<int>& tube1 = levelSet.tube1;
+
 	double dx = Surfactant.dx, dy = Surfactant.dy;
 	double dx2 = dx*dx, dy2 = dy*dy, dxdy = dx*dy;
 	double oneOverdx = 1 / dx, oneOverdx2 = 1 / dx2;
@@ -1540,25 +1520,25 @@ inline void MovingInterface::LGenerateLinearSystem1(CSR<double>& ipCSR)
 	int i, j, l, m, n, k1, l1;
 	for (int k = 1; k <= levelSet.numTube1; k++)
 	{
-		//coefIJ = 0;
+		coefIJ = 0;
 		i = levelSet.tube1Index(k).i;
 		j = levelSet.tube1Index(k).j;
 		k1 = k - 1;
-		
-		coefIJ = 4;
-		ipCSR.AssignValue(k1, k1, oneOverdx2 * coefIJ + oneOverdt);
 
 		if (i>iStart)
 		{
 			leftIndex = VI(i - 1, j);
 			l = levelSet.tubeIJ2K(leftIndex);
 			levelSet.TubeIndex(l, m, n);
-			if (levelSet.tube(m, n) == 1)
+			if (tube(m, n) == 1)
 			{
-				l = levelSet.tube1(m, n);
+				l = tube1(m, n);
 				l1 = l - 1;
-				//coefIJ++;
 				ipCSR.AssignValue(k1, l1, -oneOverdx2);
+			}
+			if (tube(m,n)==1 || tube(m,n)==2)
+			{
+				coefIJ++;
 			}
 		}
 		
@@ -1567,12 +1547,15 @@ inline void MovingInterface::LGenerateLinearSystem1(CSR<double>& ipCSR)
 			rightIndex = VI(i + 1, j);
 			l = levelSet.tubeIJ2K(rightIndex);
 			levelSet.TubeIndex(l, m, n);
-			if (levelSet.tube(m, n) == 1)
+			if (tube(m, n) == 1)
 			{
-				l = levelSet.tube1(m, n);
+				l = tube1(m, n);
 				l1 = l - 1;
-				//coefIJ++;
 				ipCSR.AssignValue(k1, l1, -oneOverdx2);
+			}
+			if (tube(m, n) == 1 || tube(m, n) == 2)
+			{
+				coefIJ++;
 			}
 		}
 		
@@ -1581,12 +1564,15 @@ inline void MovingInterface::LGenerateLinearSystem1(CSR<double>& ipCSR)
 			bottomIndex = VI(i, j - 1);
 			l = levelSet.tubeIJ2K(bottomIndex);
 			levelSet.TubeIndex(l, m, n);
-			if (levelSet.tube(m, n) == 1)
+			if (tube(m, n) == 1)
 			{
-				l = levelSet.tube1(m, n);
+				l = tube1(m, n);
 				l1 = l - 1;
-				//coefIJ++;
 				ipCSR.AssignValue(k1, l1, -oneOverdy2);
+			}
+			if (tube(m, n) == 1 || tube(m, n) == 2)
+			{
+				coefIJ++;
 			}
 		}
 		
@@ -1595,20 +1581,33 @@ inline void MovingInterface::LGenerateLinearSystem1(CSR<double>& ipCSR)
 			topIndex = VI(i, j + 1);
 			l = levelSet.tubeIJ2K(topIndex);
 			levelSet.TubeIndex(l, m, n);
-			if (levelSet.tube(m, n) == 1)
+			if (tube(m, n) == 1)
 			{
-				l = levelSet.tube1(m, n);
+				l = tube1(m, n);
 				l1 = l - 1;
-				//coefIJ++;
 				ipCSR.AssignValue(k1, l1, -oneOverdy2);
 			}
+			if (tube(m, n) == 1 || tube(m, n) == 2)
+			{
+				coefIJ++;
+			}
 		}
+
+		if (coefIJ==0)
+		{
+			coefIJ = 1;
+		}
+		ipCSR.AssignValue(k1, k1, oneOverdx2 * coefIJ + oneOverdt);
 	}
 }
 
 inline void MovingInterface::LGenerateLinearSystem1(VectorND<double>& vectorB)
 {
 	int iStart = Surfactant.iStart, iEnd = Surfactant.iEnd, jStart = Surfactant.jStart, jEnd = Surfactant.jEnd;
+	double oneOverdx2 = grid.oneOverdx2;
+	double oneOverdy2 = grid.oneOverdy2;
+
+	Array2D<int>& tube = levelSet.tube;
 
 	LSurfactantNormalTerm(Surfactant, levelSet, term);
 	VI leftIndex, rightIndex, bottomIndex, topIndex;
@@ -1619,16 +1618,16 @@ inline void MovingInterface::LGenerateLinearSystem1(VectorND<double>& vectorB)
 	{
 		i = levelSet.tube1Index(k).i;
 		j = levelSet.tube1Index(k).j;
-		vectorB(k - 1) = Surfactant(i, j)*oneOverdt + term(i, j);
+		vectorB(k - 1) = (Surfactant(i, j)*oneOverdt + term(i, j));
 
 		if (i>iStart)
 		{
 			leftIndex = VI(i - 1, j);
 			l = levelSet.tubeIJ2K(leftIndex);
 			levelSet.TubeIndex(l, m, n);
-			if (levelSet.tube(m, n) == 2 || (levelSet.tube(m, n) == 1 && i == iStart + 1))
+			if (tube(m, n) == 2 || (tube(m, n) == 1 && i == iStart + 1))
 			{
-				vectorB(k - 1) += grid.oneOverdx2*Surfactant(m, n);
+				vectorB(k - 1) += oneOverdx2*Surfactant(m, n);
 			}
 		}
 		
@@ -1637,9 +1636,9 @@ inline void MovingInterface::LGenerateLinearSystem1(VectorND<double>& vectorB)
 			rightIndex = VI(i + 1, j);
 			l = levelSet.tubeIJ2K(rightIndex);
 			levelSet.TubeIndex(l, m, n);
-			if (levelSet.tube(m, n) == 2 || (levelSet.tube(m, n) == 1 && i == iEnd - 1))
+			if (tube(m, n) == 2 || (tube(m, n) == 1 && i == iEnd - 1))
 			{
-				vectorB(k - 1) += grid.oneOverdx2*Surfactant(m, n);
+				vectorB(k - 1) += oneOverdx2*Surfactant(m, n);
 			}
 		}
 		
@@ -1648,9 +1647,9 @@ inline void MovingInterface::LGenerateLinearSystem1(VectorND<double>& vectorB)
 			bottomIndex = VI(i, j - 1);
 			l = levelSet.tubeIJ2K(bottomIndex);
 			levelSet.TubeIndex(l, m, n);
-			if (levelSet.tube(m, n) == 2 || (levelSet.tube(m, n) == 1 && j == jStart + 1))
+			if (tube(m, n) == 2 || (tube(m, n) == 1 && j == jStart + 1))
 			{
-				vectorB(k - 1) += grid.oneOverdy2*Surfactant(m, n);
+				vectorB(k - 1) += oneOverdy2*Surfactant(m, n);
 			}
 		}
 		
@@ -1659,9 +1658,9 @@ inline void MovingInterface::LGenerateLinearSystem1(VectorND<double>& vectorB)
 			topIndex = VI(i, j + 1);
 			l = levelSet.tubeIJ2K(topIndex);
 			levelSet.TubeIndex(l, m, n);
-			if (levelSet.tube(m, n) == 2 || (levelSet.tube(m, n) == 1 && j == jEnd - 1))
+			if (tube(m, n) == 2 || (tube(m, n) == 1 && j == jEnd - 1))
 			{
-				vectorB(k - 1) += grid.oneOverdy2*Surfactant(m, n);
+				vectorB(k - 1) += oneOverdy2*Surfactant(m, n);
 			}
 		}
 	}

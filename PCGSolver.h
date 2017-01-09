@@ -51,9 +51,11 @@ inline void PCGSolver::Solver(const CSR<double>& A, const CSR<double>& M, const 
 	{
 		Mdiag[i] = M(i, i);
 	}
+	cout << "Time: " << (double)(clock() - before) / CLOCKS_PER_SEC << "\n";
 
-	//MultiplicationByMinverse(M, res, z);
+	clock_t bb = clock();
 	MultiplicationByMinverse(M, Mdiag, res, z);
+	cout << "Time: " << (double)(clock() - bb) / CLOCKS_PER_SEC << "\n";
 
 	VTN p(z);
 	
@@ -85,7 +87,6 @@ inline void PCGSolver::Solver(const CSR<double>& A, const CSR<double>& M, const 
 			break;
 		}
 
-		//MultiplicationByMinverse(M, res, z);
 		MultiplicationByMinverse(M, Mdiag, res, z);
 
 		res_new = DotProduct(res, z);
@@ -226,8 +227,6 @@ inline void PCGSolver::IncompleteCholeskyDecomposition(const CSR<double>& A, CSR
 
 			number += 1;
 		}
-		
-
 	}
 }
 
@@ -307,12 +306,13 @@ inline void PCGSolver::MultiplicationByMinverse(const CSR<double>& M, const Vect
 	}
 
 	double* summation = new double[x.iLength];
+#pragma omp parallel for
 	for (int i = 0; i < x.iLength; i++)
 	{
 		summation[i] = 0;
 	}
-	// Matrix-Transpose-Vector Multiplication
-	// Parallel Sparse Matrix-Vector and Matrix-Trnaspose-Vector Multiplication Using Compressed Sparse Blocks
+	//// Matrix-Transpose-Vector Multiplication
+	//// Parallel Sparse Matrix-Vector and Matrix-Trnaspose-Vector Multiplication Using Compressed Sparse Blocks
 	double one_over_M;
 	double one_over_M_end = 1 / Mdiag(x.iLength - 1);
 	x[x.iLength - 1] = y[x.iLength - 1] * one_over_M_end;
