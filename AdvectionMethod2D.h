@@ -243,14 +243,14 @@ inline void AdvectionMethod2D<TT>::ENO3rdDxMinus(const Field2D<TT>& ipField, Arr
 	double one_over_3dx(one_over_dx*(double)1 / 3), one_over_3dy(one_over_dy*(double)1 / 3);
 	double diff_1_x_n_3, diff_1_x_n_2, diff_1_x_n_1, diff_1_x_0, diff_1_x_p_1, diff_2_x_n_2, diff_2_x_n_1, diff_2_x_0, diff_2_x_p_1, diff_3_x_n_2, diff_3_x_n_1, diff_3_x_0;
 
-#pragma omp parallel for private(diff_1_x_n_3, diff_1_x_n_2, diff_1_x_n_1, diff_1_x_0, diff_1_x_p_1, diff_2_x_n_2, diff_2_x_n_1, diff_2_x_0, diff_2_x_p_1, diff_3_x_n_2, diff_3_x_n_1, diff_3_x_0)
+//#pragma omp parallel for private(diff_1_x_n_3, diff_1_x_n_2, diff_1_x_n_1, diff_1_x_0, diff_1_x_p_1, diff_2_x_n_2, diff_2_x_n_1, diff_2_x_0, diff_2_x_p_1, diff_3_x_n_2, diff_3_x_n_1, diff_3_x_0)
 	for (int i = ipField.iStart; i <= ipField.iEnd; i++)
 	{
 		for (int j = ipField.jStart; j <= ipField.jEnd; j++)
 		{
 			if (i < ipField.iStart + 3 || i > ipField.iEnd - 2)
 			{
-				enoDxMinus(i, j) = ipField.dyMinusPhi(i, j);
+				enoDxMinus(i, j) = ipField.dxMinusPhi(i, j);
 				continue;
 			}
 

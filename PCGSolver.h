@@ -49,12 +49,13 @@ inline void PCGSolver::Solver(const CSR<double>& A, const CSR<double>& M, const 
 	VTN z(N);
 	double* zVal(z.values);
 	VTN Mdiag(N);
+	double* MdiagVal(Mdiag.values);
 
 
 #pragma omp parallel for
 	for (int i = 0; i < M.rowNum; i++)
 	{
-		Mdiag[i] = M(i, i);
+		MdiagVal[i] = M(i, i);
 	}
 
 	MultiplicationByMinverse(M, Mdiag, res, z);

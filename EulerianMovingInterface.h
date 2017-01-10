@@ -1265,12 +1265,14 @@ inline void MovingInterface::EulerianMovingInterfaceSolver(const int & example)
 		AdvectionMethod2D<double>::LLSPropagatingTVDRK3(levelSet, U, V, dt);
 		AdvectionMethod2D<double>::LLSReinitializationTVDRK3(levelSet, dt, reinitialIter);
 
+		//// Surfactant Conservation Method
+		ConserveSurfactantFactorBeta();
+
 		AdvectionMethod2D<double>::LLSQuantityExtension(levelSet, Surfactant, 3, 3, extensionIter);
 		levelSet.UpdateInterface();
 		levelSet.UpdateLLS();
 
-		//// Surfactant Conservation Method
-		ConserveSurfactantFactorBeta();
+
 
 		PlotLocalSurfactant();
 		MATLAB.Command("IntSur=sum(sum(Surfactant.*(Tube<=1)));");

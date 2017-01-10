@@ -109,7 +109,7 @@ inline void InsolubleSurfactant::InitialCondition(const int & example)
 		Xi = 0.3;
 		El = 0.2;
 		Pe = 10;
-		cflCondition = 1.0 / 8.0;
+		cflCondition = 0.25;
 		dt = cflCondition*min(grid.dx, grid.dy);
 
 		singularForce = true;
@@ -122,7 +122,11 @@ inline void InsolubleSurfactant::InitialCondition(const int & example)
 		InterfaceSurfactant.cflCondition = cflCondition;
 		InterfaceSurfactant.dt = dt;
 
-		maxIteration = ceil(2.0 / dt); // Up to 2 sec.
+		double finalT = 5;// Up to 2 sec.
+		maxIteration = ceil(finalT / dt);
+		totalT = 0;
+		writeOutputIteration = 30;
+		iteration = 0;
 		totalT = 0;
 	}
 }
@@ -142,10 +146,11 @@ inline void InsolubleSurfactant::ContinuumMethodWithSurfactantSolver(const int &
 	Surfactant.Variable("Surfactant0");
 
 	MATLAB.Command("figure('units','normalized','outerposition',[0 0 1 1])");
-	PlotSurfactant();
+	Surfactant.Variable("SurTube1");
+	PlotVelocity();
 	MATLAB.Command("IntSur0 = sum(sum(SurTube1.*(Tube==1)))*(Y(2)-Y(1))*(Y(2)-Y(1));");
 
-	MATLAB.WriteImage("surfactant", 0, "fig");
+	//MATLAB.WriteImage("surfactant", 0, "fig");
 	MATLAB.WriteImage("surfactant", 0, "png");
 	int reinitialIter = int(levelSet.gamma1 / min(levelSet.phi.dx, levelSet.phi.dy)) * 2;
 	int extensionIter = (int)ceil((levelSet.gamma2 - levelSet.gamma1) / (0.2*min(grid.dx, grid.dy)));
@@ -156,13 +161,13 @@ inline void InsolubleSurfactant::ContinuumMethodWithSurfactantSolver(const int &
 		totalT += dt;
 		//// Step 1-1 : Surfactant Diffusion
 		cout << "Diffusion Start" << endl;
-		InterfaceSurfactant.LSurfactantDiffusion(iteration);
+		//InterfaceSurfactant.LSurfactantDiffusion(iteration);
 		cout << "Diffusion End" << endl;
 		cout << endl;
 
 		//// Step 1-2 : New Surface Tension
-		InterfaceSurfactant.DimlessNonlinearLangmu1rEOS(2);
-		InterfaceSurfactant.SurfaceTension.Variable("SurfaceTension");
+		//InterfaceSurfactant.DimlessNonlinearLangmu1rEOS(2);
+		//InterfaceSurfactant.SurfaceTension.Variable("SurfaceTension");
 
 		//// Step 2 : Navier-Stokes equation
 		NSSolver();
@@ -180,13 +185,14 @@ inline void InsolubleSurfactant::ContinuumMethodWithSurfactantSolver(const int &
 
 
 		//MATLAB.Command("subplot(2,1,1)");
-		PlotSurfactant();
+		//PlotSurfactant();
 		//MATLAB.Command("subplot(2,1,2)");
-		//PlotVelocity();
+		
 		if (iteration == 1 || iteration % 1 == 0)
 		{
-			MATLAB.WriteImage("surfactant", iteration, "fig");
-			MATLAB.WriteImage("surfactant", iteration, "png");
+			PlotVelocity();
+			//MATLAB.WriteImage("surfactant", iteration, "fig");
+			//MATLAB.WriteImage("surfactant", iteration, "png");
 		}
 		cout << "       Iteration " << to_string(iteration) << " : End" << endl;
 		cout << "*******************************************************************" << endl;
@@ -209,9 +215,6 @@ inline void InsolubleSurfactant::NSSolver()
 	{
 		EulerMethod2ndOrder();
 	}
-	//U.Variable("U1");
-	//V.Variable("V1");
-	//MATLAB.Command("quiver(Xp,Yp,U1(:,1:end-1),V1(1:end-1,:))");
 
 	/////////////////
 	//// Step 2  ////
@@ -224,9 +227,7 @@ inline void InsolubleSurfactant::NSSolver()
 	{
 		EulerMethod2ndOrder();
 	}
-	//U.Variable("U21");
-	//V.Variable("V21");
-	//MATLAB.Command("quiver(Xp,Yp,U21(:,1:end-1),V21(1:end-1,:))");
+	
 #pragma omp parallel for
 	for (int i = gridU.iStart; i <= gridU.iEnd; i++)
 	{
@@ -243,9 +244,6 @@ inline void InsolubleSurfactant::NSSolver()
 			V(i, j) = 3. / 4. * Fluid.originV(i, j) + 1. / 4. * V(i, j);
 		}
 	}
-	//U.Variable("U2");
-	//V.Variable("V2");
-	//MATLAB.Command("quiver(Xp,Yp,U22(:,1:end-1),V22(1:end-1,:))");
 
 	/////////////////
 	//// Step 3  ////
@@ -258,9 +256,7 @@ inline void InsolubleSurfactant::NSSolver()
 	{
 		EulerMethod2ndOrder();
 	}
-	//U.Variable("U31");
-	//V.Variable("V31");
-	//MATLAB.Command("quiver(Xp,Yp,U31(:,1:end-1),V31(1:end-1,:))");
+	
 #pragma omp parallel for
 	for (int i = gridU.iStart; i <= gridU.iEnd; i++)
 	{
@@ -277,9 +273,6 @@ inline void InsolubleSurfactant::NSSolver()
 			V(i, j) = 1. / 3. * Fluid.originV(i, j) + 2. / 3. * V(i, j);
 		}
 	}
-	//U.Variable("U3");
-	//V.Variable("V3");
-	//MATLAB.Command("quiver(Xp,Yp,U32(:,1:end-1),V32(1:end-1,:))");
 }
 
 inline void InsolubleSurfactant::EulerMethod()
@@ -289,7 +282,10 @@ inline void InsolubleSurfactant::EulerMethod()
 	////////////////////////////////////////////////
 
 	EulerMethod1();
-
+	Fluid.TreatBCAlongXaxis(U);
+	Fluid.TreatBCAlongYaxis(U);
+	Fluid.TreatBCAlongYaxis(V);
+	Fluid.TreatBCAlongXaxis(V);
 	////////////////////////////////////////////////
 	////     Projection Method 2 : Poisson Eq   ////
 	////////////////////////////////////////////////
@@ -299,6 +295,10 @@ inline void InsolubleSurfactant::EulerMethod()
 	////     Projection Method 3 : New U,V    ////
 	//////////////////////////////////////////////
 	Fluid.EulerMethodStep3();
+	Fluid.TreatBCAlongXaxis(U);
+	Fluid.TreatBCAlongYaxis(U);
+	Fluid.TreatBCAlongYaxis(V);
+	Fluid.TreatBCAlongXaxis(V);
 }
 
 inline void InsolubleSurfactant::EulerMethod1()
@@ -311,6 +311,13 @@ inline void InsolubleSurfactant::EulerMethod1()
 
 	Array2D<double>& K1U = U.K1;
 	Array2D<double>& K1V = V.K1;
+	Array2D<int>& UBC = U.BC;
+	Array2D<int>& VBC = V.BC;
+	Array2D<double>& AdvectionU = Fluid.AdvectionU.dataArray;
+	Array2D<double>& AdvectionV = Fluid.AdvectionV.dataArray;
+	Array2D<double>& DiffusionU = Fluid.DiffusionU.dataArray;
+	Array2D<double>& DiffusionV = Fluid.DiffusionV.dataArray;
+
 	Fluid.AdvectionTerm(U, V, Fluid.AdvectionU, Fluid.AdvectionV);
 	Fluid.DiffusionTerm(U, V, Fluid.DiffusionU, Fluid.DiffusionV);
 	//AdvectionU.Variable("AdvectionU");
@@ -323,11 +330,11 @@ inline void InsolubleSurfactant::EulerMethod1()
 	{
 		for (int j = K1U.jStart; j <= K1U.jEnd; j++)
 		{
-			if (U.BC(i, j)<0)
+			if (UBC(i, j)<0)
 			{
 				continue;
 			}
-			K1U(i, j) = dt*(-Fluid.AdvectionU(i, j) + oneOverRe*Fluid.DiffusionU(i, j) + SurfaceForceX(i, j));
+			K1U(i, j) = dt*(-AdvectionU(i, j) + oneOverRe*DiffusionU(i, j) + SurfaceForceX(i, j));
 			U(i, j) = U(i, j) + K1U(i, j);
 		}
 	}
@@ -336,19 +343,16 @@ inline void InsolubleSurfactant::EulerMethod1()
 	{
 		for (int j = K1V.jStart; j <= K1V.jEnd; j++)
 		{
-			if (V.BC(i, j)<0)
+			if (VBC(i, j)<0)
 			{
 				continue;
 			}
-			K1V(i, j) = dt*(-Fluid.AdvectionV(i, j) + oneOverRe*Fluid.DiffusionV(i, j) + SurfaceForceY(i, j));
+			K1V(i, j) = dt*(-AdvectionV(i, j) + oneOverRe*DiffusionV(i, j) + SurfaceForceY(i, j));
 			V(i, j) = V(i, j) + K1V(i, j);
 		}
 	}
 	//K1U.Variable("k1u");
 	//K1V.Variable("k1v");
-	//// Boundary : Linear extension.
-	Fluid.TreatVelocityBC(U, V);
-
 
 	//U.Variable("Ustar");
 	//V.Variable("Vstar");
@@ -553,9 +557,11 @@ inline void InsolubleSurfactant::PlotVelocity()
 	V.Variable("V");
 	levelSet.phi.Variable("phi");
 
-	str = string("quiver(X,Y,U(:,1:end-1)/2+U(:,2:end)/2,V(1:end-1,:)/2+V(2:end,:)/2,2),axis([X(1)-(X(end)-X(1))/10 X(end)+(X(end)-X(1))/10 Y(1)-(Y(end)-Y(1))/10 Y(end)+(Y(end)-Y(1))/10]);");
+	str = string("quiver(X,Y,U(:,1:end-1)/2+U(:,2:end)/2,V(1:end-1,:)/2+V(2:end,:)/2,2),set(gca,'fontsize',20);");
+
+	str = str + string("hold on,streamslice(X,Y,U(:,1:end-1)/2+U(:,2:end)/2,V(1:end-1,:)/2+V(2:end,:)/2,'g'),hold off;");
 	//str = str + string("hold on,streamline(X,Y,U(:,1:end-1)/2+U(:,2:end)/2,V(1:end-1,:)/2+V(2:end,:)/2,-100:0.1:100,-100:0.1:100),hold off;");
-	str = str + string("hold on, contour(X,Y,phi,[0 0],'r'), hold off;axis([X(1)-(X(end)-X(1))/10 X(end)+(X(end)-X(1))/10 Y(1)-(Y(end)-Y(1))/10 Y(end)+(Y(end)-Y(1))/10]),axis equal");
+	str = str + string("hold on, contour(X,Y,phi,[0 0],'r'), hold off;axis tight,axis equal;");
 	MATLAB.Command(str.c_str());
 	str = string("title(['iteration : ', num2str(") + to_string(iteration) + string("),', time : ', num2str(") + to_string(totalT) + string(")]);");
 	MATLAB.Command(str.c_str());
