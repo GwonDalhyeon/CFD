@@ -412,11 +412,16 @@ inline void CGSolver::Solver(const CSR<double>& A, const VectorND<double>& b, Ve
 	//x = 0;
 	int N = x.iLength;
 
+	double* xVal(x.values);
+	double* bVal(b.values);
 	VTN res(N);
+	double* resVal(res.values);
 	VTN Ap(N);
+	double* ApVal(Ap.values);
 	
 	A.ComputeResidual(x, b, res);
 	VTN p(res);
+	double* pVal(p.values);
 
 	int num_iteration = 0;
 
@@ -446,8 +451,8 @@ inline void CGSolver::Solver(const CSR<double>& A, const VectorND<double>& b, Ve
 #pragma omp parallel for
 		for (int i = 0; i < N; i++)
 		{
-			x[i] += alpha*p[i];
-			res[i] -= alpha*Ap[i];
+			xVal[i] += alpha*pVal[i];
+			resVal[i] -= alpha*ApVal[i];
 		}
 
 		res_new = res.magnitude2();
@@ -462,7 +467,7 @@ inline void CGSolver::Solver(const CSR<double>& A, const VectorND<double>& b, Ve
 #pragma omp parallel for
 		for (int i = 0; i < N; i++)
 		{
-			p[i] = res[i] + k*p[i];
+			pVal[i] = resVal[i] + k*pVal[i];
 		}
 
 		res_old = res_new;

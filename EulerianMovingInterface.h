@@ -1609,6 +1609,8 @@ inline void MovingInterface::LGenerateLinearSystem1(VectorND<double>& vectorB)
 
 	Array2D<int>& tube = levelSet.tube;
 
+	double* bVal(vectorB.values);
+
 	LSurfactantNormalTerm(Surfactant, levelSet, term);
 	VI leftIndex, rightIndex, bottomIndex, topIndex;
 	double oneOverdt = 1 / dt;
@@ -1618,7 +1620,7 @@ inline void MovingInterface::LGenerateLinearSystem1(VectorND<double>& vectorB)
 	{
 		i = levelSet.tube1Index(k).i;
 		j = levelSet.tube1Index(k).j;
-		vectorB(k - 1) = (Surfactant(i, j)*oneOverdt + term(i, j));
+		bVal[k - 1] = (Surfactant(i, j)*oneOverdt + term(i, j));
 
 		if (i>iStart)
 		{
@@ -1627,7 +1629,7 @@ inline void MovingInterface::LGenerateLinearSystem1(VectorND<double>& vectorB)
 			levelSet.TubeIndex(l, m, n);
 			if (tube(m, n) == 2 || (tube(m, n) == 1 && i == iStart + 1))
 			{
-				vectorB(k - 1) += oneOverdx2*Surfactant(m, n);
+				bVal[k - 1] += oneOverdx2*Surfactant(m, n);
 			}
 		}
 		
@@ -1638,7 +1640,7 @@ inline void MovingInterface::LGenerateLinearSystem1(VectorND<double>& vectorB)
 			levelSet.TubeIndex(l, m, n);
 			if (tube(m, n) == 2 || (tube(m, n) == 1 && i == iEnd - 1))
 			{
-				vectorB(k - 1) += oneOverdx2*Surfactant(m, n);
+				bVal[k - 1] += oneOverdx2*Surfactant(m, n);
 			}
 		}
 		
@@ -1649,7 +1651,7 @@ inline void MovingInterface::LGenerateLinearSystem1(VectorND<double>& vectorB)
 			levelSet.TubeIndex(l, m, n);
 			if (tube(m, n) == 2 || (tube(m, n) == 1 && j == jStart + 1))
 			{
-				vectorB(k - 1) += oneOverdy2*Surfactant(m, n);
+				bVal[k - 1] += oneOverdy2*Surfactant(m, n);
 			}
 		}
 		
@@ -1660,7 +1662,7 @@ inline void MovingInterface::LGenerateLinearSystem1(VectorND<double>& vectorB)
 			levelSet.TubeIndex(l, m, n);
 			if (tube(m, n) == 2 || (tube(m, n) == 1 && j == jEnd - 1))
 			{
-				vectorB(k - 1) += oneOverdy2*Surfactant(m, n);
+				bVal[k - 1] += oneOverdy2*Surfactant(m, n);
 			}
 		}
 	}
@@ -1758,13 +1760,18 @@ inline void MovingInterface::LGenerateLinearSystem2(VectorND<double>& vectorB)
 	LSurfactantNormalTerm(Surfactant, levelSet, term);
 	VI leftIndex, rightIndex, bottomIndex, topIndex;
 	double oneOverdt = 1 / dt;
+	double oneOverdx2 = grid.oneOverdx2;
+	double oneOverdy2 = grid.oneOverdy2;
+	
+	double* bVal(vectorB.values);
+
 	int i, j, l, m, n;
 #pragma omp parallel for private(i, j, l, m, n, leftIndex, rightIndex, bottomIndex, topIndex)
 	for (int k = 1; k <= levelSet.numTube1; k++)
 	{
 		i = levelSet.tube1Index(k).i;
 		j = levelSet.tube1Index(k).j;
-		vectorB(k - 1) = Surfactant(i, j) * oneOverdt + 0.5 *(Surfactant.dxxPhi(i, j) + Surfactant.dyyPhi(i, j))
+		bVal[k - 1] = Surfactant(i, j) * oneOverdt + 0.5 *(Surfactant.dxxPhi(i, j) + Surfactant.dyyPhi(i, j))
 			+ 1.5 * term(i, j) - 0.5 * termOld(i, j);
 
 		if (levelSet.tube(i, j) > 1)
@@ -1779,7 +1786,7 @@ inline void MovingInterface::LGenerateLinearSystem2(VectorND<double>& vectorB)
 			levelSet.TubeIndex(l, m, n);
 			if (levelSet.tube(m, n) == 2 || (levelSet.tube(m, n) == 1 && i == iStart + 1))
 			{
-				vectorB(k - 1) += grid.oneOverdx2*Surfactant(m, n) * 0.5;
+				bVal[k - 1] += oneOverdx2*Surfactant(m, n) * 0.5;
 			}
 		}
 
@@ -1790,7 +1797,7 @@ inline void MovingInterface::LGenerateLinearSystem2(VectorND<double>& vectorB)
 			levelSet.TubeIndex(l, m, n);
 			if (levelSet.tube(m, n) == 2 || (levelSet.tube(m, n) == 1 && i == iEnd - 1))
 			{
-				vectorB(k - 1) += grid.oneOverdx2*Surfactant(m, n) * 0.5;
+				bVal[k - 1] += oneOverdx2*Surfactant(m, n) * 0.5;
 			}
 		}
 
@@ -1801,7 +1808,7 @@ inline void MovingInterface::LGenerateLinearSystem2(VectorND<double>& vectorB)
 			levelSet.TubeIndex(l, m, n);
 			if (levelSet.tube(m, n) == 2 || (levelSet.tube(m, n) == 1 && j == jStart + 1))
 			{
-				vectorB(k - 1) += grid.oneOverdy2*Surfactant(m, n) * 0.5;
+				bVal[k - 1] += oneOverdy2*Surfactant(m, n) * 0.5;
 			}
 		}
 
@@ -1812,7 +1819,7 @@ inline void MovingInterface::LGenerateLinearSystem2(VectorND<double>& vectorB)
 			levelSet.TubeIndex(l, m, n);
 			if (levelSet.tube(m, n) == 2 || (levelSet.tube(m, n) == 1 && j == jEnd - 1))
 			{
-				vectorB(k - 1) += grid.oneOverdy2*Surfactant(m, n) * 0.5;
+				bVal[k - 1] += oneOverdy2*Surfactant(m, n) * 0.5;
 			}
 		}
 	}

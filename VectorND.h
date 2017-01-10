@@ -533,9 +533,9 @@ inline VectorND<TT> operator+(const TT & constant, const VectorND<TT>& ipVector)
 	VectorND<TT> returnVT(ipVector.iStart, ipVector.iLength);
 
 #pragma omp parallel for
-	for (int i = ipVector.iStart; i <= ipVector.iEnd; i++)
+	for (int i = 0; i < ipVector.iLength; i++)
 	{
-		returnVT[i] = constant + ipVector[i];
+		returnVT.values[i] = constant + ipVector.values[i];
 	}
 	return returnVT;
 }
@@ -583,11 +583,14 @@ inline TT DotProduct(const VectorND<TT>& ipVector1, const VectorND<TT>& ipVector
 {
 	assert(ipVector1.iLength == ipVector2.iLength);
 
+	TT* vec1Val(ipVector1.values);
+	TT* vec2Val(ipVector2.values);
+
 	double dotPro = 0;
 #pragma omp parallel for reduction(+:dotPro)
 	for (int i = 0; i < ipVector1.iLength; i++)
 	{
-		dotPro += ipVector1.values[i] * ipVector2.values[i];
+		dotPro += vec1Val[i] * vec2Val[i];
 	}
 
 	return dotPro;

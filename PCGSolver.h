@@ -35,30 +35,33 @@ inline void PCGSolver::Solver(const CSR<double>& A, const CSR<double>& M, const 
 	cout << "--------  Start : PCG  --------" << endl;
 
 	x = 0;
+	double* xVal(x.values);
 	const int N = x.iLength;
 	int	num_iteration = 0;
 	double alpha, beta, res_old, res_new = 0, dot_result;
 
 	VTN res(N);
+	double* resVal(res.values);
 	VTN Ap(N);
+	double* ApVal(Ap.values);
 	A.ComputeResidual(x, b, res);
 
 	VTN z(N);
+	double* zVal(z.values);
 	VTN Mdiag(N);
+
 
 #pragma omp parallel for
 	for (int i = 0; i < M.rowNum; i++)
 	{
 		Mdiag[i] = M(i, i);
 	}
-	cout << "Time: " << (double)(clock() - before) / CLOCKS_PER_SEC << "\n";
 
-	clock_t bb = clock();
 	MultiplicationByMinverse(M, Mdiag, res, z);
-	cout << "Time: " << (double)(clock() - bb) / CLOCKS_PER_SEC << "\n";
 
 	VTN p(z);
-	
+	double* pVal(p.values);
+
 	res_old = DotProduct(res, z);
 	while (num_iteration < 2 * A.rowNum)
 	{
@@ -77,8 +80,8 @@ inline void PCGSolver::Solver(const CSR<double>& A, const CSR<double>& M, const 
 #pragma omp parallel for
 		for (int i = 0; i < N; i++)
 		{
-			x[i] += alpha*p[i];
-			res[i] -= alpha*Ap[i];
+			xVal[i] += alpha*pVal[i];
+			resVal[i] -= alpha*ApVal[i];
 		}
 
 		if (res_old < DBL_EPSILON)
@@ -94,7 +97,7 @@ inline void PCGSolver::Solver(const CSR<double>& A, const CSR<double>& M, const 
 #pragma omp parallel for
 		for (int i = 0; i < N; i++)
 		{
-			p[i] = z[i] + beta*p[i];
+			pVal[i] = zVal[i] + beta*pVal[i];
 		}
 
 		res_old = res_new;
@@ -112,6 +115,9 @@ inline void PCGSolver::Solver(const CSR<double>& A, const CSR<double>& M, const 
 
 inline void PCGSolver::IncompleteCholeskyDecomposition(const CSR<double>& A, CSR<double>& L, const Array2D<int>& bc_input)
 {
+	int* LIndPrt(L.indPrt.values);
+	double* Lvalues(L.values.values);
+
 	const int N = A.rowNum;
 	const int nz = A.valueNum;
 	int iStart = bc_input.iStart, iEnd = bc_input.iEnd, jStart = bc_input.jStart, jEnd = bc_input.jEnd;
@@ -132,11 +138,11 @@ inline void PCGSolver::IncompleteCholeskyDecomposition(const CSR<double>& A, CSR
 				{
 					if (bc_input(i, j) == iRes)
 					{
-						coef = 1 / L.values[L.indPrt[bc_input(i, j) - iRes]] * (A(bc_input(i, j - 1), bc_input(i, j)));
+						coef = 1 / Lvalues[LIndPrt[bc_input(i, j) - iRes]] * (A(bc_input(i, j - 1), bc_input(i, j)));
 					}
 					else if (((bc_input(i, j) > iRes) && (bc_input(i, j) < 2 * iRes)) || (bc_input(i, j) % iRes == 0))
 					{
-						coef = 1 / L.values[L.indPrt[bc_input(i, j) - iRes] + 1] * (A(bc_input(i, j - 1), bc_input(i, j)));
+						coef = 1 / Lvalues[LIndPrt[bc_input(i, j) - iRes] + 1] * (A(bc_input(i, j - 1), bc_input(i, j)));
 					}
 					else
 					{
@@ -145,13 +151,13 @@ inline void PCGSolver::IncompleteCholeskyDecomposition(const CSR<double>& A, CSR
 						{
 							if (bc_input(i + 1, j) == BC_PER)
 							{
-								coef = 1 / L.values[L.indPrt[bc_input(i, j) - iRes] + 3] * (A(bc_input(i, j - 1), bc_input(i, j)));
+								coef = 1 / Lvalues[LIndPrt[bc_input(i, j) - iRes] + 3] * (A(bc_input(i, j - 1), bc_input(i, j)));
 								tempBool = false;
 							}
 						}
 						if (tempBool)
 						{
-							coef = 1 / L.values[L.indPrt[bc_input(i, j) - iRes] + 2] * (A(bc_input(i, j - 1), bc_input(i, j)));
+							coef = 1 / Lvalues[LIndPrt[bc_input(i, j) - iRes] + 2] * (A(bc_input(i, j - 1), bc_input(i, j)));
 						}
 					}
 
@@ -165,7 +171,7 @@ inline void PCGSolver::IncompleteCholeskyDecomposition(const CSR<double>& A, CSR
 			{
 				if (bc_input(i + 1, j) == BC_PER)
 				{
-					coef = 1 / L.values[L.indPrt[bc_input(i, j) - 2] - 1] * (A(bc_input(i, j) - (iRes - 1), bc_input(i, j)));
+					coef = 1 / Lvalues[LIndPrt[bc_input(i, j) - 2] - 1] * (A(bc_input(i, j) - (iRes - 1), bc_input(i, j)));
 
 					L.AssignValue(bc_input(i, j), bc_input(i, j) - (iRes - 1), coef);
 					number += 1;
@@ -182,7 +188,7 @@ inline void PCGSolver::IncompleteCholeskyDecomposition(const CSR<double>& A, CSR
 					{
 						if (bc_input(i + 1, j) == BC_PER)
 						{
-							coef = 1 / L.values[L.indPrt[bc_input(i, j) - 1]] * (A(bc_input(i - 1, j), bc_input(i, j)));
+							coef = 1 / Lvalues[LIndPrt[bc_input(i, j) - 1]] * (A(bc_input(i - 1, j), bc_input(i, j)));
 							tempBool = false;
 						}
 					}
@@ -190,15 +196,15 @@ inline void PCGSolver::IncompleteCholeskyDecomposition(const CSR<double>& A, CSR
 					{
 						if (bc_input(i, j) == 1)
 						{
-							coef = 1 / L.values[L.indPrt[bc_input(i, j) - 1]] * (A(bc_input(i - 1, j), bc_input(i, j)));
+							coef = 1 / Lvalues[LIndPrt[bc_input(i, j) - 1]] * (A(bc_input(i - 1, j), bc_input(i, j)));
 						}
 						else if (bc_input(i, j) < iRes)
 						{
-							coef = 1 / L.values[L.indPrt[bc_input(i, j) - 1] + 1] * (A(bc_input(i - 1, j), bc_input(i, j)));
+							coef = 1 / Lvalues[LIndPrt[bc_input(i, j) - 1] + 1] * (A(bc_input(i - 1, j), bc_input(i, j)));
 						}
 						else
 						{
-							coef = 1 / L.values[L.indPrt[bc_input(i, j)] - 1] * (A(bc_input(i - 1, j), bc_input(i, j)));
+							coef = 1 / Lvalues[LIndPrt[bc_input(i, j)] - 1] * (A(bc_input(i - 1, j), bc_input(i, j)));
 						}
 					}
 					
@@ -217,9 +223,9 @@ inline void PCGSolver::IncompleteCholeskyDecomposition(const CSR<double>& A, CSR
 			{
 				sum = 0;
 
-				for (int k = L.indPrt[bc_input(i, j)]; k < number; k++)
+				for (int k = LIndPrt[bc_input(i, j)]; k < number; k++)
 				{
-					sum += L.values[k] * L.values[k];
+					sum += Lvalues[k] * Lvalues[k];
 				}
 				coef = sqrt(A(bc_input(i, j), bc_input(i, j)) - sum);
 			}
@@ -232,7 +238,14 @@ inline void PCGSolver::IncompleteCholeskyDecomposition(const CSR<double>& A, CSR
 
 inline void PCGSolver::MultiplicationByMinverse(const CSR<double>& M, const VectorND<double>& b, VectorND<double>& x)
 {
-	double* y = new double[x.iLength];
+	//// Copy input data.
+	int* indPrt(M.indPrt.values);
+	double* Mvalues(M.values.values);
+	int* Mcolumns(M.columns.values);
+	double* xval(x.values);
+
+	int iLength = x.iLength;
+	double* y = new double[iLength];
 	
 	double one_over_M_start = 1 / M(0, 0);
 
@@ -241,20 +254,20 @@ inline void PCGSolver::MultiplicationByMinverse(const CSR<double>& M, const Vect
 	double sum;
 	double one_over_Mii;
 	int number(0), num_2(0);
-	for (int i = 1; i < x.iLength; i++)
+	for (int i = 1; i < iLength; i++)
 	{
 		sum = 0;
-		for (int k = M.indPrt[i]; k < (M.indPrt[i + 1] - 1); k++)
+		for (int k = indPrt[i]; k < (indPrt[i + 1] - 1); k++)
 		{
-			sum += M.values[k] * y[M.columns[k]];
+			sum += Mvalues[k] * y[Mcolumns[k]];
 		}
 
 		one_over_Mii = 1 / M(i, i);
 		y[i] = (b[i] - sum)*one_over_Mii;
 	}
 
-	double* summation = new double[x.iLength];
-	for (int i = 0; i < x.iLength; i++)
+	double* summation = new double[iLength];
+	for (int i = 0; i < iLength; i++)
 	{
 		summation[i] = 0;
 	}
@@ -262,20 +275,20 @@ inline void PCGSolver::MultiplicationByMinverse(const CSR<double>& M, const Vect
 	// Matrix-Transpose-Vector Multiplication
 	// Parallel Sparse Matrix-Vector and Matrix-Trnaspose-Vector Multiplication Using Compressed Sparse Blocks
 	double one_over_M;
-	double one_over_M_end = 1 / M(x.iLength - 1, x.iLength - 1);
-	x[x.iLength - 1] = y[x.iLength - 1] * one_over_M_end;
-	for (int i = x.iLength - 1; i >= 1; i--)
+	double one_over_M_end = 1 / M(iLength - 1, iLength - 1);
+	xval[iLength - 1] = y[iLength - 1] * one_over_M_end;
+	for (int i = iLength - 1; i >= 1; i--)
 	{
-		for (int k = M.indPrt[i + 1] - 1; k >= M.indPrt[i]; k--)
+		for (int k = indPrt[i + 1] - 1; k >= indPrt[i]; k--)
 		{
-			if (k != M.indPrt[i + 1] - 1)
+			if (k != indPrt[i + 1] - 1)
 			{
-				summation[M.columns[k]] += M.values[k] * x[i];
+				summation[Mcolumns[k]] += Mvalues[k] * xval[i];
 			}
 		}
 
 		one_over_M = 1 / M(i - 1, i - 1);
-		x[i - 1] = (y[i - 1] - summation[i - 1])*one_over_M;
+		xval[i - 1] = (y[i - 1] - summation[i - 1])*one_over_M;
 	}
 
 	delete[] y;
@@ -284,50 +297,58 @@ inline void PCGSolver::MultiplicationByMinverse(const CSR<double>& M, const Vect
 
 inline void PCGSolver::MultiplicationByMinverse(const CSR<double>& M, const VectorND<double>& Mdiag, const VectorND<double>& b, VectorND<double>& x)
 {
-	//VTN y(x.iLength);
-	double* y = new double[x.iLength];
-	double one_over_M_start = 1 / Mdiag[0];
+	//// Copy input data.
+	int* indPrt(M.indPrt.values);
+	double* Mvalues(M.values.values);
+	int* Mcolumns(M.columns.values);
+	double* xval(x.values);
+	double* MdiagVal(Mdiag.values);
+	
+	int iLength = x.iLength;
+
+	double* y = new double[iLength];
+	double one_over_M_start = 1 / MdiagVal[0];
 
 	y[0] = b[0] * one_over_M_start;
-
+	
 	double sum;
 	double one_over_Mii;
 	int number(0), num_2(0);
-	for (int i = 1; i < x.iLength; i++)
+	for (int i = 1; i < iLength; i++)
 	{
 		sum = 0;
-		for (int k = M.indPrt[i]; k < (M.indPrt[i + 1] - 1); k++)
+		for (int k = indPrt[i]; k < (indPrt[i + 1] - 1); k++)
 		{
-			sum += M.values[k] * y[M.columns[k]];
+			sum += Mvalues[k] * y[Mcolumns[k]];
 		}
 
-		one_over_Mii = 1 / Mdiag(i);
+		one_over_Mii = 1 / MdiagVal[i];
 		y[i] = (b[i] - sum)*one_over_Mii;
 	}
 
-	double* summation = new double[x.iLength];
+	double* summation = new double[iLength];
 #pragma omp parallel for
-	for (int i = 0; i < x.iLength; i++)
+	for (int i = 0; i < iLength; i++)
 	{
 		summation[i] = 0;
 	}
 	//// Matrix-Transpose-Vector Multiplication
 	//// Parallel Sparse Matrix-Vector and Matrix-Trnaspose-Vector Multiplication Using Compressed Sparse Blocks
 	double one_over_M;
-	double one_over_M_end = 1 / Mdiag(x.iLength - 1);
-	x[x.iLength - 1] = y[x.iLength - 1] * one_over_M_end;
-	for (int i = x.iLength - 1; i >= 1; i--)
+	double one_over_M_end = 1 / MdiagVal[iLength - 1];
+	xval[iLength - 1] = y[iLength - 1] * one_over_M_end;
+	for (int i = iLength - 1; i >= 1; i--)
 	{
-		for (int k = M.indPrt[i + 1] - 1; k >= M.indPrt[i]; k--)
+		for (int k = indPrt[i + 1] - 1; k >= indPrt[i]; k--)
 		{
-			if (k != M.indPrt[i + 1] - 1)
+			if (k != indPrt[i + 1] - 1)
 			{
-				summation[M.columns[k]] += M.values[k] * x[i];
+				summation[Mcolumns[k]] += Mvalues[k] * xval[i];
 			}
 		}
 
-		one_over_M = 1 / Mdiag(i - 1);
-		x[i - 1] = (y[i - 1] - summation[i - 1])*one_over_M;
+		one_over_M = 1 / MdiagVal[i - 1];
+		xval[i - 1] = (y[i - 1] - summation[i - 1])*one_over_M;
 	}
 
 	delete[] y;
@@ -336,11 +357,14 @@ inline void PCGSolver::MultiplicationByMinverse(const CSR<double>& M, const Vect
 
 inline void PCGSolver::MultiplicationByMDiagonalInverse(const CSR<double>& M, const VectorND<double>& b, VectorND<double>& x)
 {
+	double* xVal(x.values);
+	double* bVal(b.values);
+
 	double oneOverMii;
 #pragma omp parallel for private(oneOverMii)
 	for (int i = 0; i <x.iLength; i++)
 	{
 		oneOverMii = 1 / M(i, i);
-		x[i] = oneOverMii*b[i];
+		xVal[i] = oneOverMii*bVal[i];
 	}
 }

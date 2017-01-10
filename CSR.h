@@ -186,13 +186,17 @@ inline void CSR<TT>::operator=(const CSR<TT>& ipCSR)
 template<class TT>
 inline TT & CSR<TT>::operator()(const int & row_input, const int & column_input) const
 {
+	int* indVal(indPrt.values);
+	TT* valVal(values.values);
+	int* colVal(columns.values);
+
 	static TT values_for_test(0);
 
-	for (int vix = indPrt[row_input]; vix < indPrt[row_input + 1]; vix++)
+	for (int vix = indVal[row_input]; vix < indVal[row_input + 1]; vix++)
 	{
-		if (columns[vix] == column_input)
+		if (colVal[vix] == column_input)
 		{
-			return values[vix];
+			return valVal[vix];
 		}
 	}
 
@@ -202,15 +206,19 @@ inline TT & CSR<TT>::operator()(const int & row_input, const int & column_input)
 template<class TT>
 inline void CSR<TT>::AssignValue(const int & row_input, const int & column_input, const TT & values_input)
 {
-	values[value_ix] = values_input;
+	int* indVal(indPrt.values);
+	TT* valVal(values.values);
+	int* colVal(columns.values);
+
+	valVal[value_ix] = values_input;
 
 	if (row_input != prev_row)
 	{
-		indPrt[row_input] = value_ix;
+		indVal[row_input] = value_ix;
 		prev_row = row_input;
 	}
 
-	columns[value_ix] = column_input;
+	colVal[value_ix] = column_input;
 
 	value_ix++;
 }
@@ -221,17 +229,24 @@ inline void CSR<TT>::Multiply(const VectorND<TT>& x, VectorND<TT>& b) const
 	assert(rowNum == x.iLength);
 	assert(x.iLength == b.iLength);
 
+	TT* xVal(x.values);
+	TT* bVal(b.values);
+
+	int* indVal(indPrt.values);
+	TT* valVal(values.values);
+	int* colVal(columns.values);
+
 	TT v = 0;
 
 #pragma omp parallel for private (v)
 	for (int i = 0; i < rowNum; i++)
 	{
 		v = 0;
-		for (int n = indPrt[i]; n < indPrt[i + 1]; n++)
+		for (int n = indVal[i]; n < indVal[i + 1]; n++)
 		{
-			v += values[n] * x[columns[n]];
+			v += valVal[n] * xVal[colVal[n]];
 		}
-		b[i] = v;
+		bVal[i] = v;
 	}
 }
 
@@ -242,19 +257,27 @@ inline void CSR<TT>::ComputeResidual(const VectorND<TT>& x, const VectorND<TT>& 
 	assert(x.iLength == b.iLength);
 	assert(residual.iLength == rowNum);
 
+	TT* xVal(x.values);
+	TT* bVal(b.values);
+	TT* resVal(residual.values);
+
+	int* indVal(indPrt.values);
+	TT* valVal(values.values);
+	int* colVal(columns.values);
+
 	TT v = 0;
 #pragma omp parallel for private (v)
 	for (int row = 0; row < rowNum; row++)
 	{
 		// Compute A*x
 		v = 0;
-		for (int vix = indPrt[row]; vix < indPrt[row + 1]; vix++)
+		for (int vix = indVal[row]; vix < indVal[row + 1]; vix++)
 		{
-			v += values[vix] * x[columns[vix]];
+			v += valVal[vix] * x[colVal[vix]];
 		}
 
 		// residual = b - A*x
-		residual[row] = b[row] - v;
+		resVal[row] = bVal[row] - v;
 	}
 }
 
