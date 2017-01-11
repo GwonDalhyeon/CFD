@@ -1067,7 +1067,7 @@ inline void FluidSolver2D::AdvectionTerm(FD & U, FD & V, FD & TermU, FD & TermV)
 	Array2D<double>& dVdxP = V.dfdxP;
 	Array2D<double>& dVdyM = V.dfdyM;
 	Array2D<double>& dVdyP = V.dfdyP;
-	isENOAdvection = true;
+	
 	if (isENOAdvection)
 	{
 		AdvectionMethod2D<double>::ENO3rdDerivation(U, dUdxM, dUdxP, dUdyM, dUdyP);

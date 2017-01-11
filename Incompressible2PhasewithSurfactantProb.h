@@ -105,7 +105,7 @@ inline void InsolubleSurfactant::InitialCondition(const int & example)
 		Fluid.InitialCondition(3);
 		ProjectionOrder = 1;
 		reynoldNum = 100;
-		Ca = 0.1;
+		Ca = 0.3;
 		Xi = 0.3;
 		El = 0.2;
 		Pe = 10;
@@ -169,7 +169,7 @@ inline void InsolubleSurfactant::ContinuumMethodWithSurfactantSolver(const int &
 		cout << endl;
 
 		//// Step 1-2 : New Surface Tension
-		InterfaceSurfactant.DimlessNonlinearLangmu1rEOS(2);
+		InterfaceSurfactant.DimlessNonlinearLangmu1rEOS(1);
 		//InterfaceSurfactant.SurfaceTension.Variable("SurfaceTension");
 
 		//// Step 2 : Navier-Stokes equation
@@ -177,7 +177,7 @@ inline void InsolubleSurfactant::ContinuumMethodWithSurfactantSolver(const int &
 		//Pressure.Variable("Pressure");
 
 		//// Step 3 : Level Set Propagation
-		AdvectionMethod2D<double>::LLSPropagatingTVDRK3(levelSet, U, V, dt);
+		AdvectionMethod2D<double>::LLSPropagatingTVDRK3MACGrid(levelSet, U, V, dt);
 		AdvectionMethod2D<double>::LLSReinitializationTVDRK3(levelSet, dt, reinitialIter);
 
 		AdvectionMethod2D<double>::LLSQuantityExtension(levelSet, Surfactant, 3, 3, extensionIter);
@@ -464,6 +464,8 @@ inline void InsolubleSurfactant::ComputeSurfaceForce()
 	// L : Level Set
 	// S : Surfactant
 	// G : Gradient
+	// U : Unit
+	// N : Normal
 	//////////////////////////
 	Array2D<double>& meanCurvature = levelSet.meanCurvature.dataArray;
 	Array2D<VT>& LunitNormal = levelSet.unitNormal.dataArray;
@@ -478,29 +480,43 @@ inline void InsolubleSurfactant::ComputeSurfaceForce()
 	double oneOverReCa = 1 / (reynoldNum*Ca);
 	int numTube = levelSet.numTube;
 	int i, j;
-	VT STG, LUN, LG;
+	VT STG, LUN, LG, STSurfaceG;
 	double LGMag, deltaL, curvature, ST;
 
-#pragma omp parallel for private(i, j, STG, LUN, LG, LGMag, deltaL, curvature, ST)
+#pragma omp parallel for private(i, j, STG, LUN, LG, STSurfaceG, LGMag, deltaL, curvature, ST)
 	for (int k = 1; k <= numTube; k++)
 	{
 		levelSet.TubeIndex(k, i, j);
 		if (levelSet.tube(i, j) <= ComputedTubeRange)
 		{
-			LUN = LunitNormal(i, j);
-			STG = STgrad(i, j);
-			//STgrad(i, j) = VT(SurfaceTension.dxPhi(i, j), SurfaceTension.dyPhi(i, j));
-			SurfGradSurfTension(i, j) = STG - DotProduct(LUN, STG)*LUN;
-
-			LG = levelSet.gradient(i, j);
+			/////////////////////////////////
+			// SurfaceForceX on MAC grid.  //
+			/////////////////////////////////
+			LUN = 0.5 * (LunitNormal(i, j) + LunitNormal(i - 1, j));
+			STG = 0.5 * (STgrad(i, j) + STgrad(i - 1, j));
+			STSurfaceG = STG - DotProduct(LUN, STG)*LUN;
+			LG = 0.5 * (levelSet.gradient(i, j) + levelSet.gradient(i - 1, j));
 			LGMag = LG.magnitude();
-			deltaL = AdvectionMethod2D<double>::DeltaFt(levelSet(i, j));
-			curvature = -2*meanCurvature(i, j);
-			ST = SurfaceTension(i, j);
+			deltaL = AdvectionMethod2D<double>::DeltaFt(0.5 * (levelSet(i, j) + levelSet(i - 1, j)));
+			curvature = 0.5 * (-2 * meanCurvature(i, j) - 2 * meanCurvature(i - 1, j));
+			ST = 0.5 * (SurfaceTension(i, j) + SurfaceTension(i - 1, j));
 
-			SurfaceForceX(i, j) = curvature * ST * LunitNormal(i, j).x - SurfGradSurfTension(i, j).x;
+			SurfaceForceX(i, j) = curvature * ST * LUN.x - STSurfaceG.x;
 			SurfaceForceX(i, j) *= - deltaL * LGMag * oneOverReCa;
-			SurfaceForceY(i, j) = curvature * ST * LunitNormal(i, j).y - SurfGradSurfTension(i, j).y;
+			
+			/////////////////////////////////
+			// SurfaceForceY on MAC grid.  //
+			/////////////////////////////////
+			LUN = 0.5 * (LunitNormal(i, j) + LunitNormal(i, j - 1));
+			STG = 0.5 * (STgrad(i, j) + STgrad(i, j - 1));
+			STSurfaceG = STG - DotProduct(LUN, STG)*LUN;
+			LG = 0.5 * (levelSet.gradient(i, j) + levelSet.gradient(i, j - 1));
+			LGMag = LG.magnitude();
+			deltaL = AdvectionMethod2D<double>::DeltaFt(0.5 * (levelSet(i, j) + levelSet(i, j - 1)));
+			curvature = 0.5 * (-2 * meanCurvature(i, j) - 2 * meanCurvature(i, j - 1));
+			ST = 0.5 * (SurfaceTension(i, j) + SurfaceTension(i, j - 1));
+
+			SurfaceForceY(i, j) = curvature * ST * LUN.y - STSurfaceG.y;
 			SurfaceForceY(i, j) *= - deltaL * LGMag * oneOverReCa;
 		}
 		else
@@ -509,6 +525,9 @@ inline void InsolubleSurfactant::ComputeSurfaceForce()
 			SurfaceForceY(i, j) = 0;
 		}
 	}
+	//SurfaceTension.Variable("ST");
+	//SurfaceForceX.Variable("ForceX");
+	//SurfaceForceY.Variable("ForceY");
 }
 
 inline void InsolubleSurfactant::GenerateLinearSystemUV(VectorND<double>& vectorB, const FD & vel, const FD & gradP, const FD & advec, const FD& force, const Grid2D & ipGrid, const double & scaling)

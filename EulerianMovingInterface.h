@@ -722,8 +722,9 @@ inline void MovingInterface::SurfactantNormalTerm(FD& ipField, LS& ipLevelSet, A
 	Array2D<Vector2D<double>>& gradientV = V.gradient;
 
 	double curvatureThreshold = 3.0;
-	double curvature;
-#pragma omp parallel for private(normal, Hessian, curvature)
+	double curvature, vel;
+	VT velG;
+#pragma omp parallel for private(normal, Hessian, curvature, vel, velG)
 	for (int i = term.iStart; i <= term.iEnd; i++)
 	{
 		for (int j = term.jStart; j <= term.jEnd; j++)
@@ -749,12 +750,16 @@ inline void MovingInterface::SurfactantNormalTerm(FD& ipField, LS& ipLevelSet, A
 			term(i, j) += -normal(1)*(Hessian(1, 0)*normal(0) + Hessian(1, 1)*normal(1));
 
 			//// Upwind WENO
-			term(i, j) += -(AdvectionMethod2D<double>::Plus(U(i, j))*wenoDxMinus(i, j) + AdvectionMethod2D<double>::Minus(U(i, j))*wenoDxPlus(i, j));
-			term(i, j) += -(AdvectionMethod2D<double>::Plus(V(i, j))*wenoDyMinus(i, j) + AdvectionMethod2D<double>::Minus(V(i, j))*wenoDyPlus(i, j));
+			vel = 0.5 * (U(i, j) + U(i + 1, j));
+			term(i, j) += -(AdvectionMethod2D<double>::Plus(vel)*wenoDxMinus(i, j) + AdvectionMethod2D<double>::Minus(vel)*wenoDxPlus(i, j));
+			vel = 0.5 * (V(i, j) + V(i, j + 1));
+			term(i, j) += -(AdvectionMethod2D<double>::Plus(vel)*wenoDyMinus(i, j) + AdvectionMethod2D<double>::Minus(vel)*wenoDyPlus(i, j));
 
 			////
-			term(i, j) += normal(0)*(gradientU(i, j).x*normal(0) + gradientU(i, j).y*normal(1))*ipField(i, j);
-			term(i, j) += normal(1)*(gradientV(i, j).x*normal(0) + gradientV(i, j).y*normal(1))*ipField(i, j);
+			velG = 0.5 * (gradientU(i, j) + gradientU(i + 1, j));
+			term(i, j) += normal(0)*(velG.x*normal(0) + velG.y*normal(1))*ipField(i, j);
+			velG = 0.5 * (gradientV(i, j) + gradientV(i, j + 1));
+			term(i, j) += normal(1)*(velG.x*normal(0) + velG.y*normal(1))*ipField(i, j);
 		}
 	}
 }
@@ -1269,7 +1274,7 @@ inline void MovingInterface::EulerianMovingInterfaceSolver(const int & example)
 		//////////////////////////
 		//// Moving Level Set ////
 		//////////////////////////
-		AdvectionMethod2D<double>::LLSPropagatingTVDRK3(levelSet, U, V, dt);
+		AdvectionMethod2D<double>::LLSPropagatingTVDRK3MACGrid(levelSet, U, V, dt);
 		AdvectionMethod2D<double>::LLSReinitializationTVDRK3(levelSet, dt, reinitialIter);
 
 		AdvectionMethod2D<double>::LLSQuantityExtension(levelSet, Surfactant, 3, 3, extensionIter);
@@ -1466,8 +1471,9 @@ inline void MovingInterface::LSurfactantNormalTerm(FD & ipField, LS & ipLevelSet
 
 	double curvatureThreshold = 3.0;
 	double curvature;
+	double velX, velY;
 	int i, j;
-#pragma omp parallel for private(i,j, normal, Hessian, curvature)
+#pragma omp parallel for private(i,j, normal, Hessian, curvature, velX, velY)
 	for (int k = 1; k <= levelSet.numTube; k++)
 	{
 		levelSet.TubeIndex(k, i, j);
@@ -1488,10 +1494,11 @@ inline void MovingInterface::LSurfactantNormalTerm(FD & ipField, LS & ipLevelSet
 			}
 			term(i, j) += -normal(0)*(Hessian(0, 0)*normal(0) + Hessian(0, 1)*normal(1));
 			term(i, j) += -normal(1)*(Hessian(1, 0)*normal(0) + Hessian(1, 1)*normal(1));
-
+			velX = 0.5*(U(i + 1, j) + U(i, j));
+			velY = 0.5*(V(i, j + 1) + V(i, j));
 			//// Upwind WENO
-			term(i, j) += -(AdvectionMethod2D<double>::Plus(U(i, j))*wenoDxMinus(i, j) + AdvectionMethod2D<double>::Minus(U(i, j))*wenoDxPlus(i, j));
-			term(i, j) += -(AdvectionMethod2D<double>::Plus(V(i, j))*wenoDyMinus(i, j) + AdvectionMethod2D<double>::Minus(V(i, j))*wenoDyPlus(i, j));
+			term(i, j) += -(AdvectionMethod2D<double>::Plus(velX)*wenoDxMinus(i, j) + AdvectionMethod2D<double>::Minus(velX)*wenoDxPlus(i, j));
+			term(i, j) += -(AdvectionMethod2D<double>::Plus(velY)*wenoDyMinus(i, j) + AdvectionMethod2D<double>::Minus(velY)*wenoDyPlus(i, j));
 
 			////
 			term(i, j) += normal(0)*(gradientU(i, j).x*normal(0) + gradientU(i, j).y*normal(1))*ipField(i, j);
