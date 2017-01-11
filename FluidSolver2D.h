@@ -35,17 +35,17 @@ public:
 	////			Variable for						  ////
 	////		two-phase flows with insoluble surfactant ////
 	//////////////////////////////////////////////////////////
-	double Ca;
-	double Xi;
-	double El;
-	double Pe;
+	double Ca = 1;
+	double Xi = 1;
+	double El = 1;
+	double Pe = 1;
 
 	//////////////////////////////////////////////////////////
 	////			Variable for						  ////
 	////		Coalescing Drop                           ////
 	//////////////////////////////////////////////////////////
-	double Oh;
-	double We;
+	double Oh = 1;
+	double We = 1;
 
 
 	bool isENOAdvection = true;;
@@ -446,7 +446,6 @@ inline void FluidSolver2D::InitialCondition(const int & example)
 				if (i == U.iStart || i == U.iEnd)
 				{
 					U.BC(i, j) = BC_NEUM;
-
 					continue;
 				}
 				if (j == U.jStart || j == U.jEnd)

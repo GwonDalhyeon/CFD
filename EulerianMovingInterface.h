@@ -42,10 +42,14 @@ public:
 	CSR<double> Acsr;
 
 
+	double& reynoldNum = Fluid.reynoldNum;
+	double& cflCondition = Fluid.cflCondition;
+	double& Ca = Fluid.Ca;
+	double& Xi = Fluid.Xi;
+	double& El = Fluid.El;
+	double& Pe = Fluid.Pe;
 	double& dt = Fluid.dt;
 	double totalT;
-
-	double& cflCondition = Fluid.cflCondition;
 
 	int& maxIteration = Fluid.maxIteration;
 	int writeOutputIteration;
@@ -337,10 +341,7 @@ inline void MovingInterface::InitialCondition(const int & example)
 				Surfactant(i, j) = ExactSurfactant(grid(i, j).x, grid(i, j).y, totalT);
 			}
 		}
-
-		int extensionIter = (int)ceil((levelSet.gamma2 - levelSet.gamma1) / (0.1*min(grid.dx, grid.dy)));
-		AdvectionMethod2D<double>::LLSQuantityExtension(levelSet, Surfactant, 3, 3, extensionIter);
-		AdvectionMethod2D<double>::alpha = 1.5*grid.dx;
+		initialSurfactant = IntegralSurfactant();
 
 		term = Array2D<double>(grid);
 		termOld = Array2D<double>(grid);
@@ -348,6 +349,8 @@ inline void MovingInterface::InitialCondition(const int & example)
 		dt = AdvectionMethod2D<double>::AdaptiveTimeStep(U, cflCondition);
 		maxIteration = 800;
 		totalT = 0;
+
+		Pe = 10;
 	}
 
 	if (example == 5)
@@ -408,8 +411,6 @@ inline void MovingInterface::InitialCondition(const int & example)
 
 		initialSurfactant = IntegralSurfactant();
 
-		AdvectionMethod2D<double>::alpha = 1.5*grid.dx;
-
 		term = Array2D<double>(grid);
 		termOld = Array2D<double>(grid);
 		cflCondition = 1.0 / 4.0;
@@ -469,13 +470,12 @@ inline void MovingInterface::InitialCondition(const int & example)
 
 		initialSurfactant = IntegralSurfactant();
 
-		AdvectionMethod2D<double>::alpha = 1.5*grid.dx;
-		
 		term = Array2D<double>(grid);
 		termOld = Array2D<double>(grid);
 		cflCondition = 1.0 / 4.0;
 		dt = cflCondition*min(grid.dx, grid.dy);
-		maxIteration = 800;
+		double finalT = 2;
+		maxIteration = ceil(finalT / dt);
 		totalT = 0;
 	}
 
@@ -489,12 +489,15 @@ inline void MovingInterface::InitialCondition(const int & example)
 		/////////////////////////////////////////////////////////
 		levelSet = LS(grid, 3 * grid.dx);
 		double radius = 1.0;
-#pragma omp parallel for
+		double x, y;
+#pragma omp parallel for private(x, y)
 		for (int i = grid.iStart; i <= grid.iEnd; i++)
 		{
 			for (int j = grid.jStart; j <= grid.jEnd; j++)
 			{
-				levelSet(i, j) = sqrt(grid(i, j).x*grid(i, j).x + grid(i, j).y*grid(i, j).y) - radius;
+				x = grid(i, j).x;
+				y = grid(i, j).y;
+				levelSet(i, j) = sqrt(x*x + y*y) - radius;
 			}
 		}
 		levelSet.InitialTube();
@@ -512,7 +515,8 @@ inline void MovingInterface::InitialCondition(const int & example)
 		}
 
 		SurfaceTension = FD(grid);
-
+		double El = Fluid.El;
+		double Xi = Fluid.Xi;
 #pragma omp parallel for
 		for (int i = grid.iStart; i <= grid.iEnd; i++)
 		{
@@ -520,7 +524,7 @@ inline void MovingInterface::InitialCondition(const int & example)
 			{
 				if (levelSet.tube(i, j) <= 2)
 				{
-					SurfaceTension(i, j) = 1 + Fluid.El*log(1 - Fluid.Xi* Surfactant(i, j));
+					SurfaceTension(i, j) = 1 + El*log(1 - Xi* Surfactant(i, j));
 				}
 				else
 				{
@@ -535,9 +539,9 @@ inline void MovingInterface::InitialCondition(const int & example)
 
 		term = Array2D<double>(grid);
 		termOld = Array2D<double>(grid);
-		cflCondition = 1.0 / 4.0;
-		dt = cflCondition*min(grid.dx, grid.dy);
-		totalT = 0;
+		//cflCondition = 1.0 / 4.0;
+		//dt = cflCondition*min(grid.dx, grid.dy);
+		//totalT = 0;
 	}
 
 	if (example == 8)
@@ -587,6 +591,9 @@ inline void MovingInterface::InitialCondition(const int & example)
 		termOld = Array2D<double>(grid);
 		totalT = 0;
 	}
+
+	AdvectionMethod2D<double>::alpha = 1.5*grid.dx;
+
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -1202,7 +1209,7 @@ inline void MovingInterface::PlotLocalSurfactant()
 	Surfactant.Variable("Surfactant");
 	MATLAB.Command("SurTube1=Surfactant.*(Tube<=1);");
 	levelSet.tube.Variable("Tube");
-	bool isLookDown = false;
+	bool isLookDown = true;
 	if (isLookDown)
 	{
 		MATLAB.Command("surf(X,Y,SurTube1), hold on, contour(X,Y,Tube),h=colorbar,h.Limits=[0 max(max(SurTube1))],hold off,set(gca,'fontsize',20);axis([X(1) X(end) Y(1) Y(end)]),axis equal");
@@ -1265,22 +1272,19 @@ inline void MovingInterface::EulerianMovingInterfaceSolver(const int & example)
 		AdvectionMethod2D<double>::LLSPropagatingTVDRK3(levelSet, U, V, dt);
 		AdvectionMethod2D<double>::LLSReinitializationTVDRK3(levelSet, dt, reinitialIter);
 
-		//// Surfactant Conservation Method
-		ConserveSurfactantFactorBeta();
-
 		AdvectionMethod2D<double>::LLSQuantityExtension(levelSet, Surfactant, 3, 3, extensionIter);
 		levelSet.UpdateInterface();
 		levelSet.UpdateLLS();
 
-
+		//// Surfactant Conservation Method
+		ConserveSurfactantFactorBeta();
 
 		PlotLocalSurfactant();
 		MATLAB.Command("IntSur=sum(sum(Surfactant.*(Tube<=1)));");
 		MATLAB.Command("loss = (IntSur0-IntSur)/IntSur0*100");
 		MATLAB.Variable("i", i);
 		MATLAB.Variable("totalT", totalT);
-		str = string("title(['iteration : ', num2str(i),', time : ', num2str(totalT), ', Loss(%)  :',num2str(loss)]);");
-		MATLAB.Command(str.c_str());
+		MATLAB.Command("title(['iteration : ', num2str(i),', time : ', num2str(totalT), ', Loss(%)  :',num2str(loss)]);");
 
 		cout << "       Iteration " << to_string(i) << " : End" << endl;
 	}
@@ -1306,21 +1310,21 @@ inline void MovingInterface::SurfactantTube2Extrapolation()
 
 inline void MovingInterface::LSurfactantDiffusion(const int & iter)
 {
-	//if (iter == 1)
+	if (iter == 1)
 	{
 		LGenerateLinearSystem1(Acsr);
 
 		LOneStepSemiImplicit();
 	}
 
-	//if (iter >= 2)
-	//{
-	//	SurfactantTube2Extrapolation();
-	//	
-	//	LGenerateLinearSystem2(Acsr);
+	if (iter >= 2)
+	{
+		SurfactantTube2Extrapolation();
+		
+		LGenerateLinearSystem2(Acsr);
 
-	//	LTwoStepSemiImplicit();
-	//}
+		LTwoStepSemiImplicit();
+	}
 
 }
 
@@ -1387,9 +1391,6 @@ inline void MovingInterface::LOneStepSemiImplicit()
 	//// Linear Equation
 	LGenerateLinearSystem1(vectorB);
 	CGSolver::Solver(Acsr, vectorB, tempSur);
-	Acsr.RecoverCSR("A");
-	vectorB.Variable("b");
-	tempSur.Variable("x");
 
 	int i, j;
 #pragma omp parallel for private(i, j)
@@ -1517,6 +1518,7 @@ inline void MovingInterface::LGenerateLinearSystem1(CSR<double>& ipCSR)
 	double oneOverdy = 1 / dy, oneOverdy2 = 1 / dy2;
 	double oneOverdt = 1 / dt;
 	double coefIJ;
+	double oneOverPe = 1 / Pe;
 
 	VI leftIndex, rightIndex, bottomIndex, topIndex;
 	int i, j, l, m, n, k1, l1;
@@ -1536,7 +1538,7 @@ inline void MovingInterface::LGenerateLinearSystem1(CSR<double>& ipCSR)
 			{
 				l = tube1(m, n);
 				l1 = l - 1;
-				ipCSR.AssignValue(k1, l1, -oneOverdx2);
+				ipCSR.AssignValue(k1, l1, -oneOverdx2*oneOverPe);
 			}
 			if (tube(m,n)==1 || tube(m,n)==2)
 			{
@@ -1553,7 +1555,7 @@ inline void MovingInterface::LGenerateLinearSystem1(CSR<double>& ipCSR)
 			{
 				l = tube1(m, n);
 				l1 = l - 1;
-				ipCSR.AssignValue(k1, l1, -oneOverdx2);
+				ipCSR.AssignValue(k1, l1, -oneOverdx2*oneOverPe);
 			}
 			if (tube(m, n) == 1 || tube(m, n) == 2)
 			{
@@ -1570,7 +1572,7 @@ inline void MovingInterface::LGenerateLinearSystem1(CSR<double>& ipCSR)
 			{
 				l = tube1(m, n);
 				l1 = l - 1;
-				ipCSR.AssignValue(k1, l1, -oneOverdy2);
+				ipCSR.AssignValue(k1, l1, -oneOverdy2*oneOverPe);
 			}
 			if (tube(m, n) == 1 || tube(m, n) == 2)
 			{
@@ -1587,7 +1589,7 @@ inline void MovingInterface::LGenerateLinearSystem1(CSR<double>& ipCSR)
 			{
 				l = tube1(m, n);
 				l1 = l - 1;
-				ipCSR.AssignValue(k1, l1, -oneOverdy2);
+				ipCSR.AssignValue(k1, l1, -oneOverdy2*oneOverPe);
 			}
 			if (tube(m, n) == 1 || tube(m, n) == 2)
 			{
@@ -1599,13 +1601,14 @@ inline void MovingInterface::LGenerateLinearSystem1(CSR<double>& ipCSR)
 		{
 			coefIJ = 1;
 		}
-		ipCSR.AssignValue(k1, k1, oneOverdx2 * coefIJ + oneOverdt);
+		ipCSR.AssignValue(k1, k1, oneOverdx2 * coefIJ*oneOverPe + oneOverdt);
 	}
 }
 
 inline void MovingInterface::LGenerateLinearSystem1(VectorND<double>& vectorB)
 {
 	int iStart = Surfactant.iStart, iEnd = Surfactant.iEnd, jStart = Surfactant.jStart, jEnd = Surfactant.jEnd;
+	double oneOverdt = 1 / dt;
 	double oneOverdx2 = grid.oneOverdx2;
 	double oneOverdy2 = grid.oneOverdy2;
 
@@ -1615,14 +1618,14 @@ inline void MovingInterface::LGenerateLinearSystem1(VectorND<double>& vectorB)
 
 	LSurfactantNormalTerm(Surfactant, levelSet, term);
 	VI leftIndex, rightIndex, bottomIndex, topIndex;
-	double oneOverdt = 1 / dt;
+	double oneOverPe = 1 / Pe;
 	int i, j, l, m, n;
 #pragma omp parallel for private(i, j, l, m, n, leftIndex, rightIndex, bottomIndex, topIndex)
 	for (int k = 1; k <= levelSet.numTube1; k++)
 	{
 		i = levelSet.tube1Index(k).i;
 		j = levelSet.tube1Index(k).j;
-		bVal[k - 1] = (Surfactant(i, j)*oneOverdt + term(i, j));
+		bVal[k - 1] = (Surfactant(i, j)*oneOverdt + term(i, j)*oneOverPe);
 
 		if (i>iStart)
 		{
@@ -1631,7 +1634,7 @@ inline void MovingInterface::LGenerateLinearSystem1(VectorND<double>& vectorB)
 			levelSet.TubeIndex(l, m, n);
 			if (tube(m, n) == 2 || (tube(m, n) == 1 && i == iStart + 1))
 			{
-				bVal[k - 1] += oneOverdx2*Surfactant(m, n);
+				bVal[k - 1] += oneOverdx2*Surfactant(m, n) * oneOverPe;
 			}
 		}
 		
@@ -1642,7 +1645,7 @@ inline void MovingInterface::LGenerateLinearSystem1(VectorND<double>& vectorB)
 			levelSet.TubeIndex(l, m, n);
 			if (tube(m, n) == 2 || (tube(m, n) == 1 && i == iEnd - 1))
 			{
-				bVal[k - 1] += oneOverdx2*Surfactant(m, n);
+				bVal[k - 1] += oneOverdx2*Surfactant(m, n) * oneOverPe;
 			}
 		}
 		
@@ -1653,7 +1656,7 @@ inline void MovingInterface::LGenerateLinearSystem1(VectorND<double>& vectorB)
 			levelSet.TubeIndex(l, m, n);
 			if (tube(m, n) == 2 || (tube(m, n) == 1 && j == jStart + 1))
 			{
-				bVal[k - 1] += oneOverdy2*Surfactant(m, n);
+				bVal[k - 1] += oneOverdy2*Surfactant(m, n) * oneOverPe;
 			}
 		}
 		
@@ -1664,7 +1667,7 @@ inline void MovingInterface::LGenerateLinearSystem1(VectorND<double>& vectorB)
 			levelSet.TubeIndex(l, m, n);
 			if (tube(m, n) == 2 || (tube(m, n) == 1 && j == jEnd - 1))
 			{
-				bVal[k - 1] += oneOverdy2*Surfactant(m, n);
+				bVal[k - 1] += oneOverdy2*Surfactant(m, n) * oneOverPe;
 			}
 		}
 	}
@@ -1679,36 +1682,40 @@ inline void MovingInterface::LGenerateLinearSystem2(CSR<double>& ipCSR)
 
 	int iStart = Surfactant.iStart, iEnd = Surfactant.iEnd, jStart = Surfactant.jStart, jEnd = Surfactant.jEnd;
 
+	Array2D<int>& tube = levelSet.tube;
+	Array2D<int>& tube1 = levelSet.tube1;
+
 	double dx = Surfactant.dx, dy = Surfactant.dy;
 	double dx2 = dx*dx, dy2 = dy*dy, dxdy = dx*dy;
 	double oneOverdx = 1 / dx, oneOverdx2 = 1 / dx2;
 	double oneOverdy = 1 / dy, oneOverdy2 = 1 / dy2;
 	double oneOverdt = 1 / dt;
 	double coefIJ;
+	double oneOverPe = 1 / Pe;
 
 	VI leftIndex, rightIndex, bottomIndex, topIndex;
 	int i, j, l, m, n, k1, l1;
 	for (int k = 1; k <= levelSet.numTube1; k++)
 	{
-		//coefIJ = 0;
+		coefIJ = 0;
 		i = levelSet.tube1Index(k).i;
 		j = levelSet.tube1Index(k).j;
 		k1 = k - 1;
-		
-		coefIJ = 2;
-		ipCSR.AssignValue(k1, k1, oneOverdx2 * coefIJ + oneOverdt);
 
 		if (i>iStart)
 		{
 			leftIndex = VI(i - 1, j);
 			l = levelSet.tubeIJ2K(leftIndex);
 			levelSet.TubeIndex(l, m, n);
-			if (levelSet.tube(m, n) == 1)
+			if (tube(m, n) == 1)
 			{
-				l = levelSet.tube1(m, n);
+				l = tube1(m, n);
 				l1 = l - 1;
-				//coefIJ++;
-				ipCSR.AssignValue(k1, l1, -oneOverdx2 * 0.5);
+				ipCSR.AssignValue(k1, l1, -oneOverdx2 * oneOverPe * 0.5);
+			}
+			if (tube(m, n) == 1 || tube(m, n) == 2)
+			{
+				coefIJ ++;
 			}
 		}
 		
@@ -1717,42 +1724,58 @@ inline void MovingInterface::LGenerateLinearSystem2(CSR<double>& ipCSR)
 			rightIndex = VI(i + 1, j);
 			l = levelSet.tubeIJ2K(rightIndex);
 			levelSet.TubeIndex(l, m, n);
-			if (levelSet.tube(m, n) == 1)
+			if (tube(m, n) == 1)
 			{
-				l = levelSet.tube1(m, n);
+				l = tube1(m, n);
 				l1 = l - 1;
-				//coefIJ++;
-				ipCSR.AssignValue(k1, l1, -oneOverdx2 * 0.5);
+				ipCSR.AssignValue(k1, l1, -oneOverdx2 * oneOverPe * 0.5);
+			}
+			if (tube(m, n) == 1 || tube(m, n) == 2)
+			{
+				coefIJ++;
 			}
 		}
-		
+
 		if (j>jStart)
 		{
 			bottomIndex = VI(i, j - 1);
 			l = levelSet.tubeIJ2K(bottomIndex);
 			levelSet.TubeIndex(l, m, n);
-			if (levelSet.tube(m, n) == 1)
+			if (tube(m, n) == 1)
 			{
-				l = levelSet.tube1(m, n);
+				l = tube1(m, n);
 				l1 = l - 1;
-				//coefIJ++;
-				ipCSR.AssignValue(k1, l1, -oneOverdy2 * 0.5);
+				ipCSR.AssignValue(k1, l1, -oneOverdy2 * oneOverPe * 0.5);
+			}
+			if (tube(m, n) == 1 || tube(m, n) == 2)
+			{
+				coefIJ++;
 			}
 		}
-		
+
 		if (j<jEnd)
 		{
 			topIndex = VI(i, j + 1);
 			l = levelSet.tubeIJ2K(topIndex);
 			levelSet.TubeIndex(l, m, n);
-			if (levelSet.tube(m, n) == 1)
+			if (tube(m, n) == 1)
 			{
-				l = levelSet.tube1(m, n);
+				l = tube1(m, n);
 				l1 = l - 1;
-				//coefIJ++;
-				ipCSR.AssignValue(k1, l1, -oneOverdy2 * 0.5);
+				ipCSR.AssignValue(k1, l1, -oneOverdy2 * oneOverPe * 0.5);
+			}
+			if (tube(m, n) == 1 || tube(m, n) == 2)
+			{
+				coefIJ++;
 			}
 		}
+
+		if (coefIJ == 0)
+		{
+			coefIJ = 1;
+		}
+		ipCSR.AssignValue(k1, k1, oneOverdx2 * coefIJ * 0.5 * oneOverPe + oneOverdt);
+
 	}
 }
 
@@ -1766,20 +1789,15 @@ inline void MovingInterface::LGenerateLinearSystem2(VectorND<double>& vectorB)
 	double oneOverdy2 = grid.oneOverdy2;
 	
 	double* bVal(vectorB.values);
-
+	double oneOverPe = 1 / Pe;
 	int i, j, l, m, n;
 #pragma omp parallel for private(i, j, l, m, n, leftIndex, rightIndex, bottomIndex, topIndex)
 	for (int k = 1; k <= levelSet.numTube1; k++)
 	{
 		i = levelSet.tube1Index(k).i;
 		j = levelSet.tube1Index(k).j;
-		bVal[k - 1] = Surfactant(i, j) * oneOverdt + 0.5 *(Surfactant.dxxPhi(i, j) + Surfactant.dyyPhi(i, j))
-			+ 1.5 * term(i, j) - 0.5 * termOld(i, j);
-
-		if (levelSet.tube(i, j) > 1)
-		{
-			continue;
-		}
+		bVal[k - 1] = Surfactant(i, j) * oneOverdt + 0.5 * oneOverPe *((Surfactant.dxxPhi(i, j) + Surfactant.dyyPhi(i, j))
+			+ 3 * term(i, j) - 1 * termOld(i, j));
 
 		if (i>iStart)
 		{
@@ -1788,7 +1806,7 @@ inline void MovingInterface::LGenerateLinearSystem2(VectorND<double>& vectorB)
 			levelSet.TubeIndex(l, m, n);
 			if (levelSet.tube(m, n) == 2 || (levelSet.tube(m, n) == 1 && i == iStart + 1))
 			{
-				bVal[k - 1] += oneOverdx2*Surfactant(m, n) * 0.5;
+				bVal[k - 1] += oneOverdx2*Surfactant(m, n) * 0.5 * oneOverPe;
 			}
 		}
 
@@ -1799,7 +1817,7 @@ inline void MovingInterface::LGenerateLinearSystem2(VectorND<double>& vectorB)
 			levelSet.TubeIndex(l, m, n);
 			if (levelSet.tube(m, n) == 2 || (levelSet.tube(m, n) == 1 && i == iEnd - 1))
 			{
-				bVal[k - 1] += oneOverdx2*Surfactant(m, n) * 0.5;
+				bVal[k - 1] += oneOverdx2*Surfactant(m, n) * 0.5 * oneOverPe;
 			}
 		}
 
@@ -1810,7 +1828,7 @@ inline void MovingInterface::LGenerateLinearSystem2(VectorND<double>& vectorB)
 			levelSet.TubeIndex(l, m, n);
 			if (levelSet.tube(m, n) == 2 || (levelSet.tube(m, n) == 1 && j == jStart + 1))
 			{
-				bVal[k - 1] += oneOverdy2*Surfactant(m, n) * 0.5;
+				bVal[k - 1] += oneOverdy2*Surfactant(m, n) * 0.5 * oneOverPe;
 			}
 		}
 
@@ -1821,7 +1839,7 @@ inline void MovingInterface::LGenerateLinearSystem2(VectorND<double>& vectorB)
 			levelSet.TubeIndex(l, m, n);
 			if (levelSet.tube(m, n) == 2 || (levelSet.tube(m, n) == 1 && j == jEnd - 1))
 			{
-				bVal[k - 1] += oneOverdy2*Surfactant(m, n) * 0.5;
+				bVal[k - 1] += oneOverdy2*Surfactant(m, n) * 0.5 * oneOverPe;
 			}
 		}
 	}

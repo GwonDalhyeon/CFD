@@ -104,12 +104,12 @@ inline void InsolubleSurfactant::InitialCondition(const int & example)
 		// Initialize Velocity Fields
 		Fluid.InitialCondition(3);
 		ProjectionOrder = 1;
-		reynoldNum = 1000;
-		Ca = 0.5;
+		reynoldNum = 100;
+		Ca = 0.1;
 		Xi = 0.3;
 		El = 0.2;
 		Pe = 10;
-		cflCondition = 0.25;
+		cflCondition = 0.4;
 		dt = cflCondition*min(grid.dx, grid.dy);
 
 		singularForce = true;
@@ -122,7 +122,7 @@ inline void InsolubleSurfactant::InitialCondition(const int & example)
 		InterfaceSurfactant.cflCondition = cflCondition;
 		InterfaceSurfactant.dt = dt;
 
-		double finalT = 5;// Up to 2 sec.
+		double finalT = 5;// Up to 5 sec.
 		maxIteration = ceil(finalT / dt);
 		totalT = 0;
 		writeOutputIteration = 30;
@@ -147,7 +147,10 @@ inline void InsolubleSurfactant::ContinuumMethodWithSurfactantSolver(const int &
 
 	MATLAB.Command("figure('units','normalized','outerposition',[0 0 1 1])");
 	Surfactant.Variable("SurTube1");
-	PlotVelocity();
+	//MATLAB.Command("subplot(2,1,1)");
+	PlotSurfactant();
+	//MATLAB.Command("subplot(2,1,2)");
+	//PlotVelocity();
 	MATLAB.Command("IntSur0 = sum(sum(SurTube1.*(Tube==1)))*(Y(2)-Y(1))*(Y(2)-Y(1));");
 
 	//MATLAB.WriteImage("surfactant", 0, "fig");
@@ -160,39 +163,42 @@ inline void InsolubleSurfactant::ContinuumMethodWithSurfactantSolver(const int &
 		cout << "       Iteration " << to_string(iteration) << " : Start" << endl;
 		totalT += dt;
 		//// Step 1-1 : Surfactant Diffusion
-		cout << "Diffusion Start" << endl;
-		//InterfaceSurfactant.LSurfactantDiffusion(iteration);
-		cout << "Diffusion End" << endl;
+		//cout << "Diffusion Start" << endl;
+		InterfaceSurfactant.LSurfactantDiffusion(iteration);
+		//cout << "Diffusion End" << endl;
 		cout << endl;
 
 		//// Step 1-2 : New Surface Tension
-		//InterfaceSurfactant.DimlessNonlinearLangmu1rEOS(2);
+		InterfaceSurfactant.DimlessNonlinearLangmu1rEOS(2);
 		//InterfaceSurfactant.SurfaceTension.Variable("SurfaceTension");
 
 		//// Step 2 : Navier-Stokes equation
 		NSSolver();
-		Pressure.Variable("Pressure");
+		//Pressure.Variable("Pressure");
 
-
+		//// Step 3 : Level Set Propagation
 		AdvectionMethod2D<double>::LLSPropagatingTVDRK3(levelSet, U, V, dt);
 		AdvectionMethod2D<double>::LLSReinitializationTVDRK3(levelSet, dt, reinitialIter);
-
-		InterfaceSurfactant.ConserveSurfactantFactorBeta();
 
 		AdvectionMethod2D<double>::LLSQuantityExtension(levelSet, Surfactant, 3, 3, extensionIter);
 		levelSet.UpdateInterface();
 		levelSet.UpdateLLS();
 
+		InterfaceSurfactant.ConserveSurfactantFactorBeta();
 
-		//MATLAB.Command("subplot(2,1,1)");
-		//PlotSurfactant();
-		//MATLAB.Command("subplot(2,1,2)");
-		
-		if (iteration == 1 || iteration % 1 == 0)
+		if (iteration == 1 || iteration % 10 == 0)
 		{
+			//MATLAB.Command("subplot(2,1,1)");
+			//PlotSurfactant();
+			//MATLAB.Command("subplot(2,1,2)");
 			PlotVelocity();
 			//MATLAB.WriteImage("surfactant", iteration, "fig");
-			//MATLAB.WriteImage("surfactant", iteration, "png");
+			MATLAB.WriteImage("surfactant", iteration, "png");
+			
+		}
+		if (iteration==130)
+		{
+			cout << endl;
 		}
 		cout << "       Iteration " << to_string(iteration) << " : End" << endl;
 		cout << "*******************************************************************" << endl;
@@ -453,36 +459,52 @@ inline void InsolubleSurfactant::EulerMethod2ndOrder1stIteration1()
 
 inline void InsolubleSurfactant::ComputeSurfaceForce()
 {
-	FD& meanCurvature = levelSet.meanCurvature;
-	FV& unitNormal = levelSet.unitNormal;
-	Array2D<VT>& gradient = Surfactant.gradient;
+	//////////////////////////
+	// ST : Surface Tension
+	// L : Level Set
+	// S : Surfactant
+	// G : Gradient
+	//////////////////////////
+	Array2D<double>& meanCurvature = levelSet.meanCurvature.dataArray;
+	Array2D<VT>& LunitNormal = levelSet.unitNormal.dataArray;
+	Array2D<VT>& STgrad = SurfaceTension.gradient;
+	
+	SurfaceTension.Gradient();
 
 	int ComputedTubeRange = 2;
 	levelSet.LComputeMeanCurvature(ComputedTubeRange);
 	levelSet.LComputeUnitNormal(ComputedTubeRange);
 
+	double oneOverReCa = 1 / (reynoldNum*Ca);
+	int numTube = levelSet.numTube;
 	int i, j;
-	//// Surface Tension Surface Gradient
-#pragma omp parallel for private(i, j)
-	for (int k = 1; k <= levelSet.numTube; k++)
+	VT STG, LUN, LG;
+	double LGMag, deltaL, curvature, ST;
+
+#pragma omp parallel for private(i, j, STG, LUN, LG, LGMag, deltaL, curvature, ST)
+	for (int k = 1; k <= numTube; k++)
 	{
 		levelSet.TubeIndex(k, i, j);
 		if (levelSet.tube(i, j) <= ComputedTubeRange)
 		{
-			gradient(i, j) = VT(Surfactant.dxPhi(i, j), Surfactant.dyPhi(i, j));
-			SurfGradSurfTension(i, j) = Surfactant.gradient(i, j)
-				- DotProduct(unitNormal(i, j), gradient(i, j))*unitNormal(i, j);
+			LUN = LunitNormal(i, j);
+			STG = STgrad(i, j);
+			//STgrad(i, j) = VT(SurfaceTension.dxPhi(i, j), SurfaceTension.dyPhi(i, j));
+			SurfGradSurfTension(i, j) = STG - DotProduct(LUN, STG)*LUN;
 
-			SurfaceForceX(i, j) = -2 * meanCurvature(i, j)*SurfaceTension(i, j)*unitNormal(i, j).x + SurfGradSurfTension(i, j).x;
-			SurfaceForceX(i, j) *= AdvectionMethod2D<double>::DeltaFt(levelSet(i, j))*levelSet.gradient(i, j).magnitude() / (reynoldNum*Ca);
-			SurfaceForceY(i, j) = -2 * meanCurvature(i, j)*SurfaceTension(i, j)*unitNormal(i, j).y + SurfGradSurfTension(i, j).y;
-			SurfaceForceY(i, j) *= -AdvectionMethod2D<double>::DeltaFt(levelSet(i, j))*levelSet.gradient(i, j).magnitude() / (reynoldNum*Ca);
+			LG = levelSet.gradient(i, j);
+			LGMag = LG.magnitude();
+			deltaL = AdvectionMethod2D<double>::DeltaFt(levelSet(i, j));
+			curvature = -2*meanCurvature(i, j);
+			ST = SurfaceTension(i, j);
 
+			SurfaceForceX(i, j) = curvature * ST * LunitNormal(i, j).x - SurfGradSurfTension(i, j).x;
+			SurfaceForceX(i, j) *= - deltaL * LGMag * oneOverReCa;
+			SurfaceForceY(i, j) = curvature * ST * LunitNormal(i, j).y - SurfGradSurfTension(i, j).y;
+			SurfaceForceY(i, j) *= - deltaL * LGMag * oneOverReCa;
 		}
 		else
 		{
-			SurfGradSurfTension(i, j) = 0;
-
 			SurfaceForceX(i, j) = 0;
 			SurfaceForceY(i, j) = 0;
 		}
@@ -536,9 +558,9 @@ inline void InsolubleSurfactant::PlotSurfactant()
 	Surfactant.Variable("Surfactant");
 	levelSet.tube.Variable("Tube");
 	MATLAB.Command("SurTube1 = Surfactant.*(Tube<=1);");
-	//MATLAB.Command("contour(X,Y,Tube,'r'),axis equal,axis([X(1) X(end) Y(1) Y(end)]), hold on,surf(X,Y,SurTube1), h=colorbar,h.Limits=[0 max(max(SurTube1))],hold off;set(gca,'fontsize',20)");
 	//MATLAB.Command("surf(X,Y,SurTube1), h=colorbar,h.Limits=[0 max(max(SurTube1))],axis equal,axis([X(1) X(end) Y(1) Y(end)]), set(gca,'fontsize',20)");
-	MATLAB.Command("surf(X,Y,Surfactant), h=colorbar,h.Limits=[0 max(max(SurTube1))],axis equal,set(gca,'fontsize',20)");
+	MATLAB.Command("surf(X,Y,Surfactant), h=colorbar,h.Limits=[0 max(max(SurTube1))],axis equal,set(gca,'fontsize',20);");
+	//MATLAB.Command("surf(X,Y,Tube),axis equal,set(gca,'fontsize',20)");
 
 	//// Measure Surfactant Loss ////
 	MATLAB.Command("IntSur = sum(sum(SurTube1.*(Tube==1)))*(Y(2)-Y(1))*(Y(2)-Y(1));");
@@ -557,11 +579,11 @@ inline void InsolubleSurfactant::PlotVelocity()
 	V.Variable("V");
 	levelSet.phi.Variable("phi");
 
-	str = string("quiver(X,Y,U(:,1:end-1)/2+U(:,2:end)/2,V(1:end-1,:)/2+V(2:end,:)/2,2),set(gca,'fontsize',20);");
+	//str = string("quiver(X,Y,U(:,1:end-1)/2+U(:,2:end)/2,V(1:end-1,:)/2+V(2:end,:)/2,2),set(gca,'fontsize',20);");
 
-	str = str + string("hold on,streamslice(X,Y,U(:,1:end-1)/2+U(:,2:end)/2,V(1:end-1,:)/2+V(2:end,:)/2,'g'),hold off;");
+	str = str + string("plot(0,0),streamslice(X,Y,U(:,1:end-1)/2+U(:,2:end)/2,V(1:end-1,:)/2+V(2:end,:)/2,'g'),hold off;set(gca,'fontsize',20);");
 	//str = str + string("hold on,streamline(X,Y,U(:,1:end-1)/2+U(:,2:end)/2,V(1:end-1,:)/2+V(2:end,:)/2,-100:0.1:100,-100:0.1:100),hold off;");
-	str = str + string("hold on, contour(X,Y,phi,[0 0],'r'), hold off;axis tight,axis equal;");
+	str = str + string("hold on, contour(X,Y,phi,[0 0],'r'), grid on,hold off;axis tight,axis equal;");
 	MATLAB.Command(str.c_str());
 	str = string("title(['iteration : ', num2str(") + to_string(iteration) + string("),', time : ', num2str(") + to_string(totalT) + string(")]);");
 	MATLAB.Command(str.c_str());

@@ -59,6 +59,11 @@ inline void PCGSolver::Solver(const CSR<double>& A, const CSR<double>& M, const 
 	}
 
 	MultiplicationByMinverse(M, Mdiag, res, z);
+//#pragma omp parallel for
+//	for (int i = 0; i < N; i++)
+//	{
+//		zVal[i] = resVal[i] / MdiagVal[i];
+//	}
 
 	VTN p(z);
 	double* pVal(p.values);
@@ -92,6 +97,11 @@ inline void PCGSolver::Solver(const CSR<double>& A, const CSR<double>& M, const 
 		}
 
 		MultiplicationByMinverse(M, Mdiag, res, z);
+//#pragma omp parallel for
+//		for (int i = 0; i < N; i++)
+//		{
+//			zVal[i] = resVal[i] / MdiagVal[i];
+//		}
 
 		res_new = DotProduct(res, z);
 		beta = res_new / res_old;
