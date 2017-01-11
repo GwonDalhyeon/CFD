@@ -525,6 +525,122 @@ inline void FluidSolver2D::InitialCondition(const int & example)
 		isPlot = false;
 	}
 
+	if (example == 4)
+	{
+		/////////////////////////////////////////////////////////
+		/////  A level-set continuum method
+		/////  for two-phase flows with insoluble surfactant
+		/////  --JJ Xu, Y Yang, J Lowengrub--
+		/////  Example 4.3
+		/////////////////////////////////////////////////////////
+		int numP = grid.iRes;
+		double ddx = grid.dx;
+
+		gridU = Grid2D(grid.xMin - grid.dx / 2, grid.xMax + grid.dx / 2, grid.iRes + 1,
+			grid.yMin, grid.yMax, grid.jRes);
+		gridV = Grid2D(grid.xMin, grid.xMax, grid.iRes,
+			grid.yMin - grid.dy / 2, grid.yMax + grid.dy / 2, grid.jRes + 1);
+
+		Pressure = FD(grid);
+		int tempBC = 0;
+		//// Boundary Condition
+		for (int j = Pressure.jStart; j <= Pressure.jEnd; j++)
+		{
+			for (int i = Pressure.iStart; i <= Pressure.iEnd; i++)
+			{
+				Pressure.BC(i, j) = tempBC++;
+			}
+		}
+
+		U = FD(gridU);
+		tempBC = 0;
+		for (int j = U.jStart; j <= U.jEnd; j++)
+		{
+			for (int i = U.iStart; i <= U.iEnd; i++)
+			{
+				U(i, j) = gridU(i, j).y;
+
+				if (i == U.iStart || i == U.iEnd)
+				{
+					U.BC(i, j) = BC_NEUM;
+					continue;
+				}
+				if (j == U.jStart || j == U.jEnd)
+				{
+					U.BC(i, j) = BC_NEUM;
+					continue;
+				}
+				U.BC(i, j) = tempBC++;
+			}
+		}
+		originU = U;
+
+		V = FD(gridV);
+		tempBC = 0;
+		for (int j = V.jStart; j <= V.jEnd; j++)
+		{
+			for (int i = V.iStart; i <= V.iEnd; i++)
+			{
+				if (i == V.iStart || i == V.iEnd)
+				{
+					V.BC(i, j) = BC_NEUM;
+					continue;
+				}
+				if (j == V.jStart || j == V.jEnd)
+				{
+					V.BC(i, j) = BC_NEUM;
+					continue;
+				}
+				V.BC(i, j) = tempBC++;
+			}
+		}
+		originV = V;
+
+		Density = FD(grid);
+		DensityU = FD(gridU);
+		DensityV = FD(gridV);
+		Mu = FD(grid);
+		MuU = FD(gridU);
+		MuV = FD(gridV);
+		Nu = FD(grid);
+
+		//reynoldNum = 1000;
+
+		AdvectionU = FD(gridU);
+		AdvectionV = FD(gridV);
+
+		DiffusionU = FD(gridU);
+		DiffusionV = FD(gridV);
+
+		levelSet = LS(grid);
+
+		Phi = FD(grid);
+		Phixxyy = FD(grid);
+		gradientPx = FD(U.innerGrid);
+		gradientPy = FD(V.innerGrid);
+
+		//// Projection Accuracy Order
+		ProjectionOrder = 1;
+		if (ProjectionOrder == 1)
+		{
+			GenerateLinearSystemPressure(P_CSR);
+		}
+		else if (ProjectionOrder == 2)
+		{
+			GenerateLinearSystemUV2Order(UCN_CSR, VCN_CSR);
+			GenerateLinearSystempPhi2Order(PhiCN_CSR);
+		}
+
+		//cflCondition = 0.1;
+		//dt = cflCondition*grid.dx;
+		//finalT = 10;
+		//maxIteration = int(finalT / dt);
+		//totalT = 0;
+		//writeOutputIteration = 10;
+		//iteration = 0;
+
+		isPlot = false;
+	}
 	if (example == 5)
 	{
 		/////////////////////////////////////////////////////////

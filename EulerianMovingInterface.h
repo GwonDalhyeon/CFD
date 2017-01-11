@@ -547,6 +547,84 @@ inline void MovingInterface::InitialCondition(const int & example)
 	if (example == 8)
 	{
 		/////////////////////////////////////////////////////////
+		/////  A level-set continuum method
+		/////  for two-phase flows with insoluble surfactant
+		/////  --JJ Xu, Y Yang, J Lowengrub--
+		/////  Example 4.3
+		/////////////////////////////////////////////////////////
+		levelSet = LS(grid, 3 * grid.dx);
+		LS levelSet1(grid, 3 * grid.dx);
+		LS levelSet2(grid, 3 * grid.dx);
+		VT center1(-1, 0.25);
+		VT center2(1, -0.25);
+		double x, y;
+#pragma omp parallel for private(x, y)
+		for (int i = grid.iStart; i <= grid.iEnd; i++)
+		{
+			for (int j = grid.jStart; j <= grid.jEnd; j++)
+			{
+				x = grid(i, j).x; y = grid(i, j).y;
+				levelSet1(i, j) = sqrt((x - center1.x)*(x - center1.x) + (y - center1.y)*(y - center1.y)) - 0.5;
+			}
+		}
+#pragma omp parallel for private(x, y)
+		for (int i = grid.iStart; i <= grid.iEnd; i++)
+		{
+			for (int j = grid.jStart; j <= grid.jEnd; j++)
+			{
+				x = grid(i, j).x; y = grid(i, j).y;
+				levelSet2(i, j) = sqrt((x - center2.x)*(x - center2.x) + (y - center2.y)*(y - center2.y)) - 0.5;
+			}
+		}
+
+		levelSet.CombineLevelSet(levelSet1, levelSet2);
+		levelSet.InitialTube();
+
+		Surfactant = FD(grid);
+		int i, j;
+#pragma omp parallel for private(i, j)
+		for (int k = 1; k <= levelSet.numTube; k++)
+		{
+			levelSet.TubeIndex(k, i, j);
+			if (levelSet.tube(i, j) <= 2)
+			{
+				Surfactant(i, j) = 1;
+			}
+		}
+
+		SurfaceTension = FD(grid);
+		double El = Fluid.El;
+		double Xi = Fluid.Xi;
+#pragma omp parallel for
+		for (int i = grid.iStart; i <= grid.iEnd; i++)
+		{
+			for (int j = grid.jStart; j <= grid.jEnd; j++)
+			{
+				if (levelSet.tube(i, j) <= 2)
+				{
+					SurfaceTension(i, j) = 1 + El*log(1 - Xi* Surfactant(i, j));
+				}
+				else
+				{
+					SurfaceTension(i, j) = 1;
+				}
+			}
+		}
+
+		initialSurfactant = IntegralSurfactant();
+
+		AdvectionMethod2D<double>::alpha = 1.5*grid.dx;
+
+		term = Array2D<double>(grid);
+		termOld = Array2D<double>(grid);
+		//cflCondition = 1.0 / 4.0;
+		//dt = cflCondition*min(grid.dx, grid.dy);
+		//totalT = 0;
+	}
+
+	if (example == 9)
+	{
+		/////////////////////////////////////////////////////////
 		/////  Simulations of surfactant effects
 		/////  on the dynamics of coalescing drops and bubbles
 		/////  --DW Martin and F Blanchette--

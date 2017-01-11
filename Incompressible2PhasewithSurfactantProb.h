@@ -129,6 +129,47 @@ inline void InsolubleSurfactant::InitialCondition(const int & example)
 		iteration = 0;
 		totalT = 0;
 	}
+
+	if (example == 2)
+	{
+		cout << "*******************************************************************" << endl;
+		cout << "			       A level-set continuum method  " << endl;
+		cout << "		 for two-phase flows with insoluble surfactant" << endl;
+		cout << "				--JJ Xu, Y Yang, J Lowengrub-- " << endl;
+		cout << "						 Example 1 " << endl;
+		cout << "*******************************************************************" << endl;
+
+		int gridSize = 100;
+		grid = Grid2D(-4, 4, 4* gridSize + 1, -1, 1, gridSize + 1);
+
+		// Initialize Velocity Fields
+		Fluid.InitialCondition(4);
+		ProjectionOrder = 1;
+		reynoldNum = 100;
+		Ca = 0.5;
+		Xi = 0.3;
+		El = 0.2;
+		Pe = 10;
+		cflCondition = 0.25;
+		dt = cflCondition*min(grid.dx, grid.dy);
+
+		singularForce = true;
+		SurfaceForceX = FD(Fluid.gridU);
+		SurfaceForceY = FD(Fluid.gridV);
+		SurfGradSurfTension = FV(grid);
+
+		// Initialize Surfactant Fields
+		InterfaceSurfactant.InitialCondition(8);
+		InterfaceSurfactant.cflCondition = cflCondition;
+		InterfaceSurfactant.dt = dt;
+
+		double finalT = 10;// Up to 5 sec.
+		maxIteration = ceil(finalT / dt);
+		totalT = 0;
+		writeOutputIteration = 30;
+		iteration = 0;
+		totalT = 0;
+	}
 }
 
 inline void InsolubleSurfactant::ContinuumMethodWithSurfactantSolver(const int & example)
@@ -147,10 +188,10 @@ inline void InsolubleSurfactant::ContinuumMethodWithSurfactantSolver(const int &
 
 	MATLAB.Command("figure('units','normalized','outerposition',[0 0 1 1])");
 	Surfactant.Variable("SurTube1");
-	//MATLAB.Command("subplot(2,1,1)");
+	MATLAB.Command("subplot(2,1,1)");
 	PlotSurfactant();
-	//MATLAB.Command("subplot(2,1,2)");
-	//PlotVelocity();
+	MATLAB.Command("subplot(2,1,2)");
+	PlotVelocity();
 	MATLAB.Command("IntSur0 = sum(sum(SurTube1.*(Tube==1)))*(Y(2)-Y(1))*(Y(2)-Y(1));");
 
 	//MATLAB.WriteImage("surfactant", 0, "fig");
@@ -188,9 +229,9 @@ inline void InsolubleSurfactant::ContinuumMethodWithSurfactantSolver(const int &
 
 		if (iteration == 1 || iteration % 10 == 0)
 		{
-			//MATLAB.Command("subplot(2,1,1)");
-			//PlotSurfactant();
-			//MATLAB.Command("subplot(2,1,2)");
+			MATLAB.Command("subplot(2,1,1)");
+			PlotSurfactant();
+			MATLAB.Command("subplot(2,1,2)");
 			PlotVelocity();
 			//MATLAB.WriteImage("surfactant", iteration, "fig");
 			MATLAB.WriteImage("surfactant", iteration, "png");
@@ -572,21 +613,30 @@ inline void InsolubleSurfactant::GenerateLinearSystemUV(VectorND<double>& vector
 
 inline void InsolubleSurfactant::PlotSurfactant()
 {
+	bool lookDown = true;
 	string str;
 
 	Surfactant.Variable("Surfactant");
 	levelSet.tube.Variable("Tube");
 	MATLAB.Command("SurTube1 = Surfactant.*(Tube<=1);");
 	//MATLAB.Command("surf(X,Y,SurTube1), h=colorbar,h.Limits=[0 max(max(SurTube1))],axis equal,axis([X(1) X(end) Y(1) Y(end)]), set(gca,'fontsize',20)");
-	MATLAB.Command("surf(X,Y,Surfactant), h=colorbar,h.Limits=[0 max(max(SurTube1))],axis equal,set(gca,'fontsize',20);");
+	if (lookDown)
+	{
+		MATLAB.Command("surf(X,Y,Surfactant), h=colorbar,h.Limits=[0 max(max(SurTube1))],axis([X(1) X(end) Y(1) Y(end)]),axis equal,set(gca,'fontsize',20);");
+	}
+	else
+	{
+		MATLAB.Command("surf(X,Y,Surfactant), h=colorbar,h.Limits=[0 max(max(SurTube1))],axis equal,set(gca,'fontsize',20);");
+	}
 	//MATLAB.Command("surf(X,Y,Tube),axis equal,set(gca,'fontsize',20)");
 
 	//// Measure Surfactant Loss ////
 	MATLAB.Command("IntSur = sum(sum(SurTube1.*(Tube==1)))*(Y(2)-Y(1))*(Y(2)-Y(1));");
-	MATLAB.Command("loss = (IntSur-IntSur0)/IntSur0*100;");
+	//MATLAB.Command("loss = (IntSur-IntSur0)/IntSur0*100;");
 	MATLAB.Variable("i", iteration);
 	MATLAB.Variable("totalT", totalT);
-	str = string("title(['iteration : ', num2str(i),', time : ', num2str(totalT), ', error(%)  :',num2str(loss),'%']);");
+	//str = string("title(['iteration : ', num2str(i),', time : ', num2str(totalT), ', error(%)  :',num2str(loss),'%']);");
+	str = string("title(['iteration : ', num2str(i),', time : ', num2str(totalT)]);");
 	MATLAB.Command(str.c_str());
 }
 
@@ -606,5 +656,5 @@ inline void InsolubleSurfactant::PlotVelocity()
 	MATLAB.Command(str.c_str());
 	str = string("title(['iteration : ', num2str(") + to_string(iteration) + string("),', time : ', num2str(") + to_string(totalT) + string(")]);");
 	MATLAB.Command(str.c_str());
-	MATLAB.Command("divU =U(:,2:end)-U(:,1:end-1),divV =V(2:end,:)-V(1:end-1,:);div=divU+divV;");
+	//MATLAB.Command("divU =U(:,2:end)-U(:,1:end-1),divV =V(2:end,:)-V(1:end-1,:);div=divU+divV;");
 }

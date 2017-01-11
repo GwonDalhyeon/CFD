@@ -146,28 +146,13 @@ inline void CoalescingDrop::InitialCondition(const int & example)
 			}
 		}
 
-#pragma omp parallel for
-		for (int i = grid.iStart; i <= grid.iEnd; i++)
-		{
-			for (int j = grid.jStart; j <= grid.jEnd; j++)
-			{
-				if (levelSet1(i, j) * levelSet2(i, j) <= 0)
-				{
-					levelSet(i, j) = min(levelSet1(i, j), levelSet2(i, j));
-				}
-				else if (abs(levelSet1(i, j)) < abs(levelSet2(i, j)))
-				{
-					levelSet(i, j) = levelSet1(i, j);
-				}
-				else
-				{
-					levelSet(i, j) = levelSet2(i, j);
-				}
-			}
-		}
+		levelSet.CombineLevelSet(levelSet1, levelSet2);
+		levelSet.InitialTube();
 
-		InterfaceSurfactant.InitialCondition(8);
-
+		InterfaceSurfactant.InitialCondition(9);
+		AdvectionMethod2D<double>::LLSReinitializationTVDRK3(levelSet, 0.4*grid.dx, 10);
+		levelSet.UpdateInterface();
+		levelSet.UpdateLLS();
 
 		//// Initialize Velocity Fields
 		Fluid.InitialCondition(5);

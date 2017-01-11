@@ -114,6 +114,9 @@ public:
 	inline void UpdateLLS();
 
 	inline void TubeIndex(const int&k, int&i, int& j);
+
+	// Combine Two Level Set
+	inline void CombineLevelSet(const LevelSet2D& LV1, const LevelSet2D& LV2);
 private:
 
 };
@@ -1131,6 +1134,21 @@ inline void LevelSet2D::TubeIndex(const int & k, int & i, int & j)
 {
 	i = tubeIndex(k).i;
 	j = tubeIndex(k).j;
+}
+
+inline void LevelSet2D::CombineLevelSet(const LevelSet2D & LV1, const LevelSet2D & LV2)
+{
+	double val1, val2;
+#pragma omp parallel for private (val1, val2)
+	for (int i = grid.iStart; i <= grid.iEnd; i++)
+	{
+		for (int j = grid.jStart; j <= grid.jEnd; j++)
+		{
+			phi(i, j) = min(LV1(i, j), LV2(i, j));
+		}
+	}
+
+
 }
 
 typedef LevelSet2D LS;
