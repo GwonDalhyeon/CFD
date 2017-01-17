@@ -42,7 +42,6 @@ public:
 	void GeneratePoissonMatrixJumpCondi(const FD& ipBeta, const FD& ipF, const FD& ipjCondition1, const FD& ipjCondition2);
 	void GeneratePoissonVectorJumpCondi(const FD& ipBeta, const FD& ipF, const FD& ipjCondition1, const FD& ipjCondition2);
 	void SolvePoissonJumpCondi(int example);
-	void OutputResult();
 
 
 private:
@@ -464,10 +463,7 @@ inline void PoissonSolver::GeneratePoissonVectorJumpCondi(const FD& beta, const 
 	double bGamma = 0;
 	double theta = 0;
 	double tempBeta = 0;
-	//VectorND<double> fL(innerGrid.iRes*innerGrid.jRes);
-	//VectorND<double> fR(innerGrid.iRes*innerGrid.jRes);
-	//VectorND<double> fB(innerGrid.iRes*innerGrid.jRes);
-	//VectorND<double> fT(innerGrid.iRes*innerGrid.jRes);
+
 	double fL, fR, fB, fT;
 
 	VT normalLeft;
@@ -495,15 +491,6 @@ inline void PoissonSolver::GeneratePoissonVectorJumpCondi(const FD& beta, const 
 				bGamma = (jCondition2(i - 1, j) * normalLeft[0] * abs(levelSet(i, j)) + jCondition2(i, j) * normalCenter[0] * abs(levelSet(i - 1, j))) / (abs(levelSet(i - 1, j)) + abs(levelSet(i, j)));
 				tempBeta = beta(i - 1, j) * beta(i, j) * (abs(levelSet(i - 1, j)) + abs(levelSet(i, j))) / (beta(i, j) * abs(levelSet(i - 1, j)) + beta(i - 1, j) * abs(levelSet(i, j)));
 				fL = tempBeta*aGamma / (grid.dx*grid.dx) - tempBeta*bGamma*theta / (beta(i - 1, j) * grid.dx);
-				//fL.values[matIndex] = tempBeta*aGamma / (grid.dx*grid.dx) - tempBeta*bGamma*theta / (beta(i - 1, j) * grid.dx);
-				//cout<<levelSet[i]<<" "<<levelSet[i+1]<<endl;
-				//cout<<i<<" " <<i+1 <<endl;
-				//cout << i<< " "<< fL[i]<<endl;
-				//cout<<"theta"<<theta<<endl;
-				//cout<<"aGamma : "<<aGamma<<endl;
-				//cout<<"bGamma : "<<bGamma<<endl;
-				//cout<<"tempBeta : "<<tempBeta<<endl;
-				//cout<<endl;
 			}
 			else if (levelSet(i - 1, j) <= 0 && levelSet(i, j) > 0)
 			{
@@ -512,15 +499,6 @@ inline void PoissonSolver::GeneratePoissonVectorJumpCondi(const FD& beta, const 
 				bGamma = (jCondition2(i - 1, j) * normalLeft[0] * abs(levelSet(i, j)) + jCondition2(i, j) * normalCenter[0] * abs(levelSet(i - 1, j))) / (abs(levelSet(i - 1, j)) + abs(levelSet(i, j)));
 				tempBeta = beta(i - 1, j) * beta(i, j) * (abs(levelSet(i - 1, j)) + abs(levelSet(i, j))) / (beta(i, j) * abs(levelSet(i - 1, j)) + beta(i - 1, j) * abs(levelSet(i, j)));
 				fL = -tempBeta*aGamma / (grid.dx*grid.dx) + tempBeta*bGamma*theta / (beta(i - 1, j) * grid.dx);
-				//fL.values[matIndex] = -tempBeta*aGamma / (grid.dx*grid.dx) + tempBeta*bGamma*theta / (beta(i - 1, j) * grid.dx);
-				//cout<<levelSet[i]<<" "<<levelSet[i+1]<<endl;
-				//cout<<i<<" " <<i+1 <<endl;
-				//cout << i<< " "<< fL[i]<<endl;
-				//cout<<"theta"<<theta<<endl;
-				//cout<<"aGamma : "<<aGamma<<endl;
-				//cout<<"bGamma : "<<bGamma<<endl;
-				//cout<<"tempBeta : "<<tempBeta<<endl;
-				//cout<<endl;
 			}
 			else
 			{
@@ -534,16 +512,6 @@ inline void PoissonSolver::GeneratePoissonVectorJumpCondi(const FD& beta, const 
 				bGamma = (jCondition2(i, j) * normalCenter[0] * abs(levelSet(i + 1, j)) + jCondition2(i + 1, j) * normalRight[0] * abs(levelSet(i, j))) / (abs(levelSet(i, j)) + abs(levelSet(i + 1, j)));
 				tempBeta = beta(i, j) * beta(i + 1, j) * (abs(levelSet(i, j)) + abs(levelSet(i + 1, j))) / (beta(i + 1, j) * abs(levelSet(i, j)) + beta(i, j) * abs(levelSet(i + 1, j)));
 				fR = tempBeta*aGamma / (grid.dx*grid.dx) + tempBeta*bGamma*theta / (beta(i + 1, j) * grid.dx);
-				//fR.values[matIndex] = tempBeta*aGamma / (grid.dx*grid.dx) + tempBeta*bGamma*theta / (beta(i + 1, j) * grid.dx);
-				//cout<<levelSet[i+1]<<" "<<levelSet[i+1+1]<<endl;
-				//cout<<i+1<<" " <<i+1+1 <<endl;
-				//cout << i<< " "<< fR[i]<<endl;
-				//cout<<"theta"<<theta<<endl;
-				//cout<<"aGamma : "<<aGamma<<endl;
-				//cout<<"bGamma : "<<bGamma<<endl;
-				//cout<<"tempBeta : "<<tempBeta<<endl;
-				//cout<<endl;
-
 			}
 			else if (levelSet(i, j) > 0 && levelSet(i + 1, j) <= 0)
 			{
@@ -552,15 +520,6 @@ inline void PoissonSolver::GeneratePoissonVectorJumpCondi(const FD& beta, const 
 				bGamma = (jCondition2(i, j) * normalCenter[0] * abs(levelSet(i + 1, j)) + jCondition2(i + 1, j) * normalRight[0] * abs(levelSet(i, j))) / (abs(levelSet(i, j)) + abs(levelSet(i + 1, j)));
 				tempBeta = beta(i, j) * beta(i + 1, j) * (abs(levelSet(i, j)) + abs(levelSet(i + 1, j))) / (beta(i + 1, j) * abs(levelSet(i, j)) + beta(i, j) * abs(levelSet(i + 1, j)));
 				fR = -tempBeta*aGamma / (grid.dx*grid.dx) - tempBeta*bGamma*theta / (beta(i + 1, j) * grid.dx);
-				//fR.values[matIndex] = -tempBeta*aGamma / (grid.dx*grid.dx) - tempBeta*bGamma*theta / (beta(i + 1, j) * grid.dx);
-				//cout<<levelSet[i+1]<<" "<<levelSet[i+1+1]<<endl;
-				//cout<<i+1<<" " <<i+1+1 <<endl;
-				//cout << i<< " "<< fR[i]<<endl;
-				//cout<<"theta"<<theta<<endl;
-				//cout<<"aGamma : "<<aGamma<<endl;
-				//cout<<"bGamma : "<<bGamma<<endl;
-				//cout<<"tempBeta : "<<tempBeta<<endl;
-				//cout<<endl;
 			}
 			else
 			{
@@ -574,15 +533,6 @@ inline void PoissonSolver::GeneratePoissonVectorJumpCondi(const FD& beta, const 
 				bGamma = (jCondition2(i, j - 1) * normalBottom[1] * abs(levelSet(i, j)) + jCondition2(i, j) * normalCenter[1] * abs(levelSet(i, j - 1))) / (abs(levelSet(i, j - 1)) + abs(levelSet(i, j)));
 				tempBeta = beta(i, j - 1) * beta(i, j) * (abs(levelSet(i, j - 1)) + abs(levelSet(i, j))) / (beta(i, j) * abs(levelSet(i, j - 1)) + beta(i, j - 1) * abs(levelSet(i, j)));
 				fB = tempBeta*aGamma / (grid.dy*grid.dy) - tempBeta*bGamma*theta / (beta(i, j - 1) * grid.dy);
-				//fB.values[matIndex] = tempBeta*aGamma / (grid.dy*grid.dy) - tempBeta*bGamma*theta / (beta(i, j - 1) * grid.dy);
-				//cout<<levelSet[i]<<" "<<levelSet[i+1]<<endl;
-				//cout<<i<<" " <<i+1 <<endl;
-				//cout << i<< " "<< fL[i]<<endl;
-				//cout<<"theta"<<theta<<endl;
-				//cout<<"aGamma : "<<aGamma<<endl;
-				//cout<<"bGamma : "<<bGamma<<endl;
-				//cout<<"tempBeta : "<<tempBeta<<endl;
-				//cout<<endl;
 			}
 			else if (levelSet(i, j - 1) <= 0 && levelSet(i, j) > 0)
 			{
@@ -591,15 +541,6 @@ inline void PoissonSolver::GeneratePoissonVectorJumpCondi(const FD& beta, const 
 				bGamma = (jCondition2(i, j - 1) * normalBottom[1] * abs(levelSet(i, j)) + jCondition2(i, j) * normalCenter[1] * abs(levelSet(i, j - 1))) / (abs(levelSet(i, j - 1)) + abs(levelSet(i, j)));
 				tempBeta = beta(i, j - 1) * beta(i, j) * (abs(levelSet(i, j - 1)) + abs(levelSet(i, j))) / (beta(i, j) * abs(levelSet(i, j - 1)) + beta(i, j - 1) * abs(levelSet(i, j)));
 				fB = -tempBeta*aGamma / (grid.dy*grid.dy) + tempBeta*bGamma*theta / (beta(i, j - 1) * grid.dy);
-				//fB.values[matIndex] = -tempBeta*aGamma / (grid.dy*grid.dy) + tempBeta*bGamma*theta / (beta(i, j - 1) * grid.dy);
-				//cout<<levelSet[i]<<" "<<levelSet[i+1]<<endl;
-				//cout<<i+1<<" " <<j+1 <<endl;
-				//cout <<fB[matIndex]<<endl;
-				//cout<<"theta"<<theta<<endl;
-				//cout<<"aGamma : "<<aGamma<<endl;
-				//cout<<"bGamma : "<<bGamma<<endl;
-				//cout<<"tempBeta : "<<tempBeta<<endl;
-				//cout<<endl;
 			}
 			else
 			{
@@ -613,16 +554,6 @@ inline void PoissonSolver::GeneratePoissonVectorJumpCondi(const FD& beta, const 
 				bGamma = (jCondition2(i, j) * normalCenter[1] * abs(levelSet(i, j + 1)) + jCondition2(i, j + 1) * normalTop[1] * abs(levelSet(i, j))) / (abs(levelSet(i, j)) + abs(levelSet(i, j + 1)));
 				tempBeta = beta(i, j) * beta(i, j + 1) * (abs(levelSet(i, j)) + abs(levelSet(i, j + 1))) / (beta(i, j + 1) * abs(levelSet(i, j)) + beta(i, j) * abs(levelSet(i, j + 1)));
 				fT = tempBeta*aGamma / (grid.dy*grid.dy) + tempBeta*bGamma*theta / (beta(i, j + 1) * grid.dy);
-				//fT.values[matIndex] = tempBeta*aGamma / (grid.dy*grid.dy) + tempBeta*bGamma*theta / (beta(i, j + 1) * grid.dy);
-				//cout<<levelSet[i+1]<<" "<<levelSet[i+1+1]<<endl;
-				//cout<<i+1<<" " <<j+1 <<endl;
-				//cout << fT[matIndex]<<endl;
-				//cout<<"theta"<<theta<<endl;
-				//cout<<"aGamma : "<<aGamma<<endl;
-				//cout<<"bGamma : "<<bGamma<<endl;
-				//cout<<"tempBeta : "<<tempBeta<<endl;
-				//cout<<endl;
-
 			}
 			else if (levelSet(i, j) > 0 && levelSet(i, j + 1) <= 0)
 			{
@@ -631,15 +562,6 @@ inline void PoissonSolver::GeneratePoissonVectorJumpCondi(const FD& beta, const 
 				bGamma = (jCondition2(i, j) * normalCenter[1] * abs(levelSet(i, j + 1)) + jCondition2(i, j + 1) * normalTop[1] * abs(levelSet(i, j))) / (abs(levelSet(i, j)) + abs(levelSet(i, j + 1)));
 				tempBeta = beta(i, j) * beta(i, j + 1) * (abs(levelSet(i, j)) + abs(levelSet(i, j + 1))) / (beta(i, j + 1) * abs(levelSet(i, j)) + beta(i, j) * abs(levelSet(i, j + 1)));
 				fT = -tempBeta*aGamma / (grid.dy*grid.dy) - tempBeta*bGamma*theta / (beta(i, j + 1) * grid.dy);
-				//fT.values[matIndex] = -tempBeta*aGamma / (grid.dy*grid.dy) - tempBeta*bGamma*theta / (beta(i, j + 1) * grid.dy);
-				//cout<<levelSet[i+1]<<" "<<levelSet[i+1+1]<<endl;
-				//cout<<i+1<<" " <<j+1 <<endl;
-				//cout <<fT[matIndex]<<endl;
-				//cout<<"theta"<<theta<<endl;
-				//cout<<"aGamma : "<<aGamma<<endl;
-				//cout<<"bGamma : "<<bGamma<<endl;
-				//cout<<"tempBeta : "<<tempBeta<<endl;
-				//cout<<endl;
 			}
 			else
 			{
@@ -650,39 +572,6 @@ inline void PoissonSolver::GeneratePoissonVectorJumpCondi(const FD& beta, const 
 		}
 
 	}
-
-	//ofstream ffl, ffr, ffb, fft, bbb, fff;
-	//ffl.open("E:\Data/fl.txt");
-	//ffr.open("E:\Data/fr.txt");
-	//ffb.open("E:\Data/fb.txt");
-	//fft.open("E:\Data/ft.txt");
-	//bbb.open("E:\Data/b.txt");
-	//fff.open("E:\Data/f.txt");
-
-	//for (int j = 0; j < grid.numMatY; j++)
-	//{
-	//	for (int i = 0; i < grid.numMatX; i++)
-	//	{
-	//		ffl<<fL[i+j*grid.numMatX]<< " ";
-	//		ffr<<fB[i+j*grid.numMatX]<< " ";
-	//		ffb<<fB[i+j*grid.numMatX]<< " ";
-	//		fft<<fT[i+j*grid.numMatX]<< " ";
-	//		bbb<<-b[i+j*grid.numMatX]<< " ";
-	//		fff<<f[i+j*grid.numMatX]<< " ";
-	//	}
-	//		ffl<< endl;
-	//		ffr<< endl;
-	//		ffb<< endl;
-	//		fft<< endl;
-	//		bbb<< endl;
-	//		fff<< endl;
-	//}
-	//ffl.close();
-	//ffr.close();
-	//ffb.close();
-	//fft.close();
-	//bbb.close();
-	//fff.close();	
 }
 
 inline void PoissonSolver::SolvePoissonJumpCondi(int example)
@@ -711,25 +600,9 @@ inline void PoissonSolver::SolvePoissonJumpCondi(int example)
 	//poissonVector.Variable("poissonVector");
 	//poissonMatrix.Variable("poissonMatrix");
 
-	int solver = 2;
-	if (solver == 1)
-	{
-		CGSolver::SolverSparse(poissonMatrix, poissonVector, innerSolution);
-	}
-	else if (solver == 2)
-	{
-		VectorND<double> a;
-		VectorND<int> row;
-		VectorND<int> col;
-		int nonzeroNum;
-		CGSolver::SparseA(poissonMatrix, a, row, col, nonzeroNum);
-		CGSolver::SolverSparse(poissonMatrix.iRes, a, row, col, poissonVector, innerSolution);
-	}
-	else
-	{
-		poissonCSR = CSR<double>(poissonMatrix);
-		innerSolution = CGSolver::SolverCSR(poissonCSR, poissonVector);
-	}
+
+	poissonCSR = CSR<double>(poissonMatrix);
+	CGSolver::Solver(poissonCSR, poissonVector, innerSolution);
 
 	#pragma omp parallel for
 	for (int i = innerGrid.iStart; i <= innerGrid.iEnd; i++)
@@ -747,30 +620,4 @@ inline void PoissonSolver::SolvePoissonJumpCondi(int example)
 	MATLAB.Command("P = reshape(poisson,1,size(X,1)*size(X,2))");
 	MATLAB.Command("plot3(x,y,P,'bo');");
 	MATLAB.Command("grid on");
-	//OutputResult();
-
-}
-
-inline void PoissonSolver::OutputResult()
-{
-	//clock_t before;
-	//double  result;
-	//before = clock();
-
-	ofstream solutionFile;
-	solutionFile.open("D:\\Data/poisson.txt", ios::binary);
-
-	for (int i = 0; i < grid.iRes; i++)
-	{
-		for (int j = 0; j < grid.jRes; j++)
-		{
-			solutionFile << i << " " << j << " " << grid(i, j) << " " << solution(i, j) << endl;
-		}
-	}
-
-	solutionFile.close();
-
-	//result = (double)(clock() - before) / CLOCKS_PER_SEC;
-	//cout << "binary : " << result << "\n";
-	////printf("걸린시간은 %5.2f 입니다.\n", result);
 }

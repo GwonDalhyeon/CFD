@@ -349,24 +349,27 @@ inline void LevelSet2D::LComputeNormal(const int & tubeRange)
 inline VT LevelSet2D::ComputeNormal(const int & i, const int & j)
 {
 	VT normal;
-
+	double oneOverdx = phi.oneOverdx;
+	double oneOverdy = phi.oneOverdy;
+	double oneOver2dx = phi.oneOver2dx;
+	double oneOver2dy = phi.oneOver2dy;
 	if (j > phi.jStart && j < phi.jEnd)
 	{
 
 		if (i > phi.iStart && i < phi.iEnd)
 		{
-			normal.values[0] = (phi(i + 1, j) - phi(i - 1, j))*phi.oneOver2dx;
-			normal.values[1] = (phi(i, j + 1) - phi(i, j - 1))*phi.oneOver2dy;
+			normal.values[0] = (phi(i + 1, j) - phi(i - 1, j)) * oneOver2dx;
+			normal.values[1] = (phi(i, j + 1) - phi(i, j - 1)) * oneOver2dy;
 		}
 		else if (i == phi.iStart)
 		{
-			normal.values[0] = (phi(i + 1, j) - phi(i, j))*phi.oneOverdx;
-			normal.values[1] = (phi(i, j + 1) - phi(i, j - 1))*phi.oneOver2dy;
+			normal.values[0] = (phi(i + 1, j) - phi(i, j)) * oneOverdx;
+			normal.values[1] = (phi(i, j + 1) - phi(i, j - 1)) * oneOver2dy;
 		}
 		else if (i == phi.iEnd)
 		{
-			normal.values[0] = (phi(i, j) - phi(i - 1, j))*phi.oneOverdx;
-			normal.values[1] = (phi(i, j + 1) - phi(i, j - 1))*phi.oneOver2dy;
+			normal.values[0] = (phi(i, j) - phi(i - 1, j)) * oneOverdx;
+			normal.values[1] = (phi(i, j + 1) - phi(i, j - 1)) * oneOver2dy;
 		}
 		else
 		{
@@ -378,18 +381,18 @@ inline VT LevelSet2D::ComputeNormal(const int & i, const int & j)
 
 		if (i > phi.iStart && i < phi.iEnd)
 		{
-			normal.values[0] = (phi(i + 1, j) - phi(i - 1, j))*phi.oneOver2dx;;
-			normal.values[1] = (phi(i, j + 1) - phi(i, j))*phi.oneOverdy;
+			normal.values[0] = (phi(i + 1, j) - phi(i - 1, j)) * oneOver2dx;;
+			normal.values[1] = (phi(i, j + 1) - phi(i, j)) * oneOverdy;
 		}
 		else if (i == phi.iStart)
 		{
-			normal.values[0] = (phi(i + 1, j) - phi(i, j))*phi.oneOverdx;
-			normal.values[1] = (phi(i, j + 1) - phi(i, j))*phi.oneOverdy;
+			normal.values[0] = (phi(i + 1, j) - phi(i, j)) * oneOverdx;
+			normal.values[1] = (phi(i, j + 1) - phi(i, j)) * oneOverdy;
 		}
 		else if (i == phi.iEnd)
 		{
-			normal.values[0] = (phi(i, j) - phi(i - 1, j))*phi.oneOverdx;
-			normal.values[1] = (phi(i, j + 1) - phi(i, j))*phi.oneOverdy;
+			normal.values[0] = (phi(i, j) - phi(i - 1, j)) * oneOverdx;
+			normal.values[1] = (phi(i, j + 1) - phi(i, j)) * oneOverdy;
 		}
 		else
 		{
@@ -402,18 +405,18 @@ inline VT LevelSet2D::ComputeNormal(const int & i, const int & j)
 
 		if (i > phi.iStart && i < phi.iEnd)
 		{
-			normal.values[0] = (phi(i + 1, j) - phi(i - 1, j))*phi.oneOver2dx;;
-			normal.values[1] = (phi(i, j) - phi(i, j - 1))*phi.oneOverdy;
+			normal.values[0] = (phi(i + 1, j) - phi(i - 1, j)) * oneOver2dx;;
+			normal.values[1] = (phi(i, j) - phi(i, j - 1)) * oneOverdy;
 		}
 		else if (i == phi.iStart)
 		{
-			normal.values[0] = (phi(i + 1, j) - phi(i, j))*phi.oneOverdx;
-			normal.values[1] = (phi(i, j) - phi(i, j - 1))*phi.oneOverdy;
+			normal.values[0] = (phi(i + 1, j) - phi(i, j)) * oneOverdx;
+			normal.values[1] = (phi(i, j) - phi(i, j - 1)) * oneOverdy;
 		}
 		else if (i == phi.iEnd)
 		{
-			normal.values[0] = (phi(i, j) - phi(i - 1, j))*phi.oneOverdx;
-			normal.values[1] = (phi(i, j) - phi(i, j - 1))*phi.oneOverdy;
+			normal.values[0] = (phi(i, j) - phi(i - 1, j)) * oneOverdx;
+			normal.values[1] = (phi(i, j) - phi(i, j - 1)) * oneOverdy;
 		}
 		else
 		{
@@ -483,24 +486,27 @@ inline void LevelSet2D::LComputeUnitNormal(const int & tubeRange)
 inline VT LevelSet2D::ComputeUnitNormal(const int & i, const int & j)
 {
 	VT normal;
-
+	double oneOverdx = phi.oneOverdx;
+	double oneOverdy = phi.oneOverdy;
+	double oneOver2dx = phi.oneOver2dx;
+	double oneOver2dy = phi.oneOver2dy;
 	if (j > phi.jStart && j < phi.jEnd)
 	{
 
 		if (i > phi.iStart && i < phi.iEnd)
 		{
-			normal.values[0] = (phi(i + 1, j) - phi(i - 1, j)) * phi.oneOver2dx;
-			normal.values[1] = (phi(i, j + 1) - phi(i, j - 1)) * phi.oneOver2dy;
+			normal.values[0] = (phi(i + 1, j) - phi(i - 1, j)) * oneOver2dx;
+			normal.values[1] = (phi(i, j + 1) - phi(i, j - 1)) * oneOver2dy;
 		}
 		else if (i == phi.iStart)
 		{
-			normal.values[0] = (phi(i + 1, j) - phi(i, j)) * phi.oneOverdx;
-			normal.values[1] = (phi(i, j + 1) - phi(i, j - 1)) * phi.oneOver2dy;
+			normal.values[0] = (phi(i + 1, j) - phi(i, j)) * oneOverdx;
+			normal.values[1] = (phi(i, j + 1) - phi(i, j - 1)) * oneOver2dy;
 		}
 		else if (i == phi.iEnd)
 		{
-			normal.values[0] = (phi(i, j) - phi(i - 1, j)) * phi.oneOverdx;
-			normal.values[1] = (phi(i, j + 1) - phi(i, j - 1)) * phi.oneOver2dy;
+			normal.values[0] = (phi(i, j) - phi(i - 1, j)) * oneOverdx;
+			normal.values[1] = (phi(i, j + 1) - phi(i, j - 1)) * oneOver2dy;
 		}
 		else
 		{
@@ -512,18 +518,18 @@ inline VT LevelSet2D::ComputeUnitNormal(const int & i, const int & j)
 
 		if (i > phi.iStart && i < phi.iEnd)
 		{
-			normal.values[0] = (phi(i + 1, j) - phi(i - 1, j))  * phi.oneOver2dx;
-			normal.values[1] = (phi(i, j + 1) - phi(i, j)) * phi.oneOverdy;
+			normal.values[0] = (phi(i + 1, j) - phi(i - 1, j))  * oneOver2dx;
+			normal.values[1] = (phi(i, j + 1) - phi(i, j)) * oneOverdy;
 		}
 		else if (i == phi.iStart)
 		{
-			normal.values[0] = (phi(i + 1, j) - phi(i, j)) * phi.oneOverdx;
-			normal.values[1] = (phi(i, j + 1) - phi(i, j)) * phi.oneOverdy;
+			normal.values[0] = (phi(i + 1, j) - phi(i, j)) * oneOverdx;
+			normal.values[1] = (phi(i, j + 1) - phi(i, j)) * oneOverdy;
 		}
 		else if (i == phi.iEnd)
 		{
-			normal.values[0] = (phi(i, j) - phi(i - 1, j)) * phi.oneOverdx;
-			normal.values[1] = (phi(i, j + 1) - phi(i, j)) * phi.oneOverdy;
+			normal.values[0] = (phi(i, j) - phi(i - 1, j)) * oneOverdx;
+			normal.values[1] = (phi(i, j + 1) - phi(i, j)) * oneOverdy;
 		}
 		else
 		{
@@ -536,24 +542,23 @@ inline VT LevelSet2D::ComputeUnitNormal(const int & i, const int & j)
 
 		if (i > phi.iStart && i < phi.iEnd)
 		{
-			normal.values[0] = (phi(i + 1, j) - phi(i - 1, j)) * phi.oneOver2dx;
-			normal.values[1] = (phi(i, j) - phi(i, j - 1)) * phi.oneOverdy;
+			normal.values[0] = (phi(i + 1, j) - phi(i - 1, j)) * oneOver2dx;
+			normal.values[1] = (phi(i, j) - phi(i, j - 1)) * oneOverdy;
 		}
 		else if (i == phi.iStart)
 		{
-			normal.values[0] = (phi(i + 1, j) - phi(i, j)) * phi.oneOverdx;
-			normal.values[1] = (phi(i, j) - phi(i, j - 1)) * phi.oneOverdy;
+			normal.values[0] = (phi(i + 1, j) - phi(i, j)) * oneOverdx;
+			normal.values[1] = (phi(i, j) - phi(i, j - 1)) * oneOverdy;
 		}
 		else if (i == phi.iEnd)
 		{
-			normal.values[0] = (phi(i, j) - phi(i - 1, j)) * phi.oneOverdx;
-			normal.values[1] = (phi(i, j) - phi(i, j - 1)) * phi.oneOverdy;
+			normal.values[0] = (phi(i, j) - phi(i - 1, j)) * oneOverdx;
+			normal.values[1] = (phi(i, j) - phi(i, j - 1)) * oneOverdy;
 		}
 		else
 		{
 			cout << "Level set unitNormal error." << endl;
 		}
-
 	}
 	else
 	{
@@ -947,6 +952,8 @@ inline double LevelSet2D::Cutoff23(const int & i, const int & j)
 
 inline void LevelSet2D::InitialTube()
 {
+	int iStart = grid.iStart, iEnd = grid.iEnd, jStart = grid.jStart, jEnd = grid.jEnd;
+
 	numTube = 0;
 	numTube1 = 0;
 	double absConst;
@@ -964,6 +971,10 @@ inline void LevelSet2D::InitialTube()
 				if (absConst < gamma2)
 				{
 					tube(i, j) = 2;
+					if (i == iStart || i == iEnd || j == jStart || j == jEnd)
+					{
+						continue;
+					}
 					if (absConst < gamma1)
 					{
 						tube(i, j) = 1;
@@ -1022,6 +1033,7 @@ inline void LevelSet2D::UpdateInterface(const double & ipGamma1, const double & 
 	gamma1 = ipGamma1;
 	gamma2 = ipGamma2;
 	gamma3 = ipGamma3;
+	int iStart = grid.iStart, iEnd = grid.iEnd, jStart = grid.jStart, jEnd = grid.jEnd;
 	int tempNumTube = numTube;
 	tube = 0;
 	numTube = 0;
@@ -1046,6 +1058,10 @@ inline void LevelSet2D::UpdateInterface(const double & ipGamma1, const double & 
 				tubeIJ2K(i, j) = numTube;
 				tube1Index(numTube) = 0;
 				tube1(i, j) = 0;
+				if (i == iStart || i == iEnd || j == jStart || j == jEnd)
+				{
+					continue;
+				}
 				if (absConst <= gamma1)
 				{
 					tube(i, j) = 1;
@@ -1147,8 +1163,6 @@ inline void LevelSet2D::CombineLevelSet(const LevelSet2D & LV1, const LevelSet2D
 			phi(i, j) = min(LV1(i, j), LV2(i, j));
 		}
 	}
-
-
 }
 
 typedef LevelSet2D LS;

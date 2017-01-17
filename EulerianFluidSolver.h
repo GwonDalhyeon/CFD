@@ -45,7 +45,7 @@ public:
 
 	int iteration;
 
-	double reynoldNum = 1;
+	double Re = 1;
 	double Ca = 1;
 	double Xi = 1;
 	double El = 1;
@@ -222,7 +222,7 @@ inline void EulerianFluidSolver2D::InitialCondition(const int & example)
 		//// Accuracy Order
 		accuracyOrder = 1;
 
-		reynoldNum = 1000;
+		Re = 1000;
 		cflCondition = 0.1;
 
 		double finalT = 2;
@@ -299,7 +299,7 @@ inline void EulerianFluidSolver2D::InitialCondition(const int & example)
 
 		//// Accuracy Order
 		accuracyOrder = 2;
-		reynoldNum = 100;
+		Re = 100;
 		cflCondition = 0.5;
 
 		dt = cflCondition*gridP.dx;
@@ -443,7 +443,7 @@ inline void EulerianFluidSolver2D::InitialCondition(const int & example)
 
 		//// Accuracy Order
 		accuracyOrder = 2;
-		reynoldNum = 1000;
+		Re = 1000;
 		cflCondition = 0.5;
 
 		dt = cflCondition*gridP.dx;
@@ -896,7 +896,7 @@ inline void EulerianFluidSolver2D::EulerMethod1()
 	{
 		for (int j = U.jStartI; j <= U.jEndI; j++)
 		{
-			K1U(i, j) = dt*(-advectionU(i, j) + 1. / reynoldNum*diffusionU(i, j));
+			K1U(i, j) = dt*(-advectionU(i, j) + 1. / Re*diffusionU(i, j));
 			U(i, j) = U(i, j) + K1U(i, j);
 		}
 	}
@@ -905,7 +905,7 @@ inline void EulerianFluidSolver2D::EulerMethod1()
 	{
 		for (int j = V.jStartI; j <= V.jEndI; j++)
 		{
-			K1V(i, j) = dt*(-advectionV(i, j) + 1. / reynoldNum*diffusionV(i, j));
+			K1V(i, j) = dt*(-advectionV(i, j) + 1. / Re*diffusionV(i, j));
 			V(i, j) = V(i, j) + K1V(i, j);
 		}
 	}
@@ -1391,7 +1391,7 @@ inline void EulerianFluidSolver2D::EulerMethod2ndOrder3()
 		for (int j = gradientPx.grid.jStart; j <= gradientPx.grid.jEnd; j++)
 		{
 			gradientPx(i, j) = gradientPx(i, j) + (Phi(i, j) - Phi(i - 1, j))*Phi.oneOverdx
-				- viscosity / reynoldNum*dt / 2.0 * (Phixxyy(i, j) - Phixxyy(i - 1, j))*Phixxyy.oneOverdx;
+				- viscosity / Re*dt / 2.0 * (Phixxyy(i, j) - Phixxyy(i - 1, j))*Phixxyy.oneOverdx;
 		}
 	}
 #pragma omp parallel for
@@ -1400,7 +1400,7 @@ inline void EulerianFluidSolver2D::EulerMethod2ndOrder3()
 		for (int j = gradientPy.grid.jStart; j <= gradientPy.grid.jEnd; j++)
 		{
 			gradientPy(i, j) = gradientPy(i, j) + (Phi(i, j) - Phi(i, j - 1))*Phi.oneOverdy
-				- viscosity / reynoldNum*dt / 2.0 * (Phixxyy(i, j) - Phixxyy(i, j - 1))*Phixxyy.oneOverdy;
+				- viscosity / Re*dt / 2.0 * (Phixxyy(i, j) - Phixxyy(i, j - 1))*Phixxyy.oneOverdy;
 		}
 	}
 
@@ -1504,22 +1504,22 @@ inline void EulerianFluidSolver2D::GenerateLinearSystemUV(Array2D<double>& matri
 			{
 				if (i == innerIStart)
 				{
-					matrixA(index) = scaling*(1 + dt / reynoldNum * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
-					matrixA(rightIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdx2;
-					matrixA(topIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdy2;
+					matrixA(index) = scaling*(1 + dt / Re * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
+					matrixA(rightIndex) = scaling * -1. / 2. * dt / Re * ipGrid.oneOverdx2;
+					matrixA(topIndex) = scaling * -1. / 2. * dt / Re * ipGrid.oneOverdy2;
 				}
 				else if (i == innerIEnd)
 				{
-					matrixA(index) = scaling*(1 + dt / reynoldNum * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
-					matrixA(leftIndex) = scaling * -1. / 2. * dt / reynoldNum *ipGrid.oneOverdx2;
-					matrixA(topIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdy2;
+					matrixA(index) = scaling*(1 + dt / Re * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
+					matrixA(leftIndex) = scaling * -1. / 2. * dt / Re *ipGrid.oneOverdx2;
+					matrixA(topIndex) = scaling * -1. / 2. * dt / Re * ipGrid.oneOverdy2;
 				}
 				else
 				{
-					matrixA(index) = scaling*(1 + dt / reynoldNum * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
-					matrixA(leftIndex) = scaling * -1. / 2. * dt / reynoldNum *ipGrid.oneOverdx2;
-					matrixA(rightIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdx2;
-					matrixA(topIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdy2;
+					matrixA(index) = scaling*(1 + dt / Re * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
+					matrixA(leftIndex) = scaling * -1. / 2. * dt / Re *ipGrid.oneOverdx2;
+					matrixA(rightIndex) = scaling * -1. / 2. * dt / Re * ipGrid.oneOverdx2;
+					matrixA(topIndex) = scaling * -1. / 2. * dt / Re * ipGrid.oneOverdy2;
 				}
 
 			}
@@ -1527,27 +1527,27 @@ inline void EulerianFluidSolver2D::GenerateLinearSystemUV(Array2D<double>& matri
 			{
 				if (i == innerIStart)
 				{
-					matrixA(index) = scaling*(1 + dt / reynoldNum * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
-					matrixA(rightIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdx2;
-					matrixA(bottomIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdy2;
-					matrixA(topIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdy2;
+					matrixA(index) = scaling*(1 + dt / Re * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
+					matrixA(rightIndex) = scaling * -1. / 2. * dt / Re * ipGrid.oneOverdx2;
+					matrixA(bottomIndex) = scaling * -1. / 2. * dt / Re * ipGrid.oneOverdy2;
+					matrixA(topIndex) = scaling * -1. / 2. * dt / Re * ipGrid.oneOverdy2;
 
 				}
 				else if (i == innerIEnd)
 				{
-					matrixA(index) = scaling*(1 + dt / reynoldNum * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
-					matrixA(leftIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdx2;
-					matrixA(bottomIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdy2;
-					matrixA(topIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdy2;
+					matrixA(index) = scaling*(1 + dt / Re * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
+					matrixA(leftIndex) = scaling * -1. / 2. * dt / Re * ipGrid.oneOverdx2;
+					matrixA(bottomIndex) = scaling * -1. / 2. * dt / Re * ipGrid.oneOverdy2;
+					matrixA(topIndex) = scaling * -1. / 2. * dt / Re * ipGrid.oneOverdy2;
 
 				}
 				else
 				{
-					matrixA(index) = scaling*(1 + dt / reynoldNum * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
-					matrixA(leftIndex) = scaling * -1. / 2. * dt / reynoldNum *ipGrid.oneOverdx2;
-					matrixA(rightIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdx2;
-					matrixA(bottomIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdy2;
-					matrixA(topIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdy2;
+					matrixA(index) = scaling*(1 + dt / Re * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
+					matrixA(leftIndex) = scaling * -1. / 2. * dt / Re *ipGrid.oneOverdx2;
+					matrixA(rightIndex) = scaling * -1. / 2. * dt / Re * ipGrid.oneOverdx2;
+					matrixA(bottomIndex) = scaling * -1. / 2. * dt / Re * ipGrid.oneOverdy2;
+					matrixA(topIndex) = scaling * -1. / 2. * dt / Re * ipGrid.oneOverdy2;
 				}
 
 			}
@@ -1555,22 +1555,22 @@ inline void EulerianFluidSolver2D::GenerateLinearSystemUV(Array2D<double>& matri
 			{
 				if (i == innerIStart)
 				{
-					matrixA(index) = scaling*(1 + dt / reynoldNum * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
-					matrixA(rightIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdx2;
-					matrixA(bottomIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdy2;
+					matrixA(index) = scaling*(1 + dt / Re * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
+					matrixA(rightIndex) = scaling * -1. / 2. * dt / Re * ipGrid.oneOverdx2;
+					matrixA(bottomIndex) = scaling * -1. / 2. * dt / Re * ipGrid.oneOverdy2;
 				}
 				else if (i == innerIEnd)
 				{
-					matrixA(index) = scaling*(1 + dt / reynoldNum * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
-					matrixA(leftIndex) = scaling * -1. / 2. * dt / reynoldNum *ipGrid.oneOverdx2;
-					matrixA(bottomIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdy2;
+					matrixA(index) = scaling*(1 + dt / Re * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
+					matrixA(leftIndex) = scaling * -1. / 2. * dt / Re *ipGrid.oneOverdx2;
+					matrixA(bottomIndex) = scaling * -1. / 2. * dt / Re * ipGrid.oneOverdy2;
 				}
 				else
 				{
-					matrixA(index) = scaling*(1 + dt / reynoldNum * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
-					matrixA(leftIndex) = scaling * -1. / 2. * dt / reynoldNum *ipGrid.oneOverdx2;
-					matrixA(rightIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdx2;
-					matrixA(bottomIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdy2;
+					matrixA(index) = scaling*(1 + dt / Re * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
+					matrixA(leftIndex) = scaling * -1. / 2. * dt / Re *ipGrid.oneOverdx2;
+					matrixA(rightIndex) = scaling * -1. / 2. * dt / Re * ipGrid.oneOverdx2;
+					matrixA(bottomIndex) = scaling * -1. / 2. * dt / Re * ipGrid.oneOverdy2;
 				}
 			}
 		}
@@ -1610,70 +1610,70 @@ inline void EulerianFluidSolver2D::GenerateLinearSystemUV(Array2D<double>& matri
 			{
 				if (i == innerIStart)
 				{
-					matrixA(index) = scaling*(1 + dt / reynoldNum * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
-					matrixA(rightIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdx2;
-					matrixA(topIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdy2;
+					matrixA(index) = scaling*(1 + dt / Re * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
+					matrixA(rightIndex) = scaling * -1. / 2. * dt / Re * ipGrid.oneOverdx2;
+					matrixA(topIndex) = scaling * -1. / 2. * dt / Re * ipGrid.oneOverdy2;
 				}
 				else if (i == innerIEnd)
 				{
-					matrixA(index) = scaling*(1 + dt / reynoldNum * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
-					matrixA(leftIndex) = scaling * -1. / 2. * dt / reynoldNum *ipGrid.oneOverdx2;
-					matrixA(topIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdy2;
+					matrixA(index) = scaling*(1 + dt / Re * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
+					matrixA(leftIndex) = scaling * -1. / 2. * dt / Re *ipGrid.oneOverdx2;
+					matrixA(topIndex) = scaling * -1. / 2. * dt / Re * ipGrid.oneOverdy2;
 				}
 				else
 				{
-					matrixA(index) = scaling*(1 + dt / reynoldNum * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
-					matrixA(leftIndex) = scaling * -1. / 2. * dt / reynoldNum *ipGrid.oneOverdx2;
-					matrixA(rightIndex) = scaling * -1. / 2. * dt / reynoldNum* ipGrid.oneOverdx2;
-					matrixA(topIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdy2;
+					matrixA(index) = scaling*(1 + dt / Re * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
+					matrixA(leftIndex) = scaling * -1. / 2. * dt / Re *ipGrid.oneOverdx2;
+					matrixA(rightIndex) = scaling * -1. / 2. * dt / Re* ipGrid.oneOverdx2;
+					matrixA(topIndex) = scaling * -1. / 2. * dt / Re * ipGrid.oneOverdy2;
 				}
 			}
 			else if (j > innerJStart && j < innerJEnd)
 			{
 				if (i == innerIStart)
 				{
-					matrixA(index) = scaling*(1 + dt / reynoldNum * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
-					matrixA(rightIndex) = scaling * -1. / 2. * dt / reynoldNum* ipGrid.oneOverdx2;
-					matrixA(bottomIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdy2;
-					matrixA(topIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdy2;
+					matrixA(index) = scaling*(1 + dt / Re * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
+					matrixA(rightIndex) = scaling * -1. / 2. * dt / Re* ipGrid.oneOverdx2;
+					matrixA(bottomIndex) = scaling * -1. / 2. * dt / Re * ipGrid.oneOverdy2;
+					matrixA(topIndex) = scaling * -1. / 2. * dt / Re * ipGrid.oneOverdy2;
 
 				}
 				else if (i == innerIEnd)
 				{
-					matrixA(index) = scaling*(1 + dt / reynoldNum * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
-					matrixA(leftIndex) = scaling * -1. / 2. * dt / reynoldNum *ipGrid.oneOverdx2;
-					matrixA(bottomIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdy2;
-					matrixA(topIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdy2;
+					matrixA(index) = scaling*(1 + dt / Re * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
+					matrixA(leftIndex) = scaling * -1. / 2. * dt / Re *ipGrid.oneOverdx2;
+					matrixA(bottomIndex) = scaling * -1. / 2. * dt / Re * ipGrid.oneOverdy2;
+					matrixA(topIndex) = scaling * -1. / 2. * dt / Re * ipGrid.oneOverdy2;
 				}
 				else
 				{
-					matrixA(index) = scaling*(1 + dt / reynoldNum * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
-					matrixA(leftIndex) = scaling * -1. / 2. * dt / reynoldNum *ipGrid.oneOverdx2;
-					matrixA(rightIndex) = scaling * -1. / 2. * dt / reynoldNum* ipGrid.oneOverdx2;
-					matrixA(bottomIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdy2;
-					matrixA(topIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdy2;
+					matrixA(index) = scaling*(1 + dt / Re * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
+					matrixA(leftIndex) = scaling * -1. / 2. * dt / Re *ipGrid.oneOverdx2;
+					matrixA(rightIndex) = scaling * -1. / 2. * dt / Re* ipGrid.oneOverdx2;
+					matrixA(bottomIndex) = scaling * -1. / 2. * dt / Re * ipGrid.oneOverdy2;
+					matrixA(topIndex) = scaling * -1. / 2. * dt / Re * ipGrid.oneOverdy2;
 				}
 			}
 			else if (j == innerJEnd)
 			{
 				if (i == innerIStart)
 				{
-					matrixA(index) = scaling*(1 + dt / reynoldNum * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
-					matrixA(rightIndex) = scaling * -1. / 2. * dt / reynoldNum* ipGrid.oneOverdx2;
-					matrixA(bottomIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdy2;
+					matrixA(index) = scaling*(1 + dt / Re * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
+					matrixA(rightIndex) = scaling * -1. / 2. * dt / Re* ipGrid.oneOverdx2;
+					matrixA(bottomIndex) = scaling * -1. / 2. * dt / Re * ipGrid.oneOverdy2;
 				}
 				else if (i == innerIEnd)
 				{
-					matrixA(index) = scaling*(1 + dt / reynoldNum * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
-					matrixA(leftIndex) = scaling * -1. / 2. * dt / reynoldNum *ipGrid.oneOverdx2;
-					matrixA(bottomIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdy2;
+					matrixA(index) = scaling*(1 + dt / Re * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
+					matrixA(leftIndex) = scaling * -1. / 2. * dt / Re *ipGrid.oneOverdx2;
+					matrixA(bottomIndex) = scaling * -1. / 2. * dt / Re * ipGrid.oneOverdy2;
 				}
 				else
 				{
-					matrixA(index) = scaling*(1 + dt / reynoldNum * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
-					matrixA(leftIndex) = scaling * -1. / 2. * dt / reynoldNum *ipGrid.oneOverdx2;
-					matrixA(rightIndex) = scaling * -1. / 2. * dt / reynoldNum* ipGrid.oneOverdx2;
-					matrixA(bottomIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdy2;
+					matrixA(index) = scaling*(1 + dt / Re * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
+					matrixA(leftIndex) = scaling * -1. / 2. * dt / Re *ipGrid.oneOverdx2;
+					matrixA(rightIndex) = scaling * -1. / 2. * dt / Re* ipGrid.oneOverdx2;
+					matrixA(bottomIndex) = scaling * -1. / 2. * dt / Re * ipGrid.oneOverdy2;
 				}
 
 			}
@@ -1716,70 +1716,70 @@ inline void EulerianFluidSolver2D::GenerateLinearSystemUV(const Grid2D & ipGrid,
 			{
 				if (i == innerIStart)
 				{
-					matrixA(index) = scaling*(1 + dt / reynoldNum * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
-					matrixA(rightIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdx2;
-					matrixA(topIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdy2;
+					matrixA(index) = scaling*(1 + dt / Re * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
+					matrixA(rightIndex) = scaling * -1. / 2. * dt / Re * ipGrid.oneOverdx2;
+					matrixA(topIndex) = scaling * -1. / 2. * dt / Re * ipGrid.oneOverdy2;
 				}
 				else if (i == innerIEnd)
 				{
-					matrixA(index) = scaling*(1 + dt / reynoldNum * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
-					matrixA(leftIndex) = scaling * -1. / 2. * dt / reynoldNum *ipGrid.oneOverdx2;
-					matrixA(topIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdy2;
+					matrixA(index) = scaling*(1 + dt / Re * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
+					matrixA(leftIndex) = scaling * -1. / 2. * dt / Re *ipGrid.oneOverdx2;
+					matrixA(topIndex) = scaling * -1. / 2. * dt / Re * ipGrid.oneOverdy2;
 				}
 				else
 				{
-					matrixA(index) = scaling*(1 + dt / reynoldNum * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
-					matrixA(leftIndex) = scaling * -1. / 2. * dt / reynoldNum *ipGrid.oneOverdx2;
-					matrixA(rightIndex) = scaling * -1. / 2. * dt / reynoldNum* ipGrid.oneOverdx2;
-					matrixA(topIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdy2;
+					matrixA(index) = scaling*(1 + dt / Re * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
+					matrixA(leftIndex) = scaling * -1. / 2. * dt / Re *ipGrid.oneOverdx2;
+					matrixA(rightIndex) = scaling * -1. / 2. * dt / Re* ipGrid.oneOverdx2;
+					matrixA(topIndex) = scaling * -1. / 2. * dt / Re * ipGrid.oneOverdy2;
 				}
 			}
 			else if (j > innerJStart && j < innerJEnd)
 			{
 				if (i == innerIStart)
 				{
-					matrixA(index) = scaling*(1 + dt / reynoldNum * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
-					matrixA(rightIndex) = scaling * -1. / 2. * dt / reynoldNum* ipGrid.oneOverdx2;
-					matrixA(bottomIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdy2;
-					matrixA(topIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdy2;
+					matrixA(index) = scaling*(1 + dt / Re * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
+					matrixA(rightIndex) = scaling * -1. / 2. * dt / Re* ipGrid.oneOverdx2;
+					matrixA(bottomIndex) = scaling * -1. / 2. * dt / Re * ipGrid.oneOverdy2;
+					matrixA(topIndex) = scaling * -1. / 2. * dt / Re * ipGrid.oneOverdy2;
 
 				}
 				else if (i == innerIEnd)
 				{
-					matrixA(index) = scaling*(1 + dt / reynoldNum * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
-					matrixA(leftIndex) = scaling * -1. / 2. * dt / reynoldNum *ipGrid.oneOverdx2;
-					matrixA(bottomIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdy2;
-					matrixA(topIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdy2;
+					matrixA(index) = scaling*(1 + dt / Re * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
+					matrixA(leftIndex) = scaling * -1. / 2. * dt / Re *ipGrid.oneOverdx2;
+					matrixA(bottomIndex) = scaling * -1. / 2. * dt / Re * ipGrid.oneOverdy2;
+					matrixA(topIndex) = scaling * -1. / 2. * dt / Re * ipGrid.oneOverdy2;
 				}
 				else
 				{
-					matrixA(index) = scaling*(1 + dt / reynoldNum * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
-					matrixA(leftIndex) = scaling * -1. / 2. * dt / reynoldNum *ipGrid.oneOverdx2;
-					matrixA(rightIndex) = scaling * -1. / 2. * dt / reynoldNum* ipGrid.oneOverdx2;
-					matrixA(bottomIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdy2;
-					matrixA(topIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdy2;
+					matrixA(index) = scaling*(1 + dt / Re * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
+					matrixA(leftIndex) = scaling * -1. / 2. * dt / Re *ipGrid.oneOverdx2;
+					matrixA(rightIndex) = scaling * -1. / 2. * dt / Re* ipGrid.oneOverdx2;
+					matrixA(bottomIndex) = scaling * -1. / 2. * dt / Re * ipGrid.oneOverdy2;
+					matrixA(topIndex) = scaling * -1. / 2. * dt / Re * ipGrid.oneOverdy2;
 				}
 			}
 			else if (j == innerJEnd)
 			{
 				if (i == innerIStart)
 				{
-					matrixA(index) = scaling*(1 + dt / reynoldNum * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
-					matrixA(rightIndex) = scaling * -1. / 2. * dt / reynoldNum* ipGrid.oneOverdx2;
-					matrixA(bottomIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdy2;
+					matrixA(index) = scaling*(1 + dt / Re * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
+					matrixA(rightIndex) = scaling * -1. / 2. * dt / Re* ipGrid.oneOverdx2;
+					matrixA(bottomIndex) = scaling * -1. / 2. * dt / Re * ipGrid.oneOverdy2;
 				}
 				else if (i == innerIEnd)
 				{
-					matrixA(index) = scaling*(1 + dt / reynoldNum * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
-					matrixA(leftIndex) = scaling * -1. / 2. * dt / reynoldNum *ipGrid.oneOverdx2;
-					matrixA(bottomIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdy2;
+					matrixA(index) = scaling*(1 + dt / Re * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
+					matrixA(leftIndex) = scaling * -1. / 2. * dt / Re *ipGrid.oneOverdx2;
+					matrixA(bottomIndex) = scaling * -1. / 2. * dt / Re * ipGrid.oneOverdy2;
 				}
 				else
 				{
-					matrixA(index) = scaling*(1 + dt / reynoldNum * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
-					matrixA(leftIndex) = scaling * -1. / 2. * dt / reynoldNum *ipGrid.oneOverdx2;
-					matrixA(rightIndex) = scaling * -1. / 2. * dt / reynoldNum* ipGrid.oneOverdx2;
-					matrixA(bottomIndex) = scaling * -1. / 2. * dt / reynoldNum * ipGrid.oneOverdy2;
+					matrixA(index) = scaling*(1 + dt / Re * (ipGrid.oneOverdx2 + ipGrid.oneOverdy2));
+					matrixA(leftIndex) = scaling * -1. / 2. * dt / Re *ipGrid.oneOverdx2;
+					matrixA(rightIndex) = scaling * -1. / 2. * dt / Re* ipGrid.oneOverdx2;
+					matrixA(bottomIndex) = scaling * -1. / 2. * dt / Re * ipGrid.oneOverdy2;
 				}
 
 			}
@@ -1806,23 +1806,23 @@ inline void EulerianFluidSolver2D::GenerateLinearSystemUV(VectorND<double>& vect
 		{
 			index = (i - innerIStart) + (j - innerJStart)*innerIRes;
 
-			vectorB(index) = vel(i, j) + dt*(-gradP(i, j) - advec(i, j) + 1. / 2. / reynoldNum*(vel.dxxPhi(i, j) + vel.dyyPhi(i, j)));
+			vectorB(index) = vel(i, j) + dt*(-gradP(i, j) - advec(i, j) + 1. / 2. / Re*(vel.dxxPhi(i, j) + vel.dyyPhi(i, j)));
 
 			if (i == innerIStart)
 			{
-				vectorB(index) += (2 * vel(i - 1, j) - vel.dataArrayOld(i - 1, j))*ipGrid.oneOverdx2* dt / (2 * reynoldNum);
+				vectorB(index) += (2 * vel(i - 1, j) - vel.dataArrayOld(i - 1, j))*ipGrid.oneOverdx2* dt / (2 * Re);
 			}
 			if (i == innerIEnd)
 			{
-				vectorB(index) += (2 * vel(i + 1, j) - vel.dataArrayOld(i + 1, j))*ipGrid.oneOverdx2* dt / (2 * reynoldNum);
+				vectorB(index) += (2 * vel(i + 1, j) - vel.dataArrayOld(i + 1, j))*ipGrid.oneOverdx2* dt / (2 * Re);
 			}
 			if (j == innerJStart)
 			{
-				vectorB(index) += (2 * vel(i, j - 1) - vel.dataArrayOld(i, j - 1))*ipGrid.oneOverdy2* dt / (2 * reynoldNum);
+				vectorB(index) += (2 * vel(i, j - 1) - vel.dataArrayOld(i, j - 1))*ipGrid.oneOverdy2* dt / (2 * Re);
 			}
 			if (j == innerJEnd)
 			{
-				vectorB(index) += (2 * vel(i, j + 1) - vel.dataArrayOld(i, j + 1))*ipGrid.oneOverdy2* dt / (2 * reynoldNum);
+				vectorB(index) += (2 * vel(i, j + 1) - vel.dataArrayOld(i, j + 1))*ipGrid.oneOverdy2* dt / (2 * Re);
 			}
 
 			//cout << endl;
@@ -1853,23 +1853,23 @@ inline void EulerianFluidSolver2D::GenerateLinearSystemUV(VectorND<double>& vect
 		{
 			index = (i - innerIStart) + (j - innerJStart)*innerIRes;
 
-			vectorB(index) = vel(i, j) + dt*(-gradP(i, j) - advec(i, j) + 1. / 2. / reynoldNum*diffusion(i, j));
+			vectorB(index) = vel(i, j) + dt*(-gradP(i, j) - advec(i, j) + 1. / 2. / Re*diffusion(i, j));
 
 			if (i == innerIStart)
 			{
-				vectorB(index) += (2 * vel(i - 1, j) - vel.dataArrayOld(i - 1, j))*ipGrid.oneOverdx2* dt / (2 * reynoldNum);
+				vectorB(index) += (2 * vel(i - 1, j) - vel.dataArrayOld(i - 1, j))*ipGrid.oneOverdx2* dt / (2 * Re);
 			}
 			if (i == innerIEnd)
 			{
-				vectorB(index) += (2 * vel(i + 1, j) - vel.dataArrayOld(i + 1, j))*ipGrid.oneOverdx2* dt / (2 * reynoldNum);
+				vectorB(index) += (2 * vel(i + 1, j) - vel.dataArrayOld(i + 1, j))*ipGrid.oneOverdx2* dt / (2 * Re);
 			}
 			if (j == innerJStart)
 			{
-				vectorB(index) += (2 * vel(i, j - 1) - vel.dataArrayOld(i, j - 1))*ipGrid.oneOverdy2* dt / (2 * reynoldNum);
+				vectorB(index) += (2 * vel(i, j - 1) - vel.dataArrayOld(i, j - 1))*ipGrid.oneOverdy2* dt / (2 * Re);
 			}
 			if (j == innerJEnd)
 			{
-				vectorB(index) += (2 * vel(i, j + 1) - vel.dataArrayOld(i, j + 1))*ipGrid.oneOverdy2* dt / (2 * reynoldNum);
+				vectorB(index) += (2 * vel(i, j + 1) - vel.dataArrayOld(i, j + 1))*ipGrid.oneOverdy2* dt / (2 * Re);
 			}
 
 			//cout << endl;

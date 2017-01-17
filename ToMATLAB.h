@@ -41,8 +41,9 @@ inline void ToMATLAB::Command(const char * command)
 
 inline void ToMATLAB::WriteImage(const char * filename, const int & fileNum, const char * fileFormat)
 {
+	cout << "Saving Image : " + (string(filename) + to_string(fileNum) + string(".") + string(fileFormat)) << endl;
+	cout << endl;
 	string str;
-	
 	str = string("D:\\Data\\") + (string(filename) + to_string(fileNum) + string(".") + string(fileFormat));
 	str = string("saveas(gcf, '") + str + string("', '") + string(fileFormat) + string("')");
 	engEvalString(ME, str.c_str());
