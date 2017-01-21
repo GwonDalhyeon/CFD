@@ -425,7 +425,6 @@ inline void CGSolver::Solver(const CSR<double>& A, const VectorND<double>& b, Ve
 
 	int num_iteration = 0;
 
-
 	double alpha, res_old, res_new;
 	double k;
 

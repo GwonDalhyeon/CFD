@@ -288,7 +288,7 @@ inline TT Vector2D<TT>::magnitude2() const
 template<class TT>
 inline void Vector2D<TT>::normalize()
 {
-	*this /= magnitude();
+	*this /= (magnitude()+DBL_EPSILON);
 }
 
 template<class TT>

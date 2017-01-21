@@ -673,9 +673,6 @@ inline void MovingInterface::InitialCondition(const int & example)
 		termOld = Array2D<double>(grid);
 		totalT = 0;
 	}
-
-	AdvectionMethod2D<double>::alpha = 1.5*grid.dx;
-
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -1403,10 +1400,9 @@ inline void MovingInterface::SurfactantTube2Extrapolation()
 
 inline void MovingInterface::LSurfactantDiffusion(const int & iter)
 {
-	if (iter == 1)
+	//if (iter == 1)
 	{
 		LGenerateLinearSystem1(Acsr);
-
 		LOneStepSemiImplicit();
 	}
 
@@ -1541,7 +1537,7 @@ inline void MovingInterface::LSurfactantNormalTerm(FD & ipField, LS & ipLevelSet
 	levelSet.LComputeMeanCurvature(1);
 	levelSet.LComputeUnitNormal(1);
 	Surfactant.Gradient();
-
+	
 	Array2D<VT>& gradientF = ipField.gradient;
 	VT normal;
 	Array2D<double> Hessian(2, 2);
@@ -1559,26 +1555,30 @@ inline void MovingInterface::LSurfactantNormalTerm(FD & ipField, LS & ipLevelSet
 		AdvectionMethod2D<double>::WENO5thDerivation(ipField, wenoDxMinus, wenoDxPlus, wenoDyMinus, wenoDyPlus);
 
 	}
-
 	U.Gradient();
 	V.Gradient();
-	Array2D<VT>& gradientU = U.gradient;
-	Array2D<VT>& gradientV = V.gradient;
+	Array2D<VT>& GU = U.gradient;
+	Array2D<VT>& GV = V.gradient;
 
 	double curvatureThreshold = 3.0;
 	double curvature;
 	double velX, velY;
 	int i, j;
-#pragma omp parallel for private(i,j, normal, Hessian, curvature, velX, velY)
+//#pragma omp parallel for private(i,j, normal, Hessian, curvature, velX, velY)
 	for (int k = 1; k <= levelSet.numTube; k++)
 	{
 		levelSet.TubeIndex(k, i, j);
+
 		if (levelSet.tube(i, j) == 1)
 		{
+			if (i == 100 && j == 60)
+			{
+				cout << endl;
+			}
 			normal = ipLevelSet.unitNormal(i, j);
 			//Normal(i, j) = normal;
 			Hessian = Surfactant.Hessian(i, j);
-			curvature = -ipLevelSet.meanCurvature(i, j); //// LEVELSET.MEANCURVATURE has a nagative sign. so mutiple -1.
+			curvature = -2 * ipLevelSet.meanCurvature(i, j); //// LEVELSET.MEANCURVATURE has a nagative sign. so mutiple -1.
 			term(i, j) = 0;
 			if (abs(curvature) < curvatureThreshold)
 			{
@@ -1586,7 +1586,7 @@ inline void MovingInterface::LSurfactantNormalTerm(FD & ipField, LS & ipLevelSet
 			}
 			else
 			{
-				term(i, j) += -AdvectionMethod2D<double>::sign(curvature)*curvatureThreshold*DotProduct(normal, gradientF(i, j));
+				term(i, j) += - curvatureThreshold*DotProduct(normal, gradientF(i, j));
 			}
 			term(i, j) += -normal(0)*(Hessian(0, 0)*normal(0) + Hessian(0, 1)*normal(1));
 			term(i, j) += -normal(1)*(Hessian(1, 0)*normal(0) + Hessian(1, 1)*normal(1));
@@ -1597,8 +1597,8 @@ inline void MovingInterface::LSurfactantNormalTerm(FD & ipField, LS & ipLevelSet
 			term(i, j) += -(AdvectionMethod2D<double>::Plus(velY)*wenoDyMinus(i, j) + AdvectionMethod2D<double>::Minus(velY)*wenoDyPlus(i, j));
 
 			////
-			term(i, j) += normal(0)*(gradientU(i, j).x*normal(0) + gradientU(i, j).y*normal(1))*ipField(i, j);
-			term(i, j) += normal(1)*(gradientV(i, j).x*normal(0) + gradientV(i, j).y*normal(1))*ipField(i, j);
+			term(i, j) += normal(0)*(GU(i, j).x*normal(0) + GU(i, j).y*normal(1))*ipField(i, j);
+			term(i, j) += normal(1)*(GV(i, j).x*normal(0) + GV(i, j).y*normal(1))*ipField(i, j);
 		}
 	}
 }
@@ -1773,6 +1773,7 @@ inline void MovingInterface::LGenerateLinearSystem1(VectorND<double>& vectorB)
 				bVal[k - 1] += oneOverdy2*Surfactant(m, n) * oneOverPe;
 			}
 		}
+		tempSur.values[k - 1] = Surfactant(i, j);
 	}
 }
 
@@ -1945,6 +1946,7 @@ inline void MovingInterface::LGenerateLinearSystem2(VectorND<double>& vectorB)
 				bVal[k - 1] += oneOverdy2 * Surfactant(m, n) * 0.5 * oneOverPe;
 			}
 		}
+		tempSur.values[k - 1] = Surfactant(i, j);
 	}
 }
 

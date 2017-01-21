@@ -130,7 +130,7 @@ inline TT AdvectionMethod2D<TT>::Heaviside(const double & constant)
 	}
 	else
 	{
-		return (1 + constant / alpha + sin(PI*constant / alpha) / PI) / 2.0;
+		return 0.5 * (1 + constant / alpha + sin(PI*constant / alpha) / PI);
 	}
 }
 

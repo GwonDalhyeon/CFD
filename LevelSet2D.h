@@ -467,7 +467,7 @@ inline void LevelSet2D::LComputeUnitNormal()
 inline void LevelSet2D::LComputeUnitNormal(const int & tubeRange)
 {
 	int i, j;
-#pragma omp parallel for private(i, j)
+//#pragma omp parallel for private(i, j)
 	for (int k = 1; k <= numTube; k++)
 	{
 		i = tubeIndex(k).i;
@@ -564,7 +564,7 @@ inline VT LevelSet2D::ComputeUnitNormal(const int & i, const int & j)
 	{
 		assert(j >= phi.jStart && j <= phi.jEnd);
 	}
-	normal /= normal.magnitude();
+	normal /= (normal.magnitude()+DBL_EPSILON);
 
 	return normal;
 }

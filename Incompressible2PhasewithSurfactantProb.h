@@ -24,9 +24,11 @@ public:
 	FD& U = Fluid.U;
 	FD& V = Fluid.V;
 
-	bool singularForce = true;
-	FD SurfaceForceX;
-	FD SurfaceForceY;
+	bool isSurfaceForce = true;
+	bool& isCSFmodel = Fluid.isCSFmodel;
+	FD& SurfaceForce = Fluid.SurfaceForce;
+	FD& SurfaceForceX = Fluid.SurfaceForceX;
+	FD& SurfaceForceY = Fluid.SurfaceForceY;
 	FV SurfGradSurfTension;
 
 
@@ -76,6 +78,7 @@ public:
 	inline void EulerMethod2ndOrder1stIteration1();
 
 	inline void ComputeSurfaceForce();
+	inline void ComputeSurfaceForceUV();
 	inline void GenerateLinearSystemUV(VectorND<double>& vectorB, const FD & vel, const FD & gradP, const FD & advec, const FD& force, const Grid2D& ipGrid, const double & scaling);
 	inline void PlotSurfactant();
 	inline void PlotVelocity();
@@ -142,7 +145,7 @@ inline void InsolubleSurfactant::InitialCondition(const int & example)
 		cflCondition = 0.4;
 		dt = cflCondition*min(grid.dx, grid.dy);
 
-		//singularForce = false;
+		//isSurfaceForce = false;
 		SurfaceForceX = FD(Fluid.gridU);
 		SurfaceForceY = FD(Fluid.gridV);
 		SurfGradSurfTension = FV(grid);
@@ -179,10 +182,10 @@ inline void InsolubleSurfactant::InitialCondition(const int & example)
 		Xi = 0.3;
 		El = 0.2;
 		Pe = 10;
-		cflCondition = 0.4;
+		cflCondition = 0.2;
 		dt = cflCondition*min(grid.dx, grid.dy);
 		
-		//singularForce = false;
+		//isSurfaceForce = false;
 		SurfaceForceX = FD(Fluid.gridU);
 		SurfaceForceY = FD(Fluid.gridV);
 		SurfGradSurfTension = FV(grid);
@@ -274,7 +277,7 @@ inline void InsolubleSurfactant::InitialCondition(const int & example)
 		cflCondition = 1.0 / 8.0;
 		dt = cflCondition*min(grid.dx, grid.dy);
 
-		singularForce = true;
+		isSurfaceForce = true;
 		SurfaceForceX = FD(Fluid.gridU);
 		SurfaceForceY = FD(Fluid.gridV);
 		SurfGradSurfTension = FV(grid);
@@ -392,35 +395,28 @@ inline void InsolubleSurfactant::NSSolver()
 	int uRes = U.dataArray.ijRes;
 	int vRes = V.dataArray.ijRes;
 
-	//// Compute Surface Force
-	if (singularForce)
-	{
-		ComputeSurfaceForce();
-	}
+	Fluid.DetermineViscosity();
+	Fluid.DetermineDensity();
+	Fluid.SetLinearSystem(iteration);
 
+	//// Compute Surface Force
+	if (isSurfaceForce)
+	{
+		if (isCSFmodel) ComputeSurfaceForceUV();
+		else ComputeSurfaceForce();
+	}
 	/////////////////
 	//// Step 1  ////
 	/////////////////
-	if (ProjectionOrder == 1)
-	{
-		EulerMethod();
-	}
-	else if (ProjectionOrder == 2)
-	{
-		EulerMethod2ndOrder();
-	}
+	if (ProjectionOrder == 1)		 EulerMethod();
+	else if (ProjectionOrder == 2)	 EulerMethod2ndOrder();
 
 	/////////////////
 	//// Step 2  ////
 	/////////////////
-	if (ProjectionOrder == 1)
-	{
-		EulerMethod();
-	}
-	else if (ProjectionOrder == 2)
-	{
-		EulerMethod2ndOrder();
-	}
+	if (ProjectionOrder == 1)		 EulerMethod();
+	else if (ProjectionOrder == 2)	 EulerMethod2ndOrder();
+
 #pragma omp parallel for
 	for (int i = 0; i < uRes; i++)
 	{
@@ -435,14 +431,9 @@ inline void InsolubleSurfactant::NSSolver()
 	/////////////////
 	//// Step 3  ////
 	/////////////////
-	if (ProjectionOrder == 1)
-	{
-		EulerMethod();
-	}
-	else if (ProjectionOrder == 2)
-	{
-		EulerMethod2ndOrder();
-	}
+	if (ProjectionOrder == 1)		 EulerMethod();
+	else if (ProjectionOrder == 2)	 EulerMethod2ndOrder();
+
 #pragma omp parallel for
 	for (int i = 0; i < uRes; i++)
 	{
@@ -579,9 +570,9 @@ inline void InsolubleSurfactant::EulerMethod2ndOrder1()
 
 inline void InsolubleSurfactant::EulerMethod2ndOrder1stIteration1()
 {
-	if (singularForce)
+	if (isSurfaceForce)
 	{
-		ComputeSurfaceForce();
+		ComputeSurfaceForceUV();
 		//SurfaceForceX.Variable("SurfaceForceX");
 		//SurfaceForceY.Variable("SurfaceForceY");
 	}
@@ -624,6 +615,11 @@ inline void InsolubleSurfactant::EulerMethod2ndOrder1stIteration1()
 
 inline void InsolubleSurfactant::ComputeSurfaceForce()
 {
+
+}
+
+inline void InsolubleSurfactant::ComputeSurfaceForceUV()
+{
 	//////////////////////////
 	// ST : Surface Tension
 	// L : Level Set
@@ -646,50 +642,57 @@ inline void InsolubleSurfactant::ComputeSurfaceForce()
 	
 	double oneOverReCa = 1 / (Re*Ca);
 	int numTube = levelSet.numTube;
+	int iStart = grid.iStart, jStart = grid.jStart;
 	double oneOverdx = grid.oneOverdx, oneOverdy = grid.oneOverdy;
-	int i, j;
+	int i, j, ii, jj;
 	VT STG, LUN, LG, STSurfaceG;
 	double LGMag, deltaL, curvature, ST;
 	double STval, STvalLeft, STvalBottom;
 	double Lval, LvalLeft, LvalBottom;
 
-#pragma omp parallel for private(i, j, STG, LUN, LG, STSurfaceG, LGMag, deltaL, curvature, ST, STval, STvalLeft, STvalBottom, Lval, LvalLeft, LvalBottom)
+#pragma omp parallel for private(i, j, ii, jj, STG, LUN, LG, STSurfaceG, LGMag, deltaL, curvature, ST, STval, STvalLeft, STvalBottom, Lval, LvalLeft, LvalBottom)
 	for (int k = 1; k <= numTube; k++)
 	{
 		levelSet.TubeIndex(k, i, j);
-		if (tube(i, j) <= ComputedTubeRange)
+		ii = max(i - 1, iStart);
+		jj = max(j - 1, jStart);
+		STval = SurfaceTension(i, j), STvalLeft = SurfaceTension(ii, j), STvalBottom = SurfaceTension(i, jj);
+		Lval = levelSet(i, j), LvalLeft = levelSet(ii, j), LvalBottom = levelSet(i, jj);
+		if (tube(i, j) == ComputedTubeRange || tube(ii, j) == ComputedTubeRange)
 		{
-			STval = SurfaceTension(i, j), STvalLeft = SurfaceTension(i - 1, j), STvalBottom = SurfaceTension(i, j - 1);
-			Lval = levelSet(i, j), LvalLeft = levelSet(i - 1, j), LvalBottom = levelSet(i, j - 1);
 			/////////////////////////////////
 			// SurfaceForceX on MAC grid.  //
 			/////////////////////////////////
 			LG.x = (Lval - LvalLeft) * oneOverdx;
-			LG.y = 0.5 * (levelSet.dyPhi(i - 1, j) + levelSet.dyPhi(i, j));
+			LG.y = 0.5 * (levelSet.dyPhi(ii, j) + levelSet.dyPhi(i, j));
 			LGMag = LG.magnitude();
 			LUN = LG / LGMag;
 			STG.x = (STval - STvalLeft) * oneOverdx;
-			STG.y = 0.5 * (SurfaceTension.dyPhi(i - 1, j) + SurfaceTension.dyPhi(i, j));
+			STG.y = 0.5 * (SurfaceTension.dyPhi(ii, j) + SurfaceTension.dyPhi(i, j));
 			STSurfaceG = STG - DotProduct(LUN, STG)*LUN;
 			deltaL = AdvectionMethod2D<double>::DeltaFt(0.5 * (Lval + LvalLeft));
-			curvature = 0.5 * (- 2 * meanCurvature(i, j) - 2 * meanCurvature(i - 1, j));
+			curvature = 0.5 * (- meanCurvature(i, j) -  meanCurvature(ii, j));
 			ST = 0.5 * (STval + STvalLeft);
 
 			SurfaceForceX(i, j) = curvature * ST * LUN.x - STSurfaceG.x;
-			SurfaceForceX(i, j) *= - deltaL * LGMag * oneOverReCa;
+			SurfaceForceX(i, j) *= -deltaL * LGMag * oneOverReCa;
+		}
+
 			
+		if (tube(i, j) == ComputedTubeRange || tube(i, jj) == ComputedTubeRange)
+		{
 			/////////////////////////////////
 			// SurfaceForceY on MAC grid.  //
 			/////////////////////////////////
-			LG.x = 0.5 * (levelSet.dxPhi(i, j) + levelSet.dxPhi(i, j - 1));
+			LG.x = 0.5 * (levelSet.dxPhi(i, j) + levelSet.dxPhi(i, jj));
 			LG.y = (Lval - LvalBottom) * oneOverdy;
 			LGMag = LG.magnitude();
 			LUN = LG / LGMag;
-			STG.x = 0.5 * (SurfaceTension.dxPhi(i, j) + SurfaceTension.dxPhi(i, j - 1));
+			STG.x = 0.5 * (SurfaceTension.dxPhi(i, j) + SurfaceTension.dxPhi(i, jj));
 			STG.y = (STval - STvalBottom) * oneOverdy;
 			STSurfaceG = STG - DotProduct(LUN, STG)*LUN;
 			deltaL = AdvectionMethod2D<double>::DeltaFt(0.5 * (Lval + LvalBottom));
-			curvature = 0.5 * (- 2 * meanCurvature(i, j) - 2 * meanCurvature(i, j - 1));
+			curvature = 0.5 * (- meanCurvature(i, j) - meanCurvature(i, jj));
 			ST = 0.5 * (STval + STvalBottom);
 
 			SurfaceForceY(i, j) = curvature * ST * LUN.y - STSurfaceG.y;
@@ -779,7 +782,7 @@ inline void InsolubleSurfactant::PlotSurfactant()
 {
 	bool lookDown = true;
 	string str;
-
+	int iter = iteration;
 	Surfactant.Variable("Surfactant");
 	levelSet.tube.Variable("Tube");
 	MATLAB.Command("SurTube1 = Surfactant.*(Tube<=1);");
@@ -797,7 +800,7 @@ inline void InsolubleSurfactant::PlotSurfactant()
 	//// Measure Surfactant Loss ////
 	MATLAB.Command("IntSur = sum(sum(SurTube1.*(Tube==1)))*(Y(2)-Y(1))*(Y(2)-Y(1));");
 	//MATLAB.Command("loss = (IntSur-IntSur0)/IntSur0*100;");
-	MATLAB.Variable("i", iteration);
+	MATLAB.Variable("i", iter);
 	MATLAB.Variable("totalT", totalT);
 	//str = string("title(['iteration : ', num2str(i),', time : ', num2str(totalT), ', error(%)  :',num2str(loss),'%']);");
 	str = string("title(['iteration : ', num2str(i),', time : ', num2str(totalT)]);");
@@ -806,7 +809,8 @@ inline void InsolubleSurfactant::PlotSurfactant()
 
 inline void InsolubleSurfactant::PlotVelocity()
 {
-	string str;
+	string str; 
+	int iter = iteration;
 
 	U.Variable("U");
 	V.Variable("V");
@@ -822,7 +826,7 @@ inline void InsolubleSurfactant::PlotVelocity()
 	
 	str = str + string("hold on, contour(X,Y,phi,[0 0],'r'), grid on,hold off;axis equal tight;");
 	MATLAB.Command(str.c_str());
-	str = string("title(['iteration : ', num2str(") + to_string(iteration) + string("),', time : ', num2str(") + to_string(totalT) + string(")]);");
+	str = string("title(['iteration : ', num2str(") + to_string(iter) + string("),', time : ', num2str(") + to_string(totalT) + string(")]);");
 	MATLAB.Command(str.c_str());
 	//MATLAB.Command("divU =U(:,2:end)-U(:,1:end-1),divV =V(2:end,:)-V(1:end-1,:);div=divU+divV;");
 }

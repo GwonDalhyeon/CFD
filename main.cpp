@@ -183,8 +183,8 @@ void main()
 	}
 	else
 	{
-		problem = 15;
-		example = 1;
+		problem = 4;
+		example = 4;
 	}
 
 	if (problem == 0) //// GMRES test :: example 1,2,3,4
@@ -301,15 +301,15 @@ void main()
 		MovingInterface Surfactant(Fluid);
 		InsolubleSurfactant ContinuumMethod(Fluid, Surfactant);
 		ContinuumMethod.ContinuumMethodWithSurfactantSolver(example);
-
 	}
 	else if (problem == 15)
 	{
-		FluidSolver2D Fluid;
-		MovingInterface Surfactant(Fluid);
-		CoalescingDrop Coalescing(Fluid, Surfactant);
-		Coalescing.CoalescingBubbleSolver(example);
+		//FluidSolver2D Fluid;
+		//MovingInterface Surfactant(Fluid);
+		//InsolubleSurfactant ContinuumMethod(Fluid, Surfactant);
+		//CoalescingDrop Coalescing(ContinuumMethod);
+		//Coalescing.CoalescingBubbleSolver(example);
 	}
-	system("pause");
+	//system("pause");
 	return;
 }
