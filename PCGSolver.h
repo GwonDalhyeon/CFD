@@ -69,7 +69,7 @@ inline void PCGSolver::Solver(const CSR<double>& A, const CSR<double>& M, const 
 	double* pVal(p.values);
 
 	res_old = DotProduct(res, z);
-	while (num_iteration < 2 * A.rowNum)
+	while (num_iteration < 5 * A.rowNum)
 	{
 		A.Multiply(p, Ap);
 

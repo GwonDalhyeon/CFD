@@ -433,7 +433,7 @@ inline void CGSolver::Solver(const CSR<double>& A, const VectorND<double>& b, Ve
 	
 	res_old = res.magnitude2();
 
-	while (num_iteration < 2*A.rowNum)
+	while (num_iteration < 5*A.rowNum)
 	{
 		A.Multiply(p, Ap);
 
