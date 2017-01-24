@@ -34,7 +34,7 @@ inline void PCGSolver::Solver(const CSR<double>& A, const CSR<double>& M, const 
 	before = clock();
 	cout << "--------  Start : PCG  --------" << endl;
 
-	x = 0;
+	//x = 0;
 	double* xVal(x.values);
 	const int N = x.iLength;
 	int	num_iteration = 0;
@@ -48,21 +48,13 @@ inline void PCGSolver::Solver(const CSR<double>& A, const CSR<double>& M, const 
 
 	VTN z(N);
 	double* zVal(z.values);
-	VTN Mdiag(N);
-	double* MdiagVal(Mdiag.values);
-
-
-#pragma omp parallel for
-	for (int i = 0; i < M.rowNum; i++)
-	{
-		MdiagVal[i] = M(i, i);
-	}
+	double* MinvDiagVal(M.oneOverDiagonal.values);
 
 	//MultiplicationByMinverse(M, Mdiag, res, z);
 #pragma omp parallel for
 	for (int i = 0; i < N; i++)
 	{
-		zVal[i] = resVal[i] / MdiagVal[i];
+		zVal[i] = resVal[i] * MinvDiagVal[i];
 	}
 
 	VTN p(z);
@@ -88,20 +80,15 @@ inline void PCGSolver::Solver(const CSR<double>& A, const CSR<double>& M, const 
 		{
 			xVal[i] += alpha*pVal[i];
 			resVal[i] -= alpha*ApVal[i];
+			zVal[i] = resVal[i] * MinvDiagVal[i];
 		}
 
-		if (res_old < DBL_EPSILON)
-		{
-			cout << "Converge!!" << endl;
-			break;
-		}
-
-		//MultiplicationByMinverse(M, Mdiag, res, z);
-#pragma omp parallel for
-		for (int i = 0; i < N; i++)
-		{
-			zVal[i] = resVal[i] / MdiagVal[i];
-		}
+//		//MultiplicationByMinverse(M, Mdiag, res, z);
+//#pragma omp parallel for
+//		for (int i = 0; i < N; i++)
+//		{
+//			zVal[i] = resVal[i] / MdiagVal[i];
+//		}
 
 		res_new = DotProduct(res, z);
 		beta = res_new / res_old;
@@ -113,6 +100,12 @@ inline void PCGSolver::Solver(const CSR<double>& A, const CSR<double>& M, const 
 
 		res_old = res_new;
 
+		if (res_old < DBL_EPSILON)
+		{
+			cout << "Converge!!" << endl;
+			break;
+		}
+
 		num_iteration++;
 	}
 
@@ -120,7 +113,7 @@ inline void PCGSolver::Solver(const CSR<double>& A, const CSR<double>& M, const 
 	cout << "Iteration Number : " << num_iteration << endl;
 	cout << "Time             : " << (double)(clock() - before) / CLOCKS_PER_SEC << "\n";
 	cout << "Residual         : " << sqrt(res_new) << endl;
-	cout << "--------  End : CG  -------- " << endl;
+	cout << "--------  End : PCG  -------- " << endl;
 	cout << endl;
 }
 
@@ -244,6 +237,13 @@ inline void PCGSolver::IncompleteCholeskyDecomposition(const CSR<double>& A, CSR
 
 			number += 1;
 		}
+	}
+
+	L.oneOverDiagonal = VectorND<double>(L.rowNum);
+#pragma omp parallel for
+	for (int i = 0; i < L.rowNum; i++)
+	{
+		L.oneOverDiagonal.values[i] = 1. / L(i, i);
 	}
 }
 

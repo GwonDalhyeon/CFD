@@ -1343,7 +1343,7 @@ inline void MovingInterface::EulerianMovingInterfaceSolver(const int & example)
 	MATLAB.Command(cmd);
 
 	FD exact(grid);
-	int reinitialIter = int(levelSet.gamma1 / min(levelSet.phi.dx, levelSet.phi.dy)) * 2;
+	int reinitialIter = int(levelSet.gamma1 / min(levelSet.phi.dx, levelSet.phi.dy)) * 3;
 	int extensionIter = (int)ceil(levelSet.gamma2 / (0.5*min(grid.dx, grid.dy)));
 	for (int i = 1; i <= maxIteration; i++)
 	{
@@ -1360,7 +1360,7 @@ inline void MovingInterface::EulerianMovingInterfaceSolver(const int & example)
 		//// Moving Level Set ////
 		//////////////////////////
 		AdvectionMethod2D<double>::LLSPropagatingTVDRK3MACGrid(levelSet, U, V, dt, LspatialOrder);
-		AdvectionMethod2D<double>::LLSReinitializationTVDRK3(levelSet, dt, reinitialIter, LspatialOrder);
+		AdvectionMethod2D<double>::LLSReinitializationTVDRK3usingSubcellFix(levelSet, 0.5*grid.dx, reinitialIter, LspatialOrder);
 
 		AdvectionMethod2D<double>::LLSQuantityExtension(levelSet, Surfactant, temporalOrder, LspatialOrder, extensionIter);
 		levelSet.UpdateInterface();

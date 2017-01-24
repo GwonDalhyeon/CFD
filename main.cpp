@@ -222,11 +222,19 @@ void main()
 	}
 	else if (problem == 4) // NAVIER STOKES EQUATION SOLVER : EXAMPLE 1 ??
 	{
-		if (example == 1 || example == 2 || example == 4)
+		// Single Phase
+		if (example == 1 || example == 2)
 		{
 			FluidSolver2D Fluid;
 			Fluid.Solver(example);
 		}
+		// Multi Phase
+		if (example == 4 || example == 5 || example == 6)
+		{
+			FluidSolver2D Fluid;
+			Fluid.Solver(example);
+		}
+
 	}
 	else if (problem == 5) // SURFACE RECONSTRUCTION USING SPLIT BREGMAN : EXAMPLE 1 ~ 6 ??
 	{

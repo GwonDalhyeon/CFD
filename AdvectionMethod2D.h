@@ -54,6 +54,7 @@ public:
 
 	static void LSReinitializationTVDRK3(LS& levelSet, const double& dt);
 	static TT ReinitialGodunov(const TT& dxPlus, const TT& dxMinus, const TT& dyPlus, const TT& dyMinus, const TT& phi);
+	static TT ReinitialGodunov(LS& ipLS, const int& i, const int & j);
 	//static void LSReinitializationFE(LS& levelSet, const double& dt, const double& cfl);
 	//static void LSReinitializationGS(LS& levelSet, const double& dt);
 
@@ -90,6 +91,7 @@ public:
 	static void LLSReinitializationTVDRK3(LS& levelSet, const double& dt);
 	static void LLSReinitializationTVDRK3(LS& levelSet, const double& dt, const int& iter);
 	static void LLSReinitializationTVDRK3(LS& levelSet, const double& dt, const int& iter, const int& spatialOrder);
+	static void LLSReinitializationTVDRK3usingSubcellFix(LS& levelSet, const double& dt, const int& iter, const int& spatialOrder);
 
 	static void LLSQuantityExtension(LS& ipLS, FD& ipQuantity, const int & temporalOrder, const int & spatialOrder);
 	static void LLSQuantityExtension(LS& ipLS, FD& ipQuantity, const int & temporalOrder, const int & spatialOrder, const int & iter);
@@ -864,6 +866,31 @@ inline TT AdvectionMethod2D<TT>::ReinitialGodunov(const TT& dxPlus, const TT& dx
 
 		return TT(sqrt(max(aMinus*aMinus, bPlus*bPlus) + max(cMinus*cMinus, dPlus*dPlus)) - 1.0);
 	}
+}
+
+template<class TT>
+inline TT AdvectionMethod2D<TT>::ReinitialGodunov(LS & ipLS, const int & i, const int & j)
+{
+	double oneOverdx = ipLS.grid.dx, oneOverdy = ipLS.grid.dy;
+	double a = ipLS.dxMinusPhi(i, j);
+	double b = ipLS.dxPlusPhi(i, j);
+	double c = ipLS.dyMinusPhi(i, j);
+	double d = ipLS.dyPlusPhi(i, j);
+	if (ipLS(i, j)>0)
+	{
+		a = max(a, 0);
+		b = min(b, 0);
+		c = max(c, 0);
+		d = min(d, 0);
+	}
+	else
+	{
+		a = min(a, 0);
+		b = max(b, 0);
+		c = min(c, 0);
+		d = max(d, 0);
+	}
+	return sqrt(max(a*a, b*b) + max(c*c, d*d)) - 1;
 }
 
 template<class TT>
@@ -2016,13 +2043,13 @@ inline void AdvectionMethod2D<TT>::LLSReinitializationTVDRK3(LS & levelSet, cons
 	Array2D<TT>& wenoXPlus = levelSet.phi.dfdxP;
 	Array2D<TT>& wenoYMinus = levelSet.phi.dfdyM;
 	Array2D<TT>& wenoYPlus = levelSet.phi.dfdyP;
-
+	
+	Array2D<TT> origin = levelSet.phi.dataArray;
+	Array2D<TT>& oldLevelSet = levelSet.phi.dataArrayOld;
 	int i, j;
 	for (int l = 1; l <= iter; l++)
 	{
 		levelSet.phi.SaveOld();
-		Array2D<TT>& originLevelSet = levelSet.phi.dataArrayOld;
-
 		if (spatialOrder == 3)
 		{
 			AdvectionMethod2D<double>::LLSWENO3rdDerivation(levelSet, levelSet.phi, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
@@ -2031,15 +2058,16 @@ inline void AdvectionMethod2D<TT>::LLSReinitializationTVDRK3(LS & levelSet, cons
 		{
 			AdvectionMethod2D<double>::LLSWENO5thDerivation(levelSet, levelSet.phi, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
 		}
-#pragma omp parallel for private(i, j, k2, originL)
+#pragma omp parallel for private(i, j, k1, originL)
 		for (int k = levelSet.tubeIndex.iStart; k <= levelSet.numTube; k++)
 		{
 			i = levelSet.tubeIndex(k).i;
 			j = levelSet.tubeIndex(k).j;
-			originL = originLevelSet(i, j);
+			originL = origin(i, j);
 			k1 = -sign(originL)*dt*ReinitialGodunov(wenoXPlus(i, j), wenoXMinus(i, j), wenoYPlus(i, j), wenoYMinus(i, j), originL);
-			levelSet(i, j) = originL + k1;
+			levelSet(i, j) = oldLevelSet(i, j) + k1;
 		}
+
 		if (spatialOrder == 3)
 		{
 			AdvectionMethod2D<double>::LLSWENO3rdDerivation(levelSet, levelSet.phi, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
@@ -2053,10 +2081,11 @@ inline void AdvectionMethod2D<TT>::LLSReinitializationTVDRK3(LS & levelSet, cons
 		{
 			i = levelSet.tubeIndex(k).i;
 			j = levelSet.tubeIndex(k).j;
-			originL = originLevelSet(i, j);
+			originL = origin(i, j);
 			k2  = -sign(originL)*dt*ReinitialGodunov(wenoXPlus(i, j), wenoXMinus(i, j), wenoYPlus(i, j), wenoYMinus(i, j), originL);
-			levelSet(i, j) = 3.0 / 4.0*originL + 1.0 / 4.0*(levelSet(i, j) + k2);
+			levelSet(i, j) = 3.0 / 4.0*oldLevelSet(i, j) + 1.0 / 4.0*(levelSet(i, j) + k2);
 		}
+
 		if (spatialOrder == 3)
 		{
 			AdvectionMethod2D<double>::LLSWENO3rdDerivation(levelSet, levelSet.phi, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
@@ -2070,9 +2099,160 @@ inline void AdvectionMethod2D<TT>::LLSReinitializationTVDRK3(LS & levelSet, cons
 		{
 			i = levelSet.tubeIndex(k).i;
 			j = levelSet.tubeIndex(k).j;
-			originL = originLevelSet(i, j);
+			originL = origin(i, j);
 			k3 = -sign(originL)*dt*ReinitialGodunov(wenoXPlus(i, j), wenoXMinus(i, j), wenoYPlus(i, j), wenoYMinus(i, j), originL);
-			levelSet(i, j) = 1.0 / 3.0*originL + 2.0 / 3.0*(levelSet(i, j) + k3);
+			levelSet(i, j) = 1.0 / 3.0*oldLevelSet(i, j) + 2.0 / 3.0*(levelSet(i, j) + k3);
+		}
+	}
+}
+
+template<class TT>
+inline void AdvectionMethod2D<TT>::LLSReinitializationTVDRK3usingSubcellFix(LS & levelSet, const double & dt, const int & iter, const int & spatialOrder)
+{
+	double k1, k2, k3;
+	Array2D<TT>& wenoXMinus = levelSet.phi.dfdxM;
+	Array2D<TT>& wenoXPlus = levelSet.phi.dfdxP;
+	Array2D<TT>& wenoYMinus = levelSet.phi.dfdyM;
+	Array2D<TT>& wenoYPlus = levelSet.phi.dfdyP;
+
+	int iStart = levelSet.grid.iStart, iEnd = levelSet.grid.iEnd, jStart = levelSet.grid.jStart, jEnd = levelSet.grid.jEnd;
+	double dx = levelSet.grid.dx, dy = levelSet.grid.dy;
+	double oneOverdx = levelSet.grid.oneOverdx, oneOverdy = levelSet.grid.oneOverdy;
+	int i, j;
+	int iL, iR, jB, jT;
+	double Dij, lsL, lsR, lsB, lsT, lsC;
+	double originL;
+	double D1, D2;
+	double a, b, c, d;
+
+	Array2D<TT> origin = levelSet.phi.dataArray;
+	Array2D<TT> currentLevelSet(levelSet.grid);
+	Array2D<TT>& oldLevelSet = levelSet.phi.dataArrayOld;
+	for (int l = 1; l <= iter; l++)
+	{
+		levelSet.phi.SaveOld();
+		currentLevelSet = levelSet.phi.dataArray;
+		if (spatialOrder == 3)
+		{
+			AdvectionMethod2D<double>::LLSWENO3rdDerivation(levelSet, levelSet.phi, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
+		}
+		else if (spatialOrder == 5)
+		{
+			AdvectionMethod2D<double>::LLSWENO5thDerivation(levelSet, levelSet.phi, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
+		}
+#pragma omp parallel for private(i, j, k1, iL, iR, jB, jT, Dij, D1, D2, lsL, lsR, lsB, lsT, lsC, originL)
+		for (int k = levelSet.tubeIndex.iStart; k <= levelSet.numTube; k++)
+		{
+			i = levelSet.tubeIndex(k).i;
+			j = levelSet.tubeIndex(k).j;
+
+			iL = max(i - 1, iStart), iR = min(i + 1, iEnd);
+			jB = max(j - 1, jStart), jT = min(j + 1, jEnd);
+			lsL = currentLevelSet(iL, j), lsR = currentLevelSet(iR, j);
+			lsB = currentLevelSet(i, jB), lsT = currentLevelSet(i, jT);
+			lsC = currentLevelSet(i, j);
+
+			originL = origin(i, j);
+
+			if (((lsL*lsC < 0 || lsR*lsC < 0) && lsL*lsR < 0) || ((lsB*lsC < 0 || lsT*lsC < 0) && lsB*lsT < 0))
+			{
+				if (lsL*lsR < 0)	D1 = abs(lsR - lsL);
+				else				D1 = 2 * max(max(abs(lsL - lsC), abs(lsR - lsC)), abs(lsR - lsL) / 2);
+				if (lsB*lsT < 0)	D2 = abs(lsT - lsB);
+				else				D2 = 2 * max(max(abs(lsB - lsC), abs(lsT - lsC)), abs(lsT - lsB) / 2);
+
+				Dij = 2 * lsC / sqrt(D1*D1 + D2*D2);
+			
+				k1 = -dt*(sign(originL)*abs(levelSet(i, j)) * oneOverdx - Dij);
+			}
+			else
+			{
+				k1 = -sign(originL)*dt*ReinitialGodunov(wenoXPlus(i, j), wenoXMinus(i, j), wenoYPlus(i, j), wenoYMinus(i, j), originL);
+			}
+			
+			levelSet(i, j) = oldLevelSet(i, j) + k1;
+		}
+		if (spatialOrder == 3)
+		{
+			AdvectionMethod2D<double>::LLSWENO3rdDerivation(levelSet, levelSet.phi, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
+		}
+		else if (spatialOrder == 5)
+		{
+			AdvectionMethod2D<double>::LLSWENO5thDerivation(levelSet, levelSet.phi, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
+		}
+
+		currentLevelSet = levelSet.phi.dataArray;
+#pragma omp parallel for private(i, j, k2, iL, iR, jB, jT, Dij, D1, D2, lsL, lsR, lsB, lsT, lsC, originL)
+		for (int k = 1; k <= levelSet.numTube; k++)
+		{
+			i = levelSet.tubeIndex(k).i;
+			j = levelSet.tubeIndex(k).j;
+
+			iL = max(i - 1, iStart), iR = min(i + 1, iEnd);
+			jB = max(j - 1, jStart), jT = min(j + 1, jEnd);
+			lsL = currentLevelSet(iL, j), lsR = currentLevelSet(iR, j);
+			lsB = currentLevelSet(i, jB), lsT = currentLevelSet(i, jT);
+			lsC = currentLevelSet(i, j);
+
+			originL = origin(i, j);
+
+			if (((lsL*lsC < 0 || lsR*lsC < 0) && lsL*lsR < 0) || ((lsB*lsC < 0 || lsT*lsC < 0) && lsB*lsT < 0))
+			{
+				if (lsL*lsR < 0)	D1 = abs(lsR - lsL);
+				else				D1 = 2 * max(max(abs(lsL - lsC), abs(lsR - lsC)), abs(lsR - lsL) / 2);
+				if (lsB*lsT < 0)	D2 = abs(lsT - lsB);
+				else				D2 = 2 * max(max(abs(lsB - lsC), abs(lsT - lsC)), abs(lsT - lsB) / 2);
+
+				Dij = 2 * lsC / sqrt(D1*D1 + D2*D2);
+
+				k2 = -dt*(sign(originL)*abs(levelSet(i, j)) * oneOverdx - Dij);
+			}
+			else
+			{
+				k2 = -sign(originL)*dt*ReinitialGodunov(wenoXPlus(i, j), wenoXMinus(i, j), wenoYPlus(i, j), wenoYMinus(i, j), originL);
+			}
+			levelSet(i, j) = 3.0 / 4.0*oldLevelSet(i, j) + 1.0 / 4.0*(levelSet(i, j) + k2);
+		}
+		if (spatialOrder == 3)
+		{
+			AdvectionMethod2D<double>::LLSWENO3rdDerivation(levelSet, levelSet.phi, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
+		}
+		else if (spatialOrder == 5)
+		{
+			AdvectionMethod2D<double>::LLSWENO5thDerivation(levelSet, levelSet.phi, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
+		}
+
+		currentLevelSet = levelSet.phi.dataArray;
+#pragma omp parallel for private(i, j, k3, iL, iR, jB, jT, Dij, D1, D2, lsL, lsR, lsB, lsT, lsC, originL)
+		for (int k = 1; k <= levelSet.numTube; k++)
+		{
+			i = levelSet.tubeIndex(k).i;
+			j = levelSet.tubeIndex(k).j;
+			
+			iL = max(i - 1, iStart), iR = min(i + 1, iEnd);
+			jB = max(j - 1, jStart), jT = min(j + 1, jEnd);
+			lsL = currentLevelSet(iL, j), lsR = currentLevelSet(iR, j);
+			lsB = currentLevelSet(i, jB), lsT = currentLevelSet(i, jT);
+			lsC = currentLevelSet(i, j);
+
+			originL = origin(i, j);
+
+			if (((lsL*lsC < 0 || lsR*lsC < 0) && lsL*lsR < 0) || ((lsB*lsC < 0 || lsT*lsC < 0) && lsB*lsT < 0))
+			{
+				if (lsL*lsR < 0)	D1 = abs(lsR - lsL);
+				else				D1 = 2 * max(max(abs(lsL - lsC), abs(lsR - lsC)), abs(lsR - lsL) / 2);
+				if (lsB*lsT < 0)	D2 = abs(lsT - lsB);
+				else				D2 = 2 * max(max(abs(lsB - lsC), abs(lsT - lsC)), abs(lsT - lsB) / 2);
+
+				Dij = 2 * lsC / sqrt(D1*D1 + D2*D2);
+
+				k3 = -dt*(sign(originL)*abs(levelSet(i, j)) * oneOverdx - Dij);
+			}
+			else
+			{
+				k3 = -sign(originL)*dt*ReinitialGodunov(wenoXPlus(i, j), wenoXMinus(i, j), wenoYPlus(i, j), wenoYMinus(i, j), originL);
+			}
+			levelSet(i, j) = 1.0 / 3.0*oldLevelSet(i, j) + 2.0 / 3.0*(levelSet(i, j) + k3);
 		}
 	}
 }

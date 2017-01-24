@@ -18,6 +18,8 @@ public:
 	int value_ix;
 	int prev_row;
 
+	VectorND<TT> oneOverDiagonal;
+
 	CSR();
 	~CSR();
 

@@ -545,19 +545,20 @@ inline void FluidSolver2D::InitialCondition(const int & example)
 		isPlot = false;
 	}
 
-	if (example == 4)
+	if (example == 4 || example == 5)
 	{
 		cout << "*************************************************" << endl;
 		cout << "    --- Navier-Stokes equation ---" << endl;
 		cout << "    A Boundary Conditio nCapturing Method for" << endl;
 		cout << "        Multiphase Incompressible Flow" << endl;
-		cout << "           Example : Air Bubble" << endl;
+		if (example == 4) cout << "           Example : Air Bubble" << endl;
+		if (example == 5) cout << "           Example : Water Drop" << endl;
 		cout << "*************************************************" << endl;
 		cout << endl;
 		//////////////////////////////////
 		// Large bubble or Small Bubble //
 		//////////////////////////////////
-		bool isSmallBubble = true;
+		bool isSmallBubble = false;
 
 		////////////////////////////////////////////////////////////////////////////
 		// CSF model with delta function 
@@ -575,8 +576,9 @@ inline void FluidSolver2D::InitialCondition(const int & example)
 
 		double xLength = 1 * scaling;
 		double yLength = 2 * scaling;
-		int domainRes = 80;
-		grid = Grid2D(-xLength, xLength, domainRes + 1, -xLength, yLength, 1.5*domainRes + 1);
+		int domainRes = 160;
+		if (example == 4) grid = Grid2D(-xLength, xLength, domainRes + 1, -xLength, yLength, 1.5*domainRes + 1);
+		if (example == 5) grid = Grid2D(-xLength, xLength, domainRes + 1, -yLength, xLength, 1.5*domainRes + 1);
 		gridU = Grid2D(grid.xMin - grid.dx / 2, grid.xMax + grid.dx / 2, grid.iRes + 1,
 			grid.yMin, grid.yMax, grid.jRes);
 
@@ -667,10 +669,20 @@ inline void FluidSolver2D::InitialCondition(const int & example)
 
 		// Negative Level Set : Inside
 		// Positive Level Set : Outside
-		densityE = densityWater;
-		densityI = densityAir;
-		viscosityE = viscosityWater;
-		viscosityI = viscosityAir;
+		if (example == 4)
+		{
+			densityE = densityWater;
+			densityI = densityAir;
+			viscosityE = viscosityWater;
+			viscosityI = viscosityAir;
+		}
+		if (example == 5)
+		{
+			densityE = densityAir;
+			densityI = densityWater;
+			viscosityE = viscosityAir;
+			viscosityI = viscosityWater;
+		}
 		gamma0 = 0.7825;
 
 		Density = FD(grid);
@@ -702,7 +714,167 @@ inline void FluidSolver2D::InitialCondition(const int & example)
 		iteration = 0;
 	}
 
-	if (example == 5)
+	if (example == 6)
+	{
+		cout << "*************************************************" << endl;
+		cout << "    --- Navier-Stokes equation ---" << endl;
+		cout << "    A Boundary Conditio nCapturing Method for" << endl;
+		cout << "        Multiphase Incompressible Flow" << endl;
+		cout << "           Example : Water Drop" << endl;
+		cout << "*************************************************" << endl;
+		cout << endl;
+		//////////////////////////////////
+		// Large bubble or Small Bubble //
+		//////////////////////////////////
+		bool isSmallBubble = false;
+
+		////////////////////////////////////////////////////////////////////////////
+		// CSF model with delta function 
+		// Boundary Condition Capturing method without delta function 
+		///////////////////////////////////////////////////////////////////////////
+		isCSFmodel = false;
+
+		dimensionlessForm = false;
+		isMultiPhase = true;
+		isGravity = true;
+		isPCG = true;
+
+		double scaling = 1;
+		if (isSmallBubble) scaling = 0.01;
+
+		double xLength = 1 * scaling;
+		double yLength = 2 * scaling;
+		int domainRes = 80;
+		grid = Grid2D(-xLength, xLength, domainRes + 1, -yLength, xLength, 1.5*domainRes + 1);
+		gridU = Grid2D(grid.xMin - grid.dx / 2, grid.xMax + grid.dx / 2, grid.iRes + 1,
+			grid.yMin, grid.yMax, grid.jRes);
+
+		gridV = Grid2D(grid.xMin, grid.xMax, grid.iRes,
+			grid.yMin - grid.dy / 2, grid.yMax + grid.dy / 2, grid.jRes + 1);
+
+		Pressure = FD(grid);
+		int tempBC = 0;
+		//// Boundary Condition
+		for (int j = Pressure.jStart; j <= Pressure.jEnd; j++)
+		{
+			for (int i = Pressure.iStart; i <= Pressure.iEnd; i++)
+			{
+				Pressure.BC(i, j) = tempBC++;
+			}
+		}
+
+		U = FD(gridU);
+		tempBC = 0;
+		for (int j = U.jStart; j <= U.jEnd; j++)
+		{
+			for (int i = U.iStart; i <= U.iEnd; i++)
+			{
+				if (i == U.iStart || i == U.iEnd)
+				{
+					U.BC(i, j) = BC_REFLECTION;
+					continue;
+				}
+				if (j == U.jStart)
+				{
+					//U.BC(i, j) = BC_NEUM;
+					U.BC(i, j) = BC_DIR;
+					continue;
+				}
+				if (j == U.jEnd)
+				{
+					//U.BC(i, j) = BC_NEUM;
+					U.BC(i, j) = BC_DIR;
+					continue;
+				}
+				U.BC(i, j) = tempBC++;
+			}
+		}
+		originU = U;
+
+		V = FD(gridV);
+		tempBC = 0;
+		for (int j = V.jStart; j <= V.jEnd; j++)
+		{
+			for (int i = V.iStart; i <= V.iEnd; i++)
+			{
+				if (i == V.iStart || i == V.iEnd)
+				{
+					V.BC(i, j) = BC_DIR;
+					continue;
+				}
+				if (j == V.jStart)
+				{
+					//V.BC(i, j) = BC_NEUM;
+					V.BC(i, j) = BC_REFLECTION;
+					continue;
+				}
+				if (j == V.jEnd)
+				{
+					//V.BC(i, j) = BC_NEUM;
+					V.BC(i, j) = BC_REFLECTION;
+					continue;
+				}
+				V.BC(i, j) = tempBC++;
+			}
+		}
+		originV = V;
+
+		LS levelSet1(grid);
+		LS levelSet2(grid);
+		levelSet = LS(grid);
+		double x, y;
+		double radius = 1.0 / 3.0 * scaling;
+#pragma omp parallel for private(x, y)
+		for (int i = grid.iStart; i <= grid.iEnd; i++)
+		{
+			for (int j = grid.jStart; j <= grid.jEnd; j++)
+			{
+				x = grid(i, j).x, y = grid(i, j).y;
+				levelSet1(i, j) = sqrt(x*x + y*y) - radius;
+				levelSet2(i, j) = y + 1 * scaling;
+			}
+		}
+		levelSet.CombineLevelSet(levelSet1, levelSet2);
+		levelSet.InitialTube();
+		levelSet.LComputeMeanCurvature();
+
+		// Negative Level Set : Inside
+		// Positive Level Set : Outside
+		densityE = densityAir;
+		densityI = densityWater;
+		viscosityE = viscosityAir;
+		viscosityI = viscosityWater;
+
+		Density = FD(grid);
+		Density.dataArray = 1;
+		DensityU = FD(gridU);
+		DensityV = FD(gridV);
+		Viscosity = FD(grid);
+		Viscosity.dataArray = 1;
+		ViscosityU = FD(gridU);
+		ViscosityV = FD(gridV);
+		Nu = FD(grid);
+
+		AdvectionU = FD(gridU);
+		AdvectionV = FD(gridV);
+
+		DiffusionU = FD(gridU);
+		DiffusionV = FD(gridV);
+
+		SurfaceForce = FD(grid);
+		SurfaceForceX = FD(gridU);
+		SurfaceForceY = FD(gridV);
+
+		ProjectionOrder = 1;
+
+		dt = 0;
+		finalT = 1 * scaling;
+		totalT = 0;
+		writeOutputIteration = 30;
+		iteration = 0;
+	}
+
+	if (example == 7)
 	{
 		/////////////////////////////////////////////////////////
 		/////  Siviscositylations of surfactant effects
@@ -841,7 +1013,6 @@ inline void FluidSolver2D::Solver(const int & example)
 		MATLAB.WriteImage("fluid", iteration, "png");
 	}
 
-	
 	while (totalT <= finalT)
 	{
 		iteration++;
@@ -850,27 +1021,39 @@ inline void FluidSolver2D::Solver(const int & example)
 		cout << "********************************" << endl;
 		cout << "       Iteration " << to_string(iteration) << " : Start" << endl;
 		totalT += (dt = AdaptiveTimeStep());
+		cout << "dt : " + to_string(dt) << endl;
+		if (dt<DBL_EPSILON)
+		{
+			cout << "Blow Up !!!!!!!!!!!!!!!!!!!!!!!!!!" << endl;
+			system("pause");
+			break;
+		}
 
 		TVDRK3TimeAdvection();
 
+
 		if (isMultiPhase)
 		{
-			int reinitialIter = int(levelSet.gamma1 / min(levelSet.phi.dx, levelSet.phi.dy)) * 2;
+			int reinitialIter = int(levelSet.gamma1 / (0.5*grid.dx));
 			AdvectionMethod2D<double>::LLSPropagatingTVDRK3MACGrid(levelSet, U, V, dt, 3);
+			cout << "Reinitialization : " + to_string(reinitialIter) + " Step" << endl;
 			AdvectionMethod2D<double>::LLSReinitializationTVDRK3(levelSet, dt, reinitialIter, 3);
+			//AdvectionMethod2D<double>::LLSReinitializationTVDRK3usingSubcellFix(levelSet, dt, reinitialIter, 3);
 			levelSet.UpdateInterface();
 			levelSet.UpdateLLS();
+
 		}
 		cout << "       Iteration " << to_string(iteration) << " : End" << endl;
 		cout << "********************************" << endl;
 
-		if (iteration % 10 == 0 && isPlot)
+		if (iteration % 10== 0 && isPlot)
 		{
 			MATLAB.Command("subplot(1,2,1)");
 			PlotVelocity();
 			MATLAB.Command("subplot(1,2,2)");
-			Pressure.Variable("P");
-			MATLAB.Command("surf(Xp, Yp, P), axis tight;");
+			MATLAB.Command("surf(Xp, Yp, phi), axis tight;");
+			//Pressure.Variable("P");
+			//MATLAB.Command("surf(Xp, Yp, P), axis tight;");
 			//MATLAB.WriteImage("fluid", iteration, "fig");
 			MATLAB.WriteImage("fluid", iteration, "png");
 		}
@@ -880,6 +1063,18 @@ inline void FluidSolver2D::Solver(const int & example)
 		cout << "Consuming Time : " + to_string((after - before) / CLOCKS_PER_SEC) + " / " + to_string(timeCheck) << endl;
 	}
 
+	if (isPlot)
+	{
+		MATLAB.Command("subplot(1,2,1)");
+		PlotVelocity();
+		MATLAB.Command("subplot(1,2,2)");
+		MATLAB.Command("surf(Xp, Yp, phi), axis tight;");
+		//Pressure.Variable("P");
+		//MATLAB.Command("surf(Xp, Yp, P), axis tight;");
+		MATLAB.WriteImage("fluid", iteration, "fig");
+		MATLAB.WriteImage("fluid", iteration, "png");
+	}
+	
 
 	if (writeFile)
 	{
@@ -903,6 +1098,8 @@ inline void FluidSolver2D::TVDRK3TimeAdvection()
 	double* vOriginVal(originV.dataArray.values);
 	int uRes = U.dataArray.ijRes;
 	int vRes = V.dataArray.ijRes;
+	int Res = max(uRes, vRes);
+	int ii, jj;
 
 	DetermineViscosity();
 	DetermineDensity();
@@ -928,15 +1125,13 @@ inline void FluidSolver2D::TVDRK3TimeAdvection()
 	if (ProjectionOrder == 1)		 EulerMethod();
 	else if (ProjectionOrder == 2)	 EulerMethod2ndOrder();
 
-#pragma omp parallel for
-	for (int i = 0; i < uRes; i++)
+#pragma omp parallel for private (ii, jj)
+	for (int i = 0; i < Res; i++)
 	{
-		uVal[i] = 1. / 4. * (3 * uOriginVal[i] + uVal[i]);
-	}
-#pragma omp parallel for
-	for (int i = 0; i < vRes; i++)
-	{
-		vVal[i] = 1. / 4. * (3 * vOriginVal[i] + vVal[i]);
+		ii = min(i, uRes);
+		jj = min(i, vRes);
+		uVal[ii] = 1. / 4. * (3 * uOriginVal[ii] + uVal[ii]);
+		vVal[jj] = 1. / 4. * (3 * vOriginVal[jj] + vVal[jj]);
 	}
 
 	/////////////////
@@ -945,16 +1140,15 @@ inline void FluidSolver2D::TVDRK3TimeAdvection()
 	if (ProjectionOrder == 1)		 EulerMethod();
 	else if (ProjectionOrder == 2)	 EulerMethod2ndOrder();
 
-#pragma omp parallel for
-	for (int i = 0; i < uRes; i++)
+#pragma omp parallel for private (ii, jj)
+	for (int i = 0; i < Res; i++)
 	{
-		uVal[i] = 1. / 3. * (uOriginVal[i] + 2. * uVal[i]);
+		ii = min(i, uRes);
+		jj = min(i, vRes);
+		uVal[ii] = 1. / 3. * (uOriginVal[ii] + 2. * uVal[ii]);
+		vVal[jj] = 1. / 3. * (vOriginVal[jj] + 2. * vVal[jj]);
 	}
-#pragma omp parallel for
-	for (int i = 0; i < vRes; i++)
-	{
-		vVal[i] = 1. / 3. * (vOriginVal[i] + 2. * vVal[i]);
-	}
+
 }
 
 inline void FluidSolver2D::EulerMethod()
@@ -1037,12 +1231,12 @@ inline void FluidSolver2D::EulerMethodStep1()
 	//DiffusionU.Variable("diffusionU");
 	//AdvectionV.Variable("advectionV");
 	//DiffusionV.Variable("diffusionV");
-	int iStart = grid.iStart, jStart = grid.jStart;
+	int iStart = grid.iStart, iEnd = grid.iEnd, jStart = grid.jStart, jEnd = grid.jEnd;
 	double oneOverRe = 1 / Re;
 	double oneOverDensity;
 	double ls;
-	int ii, jj;
-#pragma omp parallel for private(oneOverDensity, ii, ls)
+	int iL, iR, jB, jT;
+#pragma omp parallel for private(oneOverDensity, iL, iR, ls)
 	for (int i = U.iStart; i <= U.iEnd; i++)
 	{
 		for (int j = U.jStart; j <= U.jEnd; j++)
@@ -1055,12 +1249,24 @@ inline void FluidSolver2D::EulerMethodStep1()
 			}
 			else
 			{
-				oneOverDensity = 1. / DensityU(i, j);
+				if (isCSFmodel)
+				{
+					oneOverDensity = 1. / DensityU(i, j);
+				}
+				else
+				{
+					iL = max(i - 1, iStart);
+					iR = min(i, iEnd);
+					ls = 0.5*(levelSet(iL, j) + levelSet(iR, j));
+					if (ls <= 0)	oneOverDensity = 1 / densityI;
+					else			oneOverDensity = 1 / densityE;
+				}
+
 				U(i, j) += dt*(-AdvectionU(i, j) + oneOverDensity*(DiffusionU(i, j) + SurfaceForceX(i, j)));
 			}
 		}
 	}
-#pragma omp parallel for private(oneOverDensity, jj, ls)
+#pragma omp parallel for private(oneOverDensity, jB, jT, ls)
 	for (int i = V.iStart; i <= V.iEnd; i++)
 	{
 		for (int j = V.jStart; j <= V.jEnd; j++)
@@ -1073,7 +1279,18 @@ inline void FluidSolver2D::EulerMethodStep1()
 			}
 			else
 			{
-				oneOverDensity = 1. / DensityV(i, j);
+				if (isCSFmodel)
+				{
+					oneOverDensity = 1. / DensityV(i, j);
+				}
+				else
+				{
+					jB = max(j - 1, jStart);
+					jT = min(j, jEnd);
+					ls = 0.5*(levelSet(i, jB) + levelSet(i, jT));
+					if (ls <= 0)	oneOverDensity = 1 / densityI;
+					else			oneOverDensity = 1 / densityE;
+				}
 				V(i, j) += dt*(-AdvectionV(i, j) + oneOverDensity*(DiffusionV(i, j) + SurfaceForceY(i, j)));
 			}
 			if (isGravity) V(i, j) += dt*gravity;
@@ -1088,19 +1305,6 @@ inline void FluidSolver2D::EulerMethodStep2()
 {
 	GenerateLinearSystemPressure(Pb);
 	Array2D<int> BC = Pressure.BC;
-	double* pVal(tempP.values);
-	int index;
-#pragma omp parallel for private(index)
-	for (int i = Pressure.iStart; i <= Pressure.iEnd; i++)
-	{
-		for (int j = Pressure.jStart; j <= Pressure.jEnd; j++)
-		{
-			index = BC(i, j);
-			if (index < 0) continue;
-
-			pVal[index] = Pressure(i, j);
-		}
-	}
 
 	if (isPCG)
 	{
@@ -1134,13 +1338,14 @@ inline void FluidSolver2D::EulerMethodStep3()
 			if (U.BC(i, j) < 0) continue;
 
 			iL = max(i - 1, iStart);
-			iR = i;
+			iR = min(i, iEnd);
 			lsL = levelSet(iL, j);
 			lsR = levelSet(iR, j);
 
-			if (dimensionlessForm) U(i, j) -= dt * (Pressure(i, j) - Pressure(i - 1, j))*oneOverdx;
+			if (dimensionlessForm) U(i, j) -= dt * (Pressure(iR, j) - Pressure(iL, j))*oneOverdx;
 			else
 			{
+				JP = 0;
 				if (isCSFmodel) JP = 0;
 				else
 				{
@@ -1152,8 +1357,16 @@ inline void FluidSolver2D::EulerMethodStep3()
 						if (lsR > 0) JP *= -1;
 					}
 				}
-				oneOverDensity = 1. / DensityU(i, j);
-				U(i, j) -= dt * ((Pressure(i, j) - Pressure(iL, j) + JP) * oneOverdx) *oneOverDensity;
+				//if (isCSFmodel)
+				//{
+					oneOverDensity = 1. / DensityU(i, j);
+				//}
+				//else
+				//{
+				//	if (lsL + lsR <= 0)	oneOverDensity = 1 / densityI;
+				//	else				oneOverDensity = 1 / densityE;
+				//}
+				U(i, j) -= dt * ((Pressure(iR, j) - Pressure(iL, j) + JP) * oneOverdx) *oneOverDensity;
 			}
 		}
 	}
@@ -1166,13 +1379,14 @@ inline void FluidSolver2D::EulerMethodStep3()
 			if (V.BC(i, j) < 0) continue;
 
 			jB = max(j - 1, jStart);
-			jT = j;
+			jT = min(j, jEnd);
 			lsB = levelSet(i, jB);
 			lsT = levelSet(i, jT);
 
-			if (dimensionlessForm) V(i, j) -= dt * (Pressure(i, j) - Pressure(i, j - 1))*oneOverdy;
+			if (dimensionlessForm) V(i, j) -= dt * (Pressure(i, jT) - Pressure(i, jB))*oneOverdy;
 			else
 			{
+				JP = 0;
 				if (isCSFmodel) JP = 0;
 				else
 				{
@@ -1184,7 +1398,15 @@ inline void FluidSolver2D::EulerMethodStep3()
 						if (lsT > 0) JP *= -1;
 					}
 				}
-				oneOverDensity = 1. / DensityV(i, j);
+				//if (isCSFmodel)
+				//{
+					oneOverDensity = 1. / DensityV(i, j);
+				//}
+				//else
+				//{
+				//	if (lsB + lsT <= 0)	oneOverDensity = 1 / densityI;
+				//	else				oneOverDensity = 1 / densityE;
+				//}
 				V(i, j) -= dt * ((Pressure(i, jT) - Pressure(i, jB) + JP)*oneOverdy) *oneOverDensity;
 			}
 		}
@@ -1324,6 +1546,7 @@ inline void FluidSolver2D::GenerateLinearSystemPressure(VectorND<double>& vector
 	double oneOverdy2 = Pressure.oneOverdy2;
 
 	double* bVal(vectorB.values);
+	double* PVal(tempP.values);
 	int tempIndex;
 	double betaL, betaR, betaB, betaT;
 	double lsC, lsL, lsR, lsB, lsT; // Level Set
@@ -1417,7 +1640,7 @@ inline void FluidSolver2D::GenerateLinearSystemPressure(VectorND<double>& vector
 
 			tempSum += bVal[tempIndex];
 
-			tempP.values[tempIndex] = Pressure(i, j);
+			PVal[tempIndex] = Pressure(i, j);
 		}
 	}
 
@@ -1600,11 +1823,21 @@ inline void FluidSolver2D::DiffusionTerm(const FD & U, const FD & V, FD & TermU,
 				lsB = InterpolationGridtoU(levelSet.phi.dataArray, i, j - 1);
 				lsT = InterpolationGridtoU(levelSet.phi.dataArray, i, j + 1);
 
-				viscoL = ViscosityU(i - 1, j);
-				viscoC = ViscosityU(i, j);
-				viscoR = ViscosityU(i + 1, j);
-				viscoB = ViscosityU(i, j - 1);
-				viscoT = ViscosityU(i, j + 1);
+				//viscoL = ViscosityU(i - 1, j);
+				//viscoC = ViscosityU(i, j);
+				//viscoR = ViscosityU(i + 1, j);
+				//viscoB = ViscosityU(i, j - 1);
+				//viscoT = ViscosityU(i, j + 1);
+				if (lsL <= 0)	viscoL = viscosityI;
+				else			viscoL = viscosityE;
+				if (lsC <= 0)	viscoC = viscosityI;
+				else			viscoC = viscosityE;
+				if (lsR <= 0)	viscoR = viscosityI;
+				else			viscoR = viscosityE;
+				if (lsB <= 0)	viscoB = viscosityI;
+				else			viscoB = viscosityE;
+				if (lsT <= 0)	viscoT = viscosityI;
+				else			viscoT = viscosityE;
 
 				uL = U(i - 1, j);
 				uC = U(i, j);
@@ -1697,11 +1930,21 @@ inline void FluidSolver2D::DiffusionTerm(const FD & U, const FD & V, FD & TermU,
 				lsB = InterpolationGridtoV(levelSet.phi.dataArray, i, j - 1);
 				lsT = InterpolationGridtoV(levelSet.phi.dataArray, i, j + 1);
 
-				viscoL = ViscosityV(i - 1, j);
-				viscoC = ViscosityV(i, j);
-				viscoR = ViscosityV(i + 1, j);
-				viscoB = ViscosityV(i, j - 1);
-				viscoT = ViscosityV(i, j + 1);
+				//viscoL = ViscosityV(i - 1, j);
+				//viscoC = ViscosityV(i, j);
+				//viscoR = ViscosityV(i + 1, j);
+				//viscoB = ViscosityV(i, j - 1);
+				//viscoT = ViscosityV(i, j + 1);
+				if (lsL <= 0)	viscoL = viscosityI;
+				else			viscoL = viscosityE;
+				if (lsC <= 0)	viscoC = viscosityI;
+				else			viscoC = viscosityE;
+				if (lsR <= 0)	viscoR = viscosityI;
+				else			viscoR = viscosityE;
+				if (lsB <= 0)	viscoB = viscosityI;
+				else			viscoB = viscosityE;
+				if (lsT <= 0)	viscoT = viscosityI;
+				else			viscoT = viscosityE;
 
 				vL = V(i - 1, j);
 				vC = V(i, j);
@@ -1784,45 +2027,32 @@ inline void FluidSolver2D::DetermineViscosity()
 	int iStart = grid.iStart, iEnd = grid.iEnd, jStart = grid.jStart, jEnd = grid.jEnd;
 	int UiStart = U.iStart, UiEnd = U.iEnd, UjStart = U.jStart, UjEnd = U.jEnd;
 	int ViStart = V.iStart, ViEnd = V.iEnd, VjStart = V.jStart, VjEnd = V.jEnd;
+	int ii, jj;
+	int iL, iR;
+	double ls;
+	int jB, jT;
+
 	if (isMultiPhase)
 	{
-		// Level Set Viscosity.
-#pragma omp parallel for
-		for (int i = iStart; i <= iEnd; i++)
-		{
-			for (int j = jStart; j <= jEnd; j++)
-			{
-				if (levelSet(i, j) < 0) Viscosity(i, j) = viscosityI;
-				else					Viscosity(i, j) = viscosityE;
-			}
-		}
-
-		int iL, iR;
-		double ls;
-		// U Viscosity
-#pragma omp parallel for private (iL, iR, ls)
+#pragma omp parallel for private (iL, iR, ls, jB, jT, ii, jj)
 		for (int i = UiStart; i <= UiEnd; i++)
-		{
-			for (int j = UjStart; j <= UjEnd; j++)
-			{
-				iL = max(i - 1, iStart);
-				iR = min(i, iEnd);
-				ls = 0.5*(levelSet(iL, j) + levelSet(iR, j));
-				ViscosityU(i, j) = viscosityI + (viscosityE - viscosityI)*AdvectionMethod2D<double>::Heaviside(ls);
-			}
-		}
-		
-		int jB, jT;
-		// V Viscosity
-#pragma omp parallel for private(jB, jT, ls)
-		for (int i = ViStart; i <= ViEnd; i++)
 		{
 			for (int j = VjStart; j <= VjEnd; j++)
 			{
-				jB = max(j - 1, jStart);
-				jT = min(j, jEnd);
-				ls = 0.5*(levelSet(i, jB) + levelSet(i, jT));
-				ViscosityV(i, j) = viscosityI + (viscosityE - viscosityI)*AdvectionMethod2D<double>::Heaviside(ls);
+				ii = min(i, iEnd);
+				jj = min(j, jEnd);
+				if (levelSet(ii, jj) < 0)	Viscosity(ii, jj) = viscosityI;
+				else						Viscosity(ii, jj) = viscosityE;
+
+				iL = max(ii - 1, iStart);
+				iR = min(ii, iEnd);
+				ls = 0.5*(levelSet(iL, jj) + levelSet(iR, jj));
+				ViscosityU(i, jj) = viscosityI + (viscosityE - viscosityI)*AdvectionMethod2D<double>::Heaviside(ls);
+
+				jB = max(jj - 1, jStart);
+				jT = min(jj, jEnd);
+				ls = 0.5*(levelSet(ii, jB) + levelSet(ii, jT));
+				ViscosityV(ii, j) = viscosityI + (viscosityE - viscosityI)*AdvectionMethod2D<double>::Heaviside(ls);
 			}
 		}
 	}
@@ -1840,45 +2070,32 @@ inline void FluidSolver2D::DetermineDensity()
 	int iStart = grid.iStart, iEnd = grid.iEnd, jStart = grid.jStart, jEnd = grid.jEnd;
 	int UiStart = U.iStart, UiEnd = U.iEnd, UjStart = U.jStart, UjEnd = U.jEnd;
 	int ViStart = V.iStart, ViEnd = V.iEnd, VjStart = V.jStart, VjEnd = V.jEnd;
+	int ii, jj;
+	int iL, iR;
+	double ls;
+	int jB, jT;
+
 	if (isMultiPhase)
 	{
-		// Level Set Density.
-#pragma omp parallel for 
-		for (int i = grid.iStart; i <= grid.iEnd; i++)
-		{
-			for (int j = grid.jStart; j <= grid.jEnd; j++)
-			{
-				if (levelSet(i, j) < 0) Density(i, j) = densityI;
-				else					Density(i, j) = densityE;
-			}
-		}
-
-		int iL, iR;
-		double ls;
-		// U Density
-#pragma omp parallel for private (iL, iR, ls)
-		for (int i = UiStart; i <= UiEnd ; i++)
-		{
-			for (int j = UjStart; j <= UjEnd; j++)
-			{
-				iL = max(i - 1, iStart);
-				iR = min(i, iEnd);
-				ls = 0.5*(levelSet(iL, j) + levelSet(iR, j));
-				DensityU(i, j) = densityI + (densityE - densityI)*AdvectionMethod2D<double>::Heaviside(ls);
-			}
-		}
-
-		int jB, jT;
-		// V Density
-#pragma omp parallel for private(jB, jT, ls)
-		for (int i = ViStart; i <= ViEnd; i++)
+#pragma omp parallel for private (iL, iR, ls, jB, jT, ii, jj)
+		for (int i = UiStart; i <= UiEnd; i++)
 		{
 			for (int j = VjStart; j <= VjEnd; j++)
 			{
-				jB = max(j - 1, jStart);
-				jT = min(j, jEnd);
-				ls = 0.5*(levelSet(i, jB) + levelSet(i, jT));
-				DensityV(i, j) = densityI + (densityE - densityI)*AdvectionMethod2D<double>::Heaviside(ls);
+				ii = min(i, ViEnd);
+				jj = min(j, UjEnd);
+				if (levelSet(ii, jj) < 0)	Density(ii, jj) = densityI;
+				else						Density(ii, jj) = densityE;
+
+				iL = max(ii - 1, iStart);
+				iR = min(ii, iEnd);
+				ls = 0.5*(levelSet(iL, jj) + levelSet(iR, jj));
+				DensityU(i, jj) = densityI + (densityE - densityI)*AdvectionMethod2D<double>::Heaviside(ls);
+
+				jB = max(jj - 1, jStart);
+				jT = min(jj, jEnd);
+				ls = 0.5*(levelSet(ii, jB) + levelSet(ii, jT));
+				DensityV(ii, j) = densityI + (densityE - densityI)*AdvectionMethod2D<double>::Heaviside(ls);
 			}
 		}
 	}
@@ -2169,29 +2386,41 @@ inline double FluidSolver2D::AdaptiveTimeStep()
 	int iStart = grid.iStart, iEnd = grid.iEnd, jStart = grid.jStart, jEnd = grid.jEnd;
 	int UiStart = U.iStart, UiEnd = U.iEnd, UjStart = U.jStart, UjEnd = U.jEnd;
 	int ViStart = V.iStart, ViEnd = V.iEnd, VjStart = V.jStart, VjEnd = V.jEnd;
+	int ii, jj;
 	double dx = grid.dx, dy = grid.dy;
-	double Ccfl = 1, Vcfl = 1, Gcfl = 0, Scfl = 1;
+	double Ccfl = 0, Vcfl = 0, Gcfl = 0, Scfl = 0;
 	double uMax = 0, vMax = 0, curvatureMax = 0;
+	double finalCFL;
 
-	for (int i = iStart; i <= iEnd; i++)
+	for (int i = UiStart; i <= UiEnd; i++)
 	{
-		for (int j = jStart; j < jEnd; j++)
+		for (int j = VjStart; j < VjEnd; j++)
 		{
-			if (abs(U(i, j)) > uMax) uMax = abs(U(i, j));
-			if (abs(V(i, j)) > vMax) vMax = abs(V(i, j));
-			if (abs(levelSet.meanCurvature(i, j)) > curvatureMax) curvatureMax = abs(levelSet.meanCurvature(i, j));
+			ii = min(i, ViEnd);
+			jj = min(j, UjEnd);
+			if (abs(U(i, jj)) > uMax) uMax = abs(U(i, jj));
+			if (abs(V(ii, j)) > vMax) vMax = abs(V(ii, j));
+			if (abs(levelSet.meanCurvature(ii, jj)) > curvatureMax) curvatureMax = abs(levelSet.meanCurvature(ii, jj));
+
 		}
 	}
-	
 	Ccfl = (uMax / dx + vMax / dy);
 
-	Vcfl = max(viscosityE / densityE, viscosityI / densityI)*sqrt(2 / (dx*dx) + 2 / (dx*dx));
+	if (dimensionlessForm)
+	{
+		double oneOverRe = 1 / Re;
+		Vcfl = oneOverRe * sqrt(2 / (dx*dx) + 2 / (dx*dx));
+	}
+
+	else Vcfl = max(viscosityE / densityE, viscosityI / densityI)*sqrt(2 / (dx*dx) + 2 / (dx*dx));
 
 	if (isGravity) Gcfl = sqrt(abs(gravity) / dy);
 
+	curvatureMax = min(curvatureMax, 1 / dx);
 	Scfl = sqrt(gamma0*curvatureMax / (min(densityE, densityI)*min(dx*dx, dy*dy)));
 
-	double finalCFL = ((Ccfl + Vcfl) + sqrt((Ccfl + Vcfl)*(Ccfl + Vcfl) + 4 * Gcfl*Gcfl + 4 * Scfl*Scfl)) / 2;
+
+	finalCFL = ((Ccfl + Vcfl) + sqrt((Ccfl + Vcfl)*(Ccfl + Vcfl) + 4 * Gcfl*Gcfl + 4 * Scfl*Scfl)) / 2;
 
 	return 0.5/finalCFL;
 }

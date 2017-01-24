@@ -184,6 +184,7 @@ inline void Reinitialzation::ReinitializationSolver(const int & example)
 
 	cflCondition = 0.8;
 	InitialCondition(example);
+	//levelSet.InitialTube();
 
 	if (writeFile)
 	{
@@ -218,21 +219,25 @@ inline void Reinitialzation::ReinitializationSolver(const int & example)
 		cout << "Reinitialization : " << i << endl;
 		dt = AdaptiveTimeStep();
 		AdvectionMethod2D<double>::LSReinitializationTVDRK3(levelSet, dt);
+		//AdvectionMethod2D<double>::LLSReinitializationTVDRK3usingSubcellFix(levelSet, 0.1*grid.dx, 1, 3);
+		//AdvectionMethod2D<double>::LLSReinitializationTVDRK3(levelSet, 0.1*grid.dx, 1, 3);
+		//levelSet.UpdateInterface();
+		//levelSet.UpdateLLS();
+
 		levelSet.phi.Variable("phi");
 
 		MATLAB.Command("subplot(1, 2, 1)");
 		MATLAB.Command("surf(X,Y,phi)");
 		MATLAB.Command("subplot(1, 2, 2)");
 		MATLAB.Command("plot(0,0);");
-		MATLAB.Command("contour(X, Y, phi, [0 0],'b');");
-		MATLAB.Command("hold on");
 		MATLAB.Command("contour(X, Y, phi);");
+		MATLAB.Command("hold on");
+		MATLAB.Command("contour(X, Y, phi, [0 0],'b');");
 		MATLAB.Command("contour(X, Y, phi0,[0 0],'r');");
 		MATLAB.Command("grid on");
 		MATLAB.Command("hold off");
 		str = string("title(['iteration : ', num2str(") + to_string(i) + string(")]);");
-		cmd = str.c_str();
-		MATLAB.Command(cmd);
+		MATLAB.Command(str.c_str());
 
 		if (writeFile && i%writeIter == 0)
 		{

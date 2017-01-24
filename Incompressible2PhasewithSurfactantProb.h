@@ -253,7 +253,7 @@ inline void InsolubleSurfactant::InitialCondition(const int & example)
 		InterfaceSurfactant.InitialCondition(9);
 
 		//// Initialize Velocity Fields
-		Fluid.InitialCondition(5);
+		Fluid.InitialCondition(7);
 
 		We = densityE * lengthscale * lengthscale / gamma0;
 		Oh = viscosityI / sqrt(lengthscale*densityI*Nf*gamma0);
@@ -333,7 +333,7 @@ inline void InsolubleSurfactant::ContinuumMethodWithSurfactantSolver(const int &
 	
 
 
-	int reinitialIter = int(levelSet.gamma1 / min(levelSet.phi.dx, levelSet.phi.dy)) * 2;
+	int reinitialIter = int(levelSet.gamma1 / min(levelSet.phi.dx, levelSet.phi.dy)) * 3;
 	int extensionIter = (int)ceil((levelSet.gamma2 - levelSet.gamma1) / (0.2*min(grid.dx, grid.dy)));
 	for (iteration = 1; iteration <= maxIteration; iteration++)
 	{
@@ -357,7 +357,7 @@ inline void InsolubleSurfactant::ContinuumMethodWithSurfactantSolver(const int &
 
 		//// Step 3 : Level Set Propagation
 		AdvectionMethod2D<double>::LLSPropagatingTVDRK3MACGrid(levelSet, U, V, dt, LspatialOrder);
-		AdvectionMethod2D<double>::LLSReinitializationTVDRK3(levelSet, dt, reinitialIter, LspatialOrder);
+		AdvectionMethod2D<double>::LLSReinitializationTVDRK3usingSubcellFix(levelSet, 0.5*grid.dx, reinitialIter, LspatialOrder);
 
 		AdvectionMethod2D<double>::LLSQuantityExtension(levelSet, Surfactant, temporalOrder, LspatialOrder, extensionIter);
 		levelSet.UpdateInterface();
