@@ -26,6 +26,9 @@ public:
 	static TT Plus(const TT& constant);
 	static TT Minus(const TT& constant);
 
+	static double MinMod(const double & constant1, const double & constant2);
+	static double MinAbs(const double & constant1, const double & constant2);
+
 	static void ENO3rdDerivation(const Field2D<TT>& ipField, Array2D<TT>& enoDxMinus, Array2D<TT>& enoDxPlus, Array2D<TT>& enoDyMinus, Array2D<TT>& enoDyPlus);
 	static void ENO3rdDxMinus(const Field2D<TT>& ipField, Array2D<TT>& enoDxMinus);
 	static void ENO3rdDxPlus(const Field2D<TT>& ipField, Array2D<TT>& enoDxPlus);
@@ -53,6 +56,12 @@ public:
 	static void WENO5thDyPlus(const Field2D<TT>& ipField, Array2D<TT>& wenoYPlus);
 
 	static void LSReinitializationTVDRK3(LS& levelSet, const double& dt);
+	static void LSReinitializationTVDRK3(LS& levelSet, const double& dt, const int& iteration);
+	static void LSReinitializationTVDRK3(LS& levelSet, LS& originLS, const double& dt, const int& spatialOrder);
+	static void LSOneSidedDerivativesSubcellFixSecondOrder(const LS& levelSet, const Field2D<TT>& ipField, Array2D<TT>& DxMinus, Array2D<TT>& DxPlus, Array2D<TT>& DyMinus, Array2D<TT>& DyPlus);
+	static void LSOneSidedDerivativesDxSubcellFixSecondOrder(const LS& levelSet, const Field2D<TT>& ipField, Array2D<TT>& DxMinus, Array2D<TT>& DxPlus);
+	static void LSOneSidedDerivativesDySubcellFixSecondOrder(const LS& levelSet, const Field2D<TT>& ipField, Array2D<TT>& DyMinus, Array2D<TT>& DyPlus);
+	static void LSReinitializationTVDRK3SubcellFixSecondOrder(LS& levelSet, const double& dt, const int& iter);
 	static TT ReinitialGodunov(const TT& dxPlus, const TT& dxMinus, const TT& dyPlus, const TT& dyMinus, const TT& phi);
 	static TT ReinitialGodunov(LS& ipLS, const int& i, const int & j);
 	//static void LSReinitializationFE(LS& levelSet, const double& dt, const double& cfl);
@@ -92,6 +101,18 @@ public:
 	static void LLSReinitializationTVDRK3(LS& levelSet, const double& dt, const int& iter);
 	static void LLSReinitializationTVDRK3(LS& levelSet, const double& dt, const int& iter, const int& spatialOrder);
 	static void LLSReinitializationTVDRK3usingSubcellFix(LS& levelSet, const double& dt, const int& iter, const int& spatialOrder);
+
+	static void LLSOneSidedDerivativesSubcellFixSecondOrder(const LS& levelSet, const Field2D<TT>& ipField, Array2D<TT>& DxMinus, Array2D<TT>& DxPlus, Array2D<TT>& DyMinus, Array2D<TT>& DyPlus);
+	static void LLSOneSidedDerivativesDxSubcellFixSecondOrder(const LS& levelSet, const Field2D<TT>& ipField, Array2D<TT>& DxMinus, Array2D<TT>& DxPlus);
+	static void LLSOneSidedDerivativesDySubcellFixSecondOrder(const LS& levelSet, const Field2D<TT>& ipField, Array2D<TT>& DyMinus, Array2D<TT>& DyPlus);
+	static void LLSReinitializationTVDRK3SubcellFixSecondOrder(LS& levelSet, const double& dt, const int& iter);
+
+	static void OneSideLeftDerivatives(const double& lsL, const double& lsC, const double& valueL, const double& valueC, const double& dx, double& val, double thetadx);
+	static void OneSideRightDerivatives(const double& lsC, const double& lsR, const double& valueC, const double& valueR, const double& dx, double& val, double thetadx);
+	static void LLSOneSidedDerivatives(const LS& levelSet, const Field2D<TT>& ipField, Array2D<TT>& DxMinus, Array2D<TT>& DxPlus, Array2D<TT>& DyMinus, Array2D<TT>& DyPlus);
+	static void LLSOneSidedDerivativesDx(const LS& levelSet, const Field2D<TT>& ipField, Array2D<TT>& DxMinus, Array2D<TT>& DxPlus);
+	static void LLSOneSidedDerivativesDy(const LS& levelSet, const Field2D<TT>& ipField, Array2D<TT>& DyMinus, Array2D<TT>& DyPlus);
+	static void LLSReinitializationTVDRK3SubcellFixHighOrder(LS& levelSet, const double& dt, const int& iter);
 
 	static void LLSQuantityExtension(LS& ipLS, FD& ipQuantity, const int & temporalOrder, const int & spatialOrder);
 	static void LLSQuantityExtension(LS& ipLS, FD& ipQuantity, const int & temporalOrder, const int & spatialOrder, const int & iter);
@@ -232,6 +253,36 @@ inline TT AdvectionMethod2D<TT>::Minus(const TT & constant)
 }
 
 template<class TT>
+inline double AdvectionMethod2D<TT>::MinMod(const double & constant1, const double & constant2)
+{
+	if (constant1*constant2 <= 0)
+	{
+		return 0.0;
+	}
+	else if (abs(constant1) <= abs(constant2))
+	{
+		return constant1;
+	}
+	else
+	{
+		return constant2;
+	}
+}
+
+template<class TT>
+inline double AdvectionMethod2D<TT>::MinAbs(const double & constant1, const double & constant2)
+{
+	if (abs(constant1) <= abs(constant2))
+	{
+		return constant1;
+	}
+	else
+	{
+		return constant2;
+	}
+}
+
+template<class TT>
 inline void AdvectionMethod2D<TT>::ENO3rdDerivation(const Field2D<TT>& ipField, Array2D<TT>& enoDxMinus, Array2D<TT>& enoDxPlus, Array2D<TT>& enoDyMinus, Array2D<TT>& enoDyPlus)
 {
 	ENO3rdDxMinus(ipField, enoDxMinus);
@@ -246,9 +297,8 @@ inline void AdvectionMethod2D<TT>::ENO3rdDxMinus(const Field2D<TT>& ipField, Arr
 	double dx(ipField.dx), dy(ipField.dy);
 	double one_over_dx(ipField.oneOverdx), one_over_dy(ipField.oneOverdy), one_over_2dx(ipField.oneOver2dx), one_over_2dy(ipField.oneOver2dx);
 	double one_over_3dx(one_over_dx*(double)1 / 3), one_over_3dy(one_over_dy*(double)1 / 3);
-	double diff_1_x_n_3, diff_1_x_n_2, diff_1_x_n_1, diff_1_x_0, diff_1_x_p_1, diff_2_x_n_2, diff_2_x_n_1, diff_2_x_0, diff_2_x_p_1, diff_3_x_n_2, diff_3_x_n_1, diff_3_x_0;
 
-//#pragma omp parallel for private(diff_1_x_n_3, diff_1_x_n_2, diff_1_x_n_1, diff_1_x_0, diff_1_x_p_1, diff_2_x_n_2, diff_2_x_n_1, diff_2_x_0, diff_2_x_p_1, diff_3_x_n_2, diff_3_x_n_1, diff_3_x_0)
+#pragma omp parallel for
 	for (int i = ipField.iStart; i <= ipField.iEnd; i++)
 	{
 		for (int j = ipField.jStart; j <= ipField.jEnd; j++)
@@ -258,6 +308,7 @@ inline void AdvectionMethod2D<TT>::ENO3rdDxMinus(const Field2D<TT>& ipField, Arr
 				enoDxMinus(i, j) = ipField.dxMinusPhi(i, j);
 				continue;
 			}
+			double diff_1_x_n_3, diff_1_x_n_2, diff_1_x_n_1, diff_1_x_0, diff_1_x_p_1, diff_2_x_n_2, diff_2_x_n_1, diff_2_x_0, diff_2_x_p_1, diff_3_x_n_2, diff_3_x_n_1, diff_3_x_0;
 
 			diff_1_x_n_3 = one_over_dx*(ipField(i - 2, j) - ipField(i - 3, j));
 			diff_1_x_n_2 = one_over_dx*(ipField(i - 1, j) - ipField(i - 2, j));
@@ -307,9 +358,8 @@ inline void AdvectionMethod2D<TT>::ENO3rdDxPlus(const Field2D<TT>& ipField, Arra
 	double dx(ipField.dx), dy(ipField.dy);
 	double one_over_dx(ipField.oneOverdx), one_over_dy(ipField.oneOverdy), one_over_2dx(ipField.oneOver2dx), one_over_2dy(ipField.oneOver2dx);
 	double one_over_3dx(one_over_dx*(double)1 / 3), one_over_3dy(one_over_dy*(double)1 / 3);
-	double diff_1_x_n_2, diff_1_x_n_1, diff_1_x_0, diff_1_x_p_1, diff_1_x_p_2, diff_2_x_n_1, diff_2_x_0, diff_2_x_p_1, diff_2_x_p_2, diff_3_x_n_1, diff_3_x_0, diff_3_x_p_1;
 
-#pragma omp parallel for private(diff_1_x_n_2, diff_1_x_n_1, diff_1_x_0, diff_1_x_p_1, diff_1_x_p_2, diff_2_x_n_1, diff_2_x_0, diff_2_x_p_1, diff_2_x_p_2, diff_3_x_n_1, diff_3_x_0, diff_3_x_p_1)
+#pragma omp parallel for
 	for (int i = ipField.iStart; i <= ipField.iEnd; i++)
 	{
 		for (int j = ipField.jStart; j <= ipField.jEnd; j++)
@@ -320,7 +370,8 @@ inline void AdvectionMethod2D<TT>::ENO3rdDxPlus(const Field2D<TT>& ipField, Arra
 				enoDxPlus(i, j) = ipField.dxPlusPhi(i, j);
 				continue;
 			}
-			
+			double diff_1_x_n_2, diff_1_x_n_1, diff_1_x_0, diff_1_x_p_1, diff_1_x_p_2, diff_2_x_n_1, diff_2_x_0, diff_2_x_p_1, diff_2_x_p_2, diff_3_x_n_1, diff_3_x_0, diff_3_x_p_1;
+
 			diff_1_x_n_2 = one_over_dx*(ipField(i - 1, j) - ipField(i - 2, j));
 			diff_1_x_n_1 = one_over_dx*(ipField(i, j) - ipField(i - 1, j));
 			diff_1_x_0 = one_over_dx*(ipField(i + 1, j) - ipField(i, j));
@@ -368,9 +419,8 @@ inline void AdvectionMethod2D<TT>::ENO3rdDyMinus(const Field2D<TT>& ipField, Arr
 	double dx(ipField.dx), dy(ipField.dy);
 	double one_over_dx(ipField.oneOverdx), one_over_dy(ipField.oneOverdy), one_over_2dx(ipField.oneOver2dx), one_over_2dy(ipField.oneOver2dx);
 	double one_over_3dx(one_over_dx*(double)1 / 3), one_over_3dy(one_over_dy*(double)1 / 3);
-	double diff_1_y_n_3, diff_1_y_n_2, diff_1_y_n_1, diff_1_y_0, diff_1_y_p_1, diff_1_y_p_2, diff_2_y_n_2, diff_2_y_n_1, diff_2_y_0, diff_2_y_p_1, diff_2_y_p_2, diff_3_y_n_2, diff_3_y_n_1, diff_3_y_0, diff_3_y_p_1;
 
-#pragma omp parallel for private(diff_1_y_n_3, diff_1_y_n_2, diff_1_y_n_1, diff_1_y_0, diff_1_y_p_1, diff_1_y_p_2, diff_2_y_n_2, diff_2_y_n_1, diff_2_y_0, diff_2_y_p_1, diff_2_y_p_2, diff_3_y_n_2, diff_3_y_n_1, diff_3_y_0, diff_3_y_p_1)
+#pragma omp parallel for
 	for (int i = ipField.iStart; i <= ipField.iEnd; i++)
 	{
 		for (int j = ipField.jStart; j <= ipField.jEnd; j++)
@@ -380,6 +430,7 @@ inline void AdvectionMethod2D<TT>::ENO3rdDyMinus(const Field2D<TT>& ipField, Arr
 				enoDyMinus(i, j) = ipField.dyMinusPhi(i, j);
 				continue;
 			}
+			double diff_1_y_n_3, diff_1_y_n_2, diff_1_y_n_1, diff_1_y_0, diff_1_y_p_1, diff_1_y_p_2, diff_2_y_n_2, diff_2_y_n_1, diff_2_y_0, diff_2_y_p_1, diff_2_y_p_2, diff_3_y_n_2, diff_3_y_n_1, diff_3_y_0, diff_3_y_p_1;
 
 			diff_1_y_n_3 = one_over_dy*(ipField(i, j - 2) - ipField(i, j - 3));
 			diff_1_y_n_2 = one_over_dy*(ipField(i, j - 1) - ipField(i, j - 2));
@@ -429,19 +480,18 @@ inline void AdvectionMethod2D<TT>::ENO3rdDyPlus(const Field2D<TT>& ipField, Arra
 	double dx(ipField.dx), dy(ipField.dy);
 	double one_over_dx(ipField.oneOverdx), one_over_dy(ipField.oneOverdy), one_over_2dx(ipField.oneOver2dx), one_over_2dy(ipField.oneOver2dx);
 	double one_over_3dx(one_over_dx*(double)1 / 3), one_over_3dy(one_over_dy*(double)1 / 3);
-	double diff_1_y_n_3, diff_1_y_n_2, diff_1_y_n_1, diff_1_y_0, diff_1_y_p_1, diff_1_y_p_2, diff_2_y_n_2, diff_2_y_n_1, diff_2_y_0, diff_2_y_p_1, diff_2_y_p_2, diff_3_y_n_2, diff_3_y_n_1, diff_3_y_0, diff_3_y_p_1;
 
-#pragma omp parallel for private(diff_1_y_n_3, diff_1_y_n_2, diff_1_y_n_1, diff_1_y_0, diff_1_y_p_1, diff_1_y_p_2, diff_2_y_n_2, diff_2_y_n_1, diff_2_y_0, diff_2_y_p_1, diff_2_y_p_2, diff_3_y_n_2, diff_3_y_n_1, diff_3_y_0, diff_3_y_p_1)
+#pragma omp parallel for
 	for (int i = ipField.iStart; i <= ipField.iEnd; i++)
 	{
 		for (int j = ipField.jStart; j <= ipField.jEnd; j++)
 		{
-
 			if (j < ipField.jStart + 2 || j > ipField.jEnd - 3)
 			{
 				enoDyPlus(i, j) = ipField.dyPlusPhi(i, j);
 				continue;
 			}
+			double diff_1_y_n_3, diff_1_y_n_2, diff_1_y_n_1, diff_1_y_0, diff_1_y_p_1, diff_1_y_p_2, diff_2_y_n_2, diff_2_y_n_1, diff_2_y_0, diff_2_y_p_1, diff_2_y_p_2, diff_3_y_n_2, diff_3_y_n_1, diff_3_y_0, diff_3_y_p_1;
 
 			diff_1_y_n_2 = one_over_dy*(ipField(i, j - 1) - ipField(i, j - 2));
 			diff_1_y_n_1 = one_over_dy*(ipField(i, j) - ipField(i, j - 1));
@@ -798,7 +848,7 @@ template<class TT>
 inline void AdvectionMethod2D<TT>::LSReinitializationTVDRK3(LS& levelSet, const double& dt)
 {
 	levelSet.phi.SaveOld();
-	Array2D<TT>& originLevelSet = levelSet.phi.dataArrayOld;
+	Array2D<TT>& OldLS = levelSet.phi.dataArrayOld;
 
 	Array2D<TT>& k1 = levelSet.phi.K1;
 	Array2D<TT>& k2 = levelSet.phi.K2;
@@ -816,8 +866,8 @@ inline void AdvectionMethod2D<TT>::LSReinitializationTVDRK3(LS& levelSet, const 
 	{
 		for (int j = levelSet.grid.jStart; j <= levelSet.grid.jEnd; j++)
 		{
-			k1(i, j) = -sign(originLevelSet(i, j))*dt*ReinitialGodunov(wenoXPlus(i, j), wenoXMinus(i, j), wenoYPlus(i, j), wenoYMinus(i, j), originLevelSet(i, j));
-			levelSet(i, j) = originLevelSet(i, j) + k1(i, j);
+			k1(i, j) = -sign(OldLS(i, j))*dt*ReinitialGodunov(wenoXPlus(i, j), wenoXMinus(i, j), wenoYPlus(i, j), wenoYMinus(i, j), OldLS(i, j));
+			levelSet(i, j) = OldLS(i, j) + k1(i, j);
 		}
 	}
 
@@ -827,8 +877,8 @@ inline void AdvectionMethod2D<TT>::LSReinitializationTVDRK3(LS& levelSet, const 
 	{
 		for (int j = levelSet.grid.jStart; j <= levelSet.grid.jEnd; j++)
 		{
-			k2(i, j) = -sign(originLevelSet(i, j))*dt*ReinitialGodunov(wenoXPlus(i, j), wenoXMinus(i, j), wenoYPlus(i, j), wenoYMinus(i, j), originLevelSet(i, j));
-			levelSet(i, j) = 3.0 / 4.0*originLevelSet(i, j) + 1.0 / 4.0*(levelSet(i, j) + k2(i, j));
+			k2(i, j) = -sign(OldLS(i, j))*dt*ReinitialGodunov(wenoXPlus(i, j), wenoXMinus(i, j), wenoYPlus(i, j), wenoYMinus(i, j), OldLS(i, j));
+			levelSet(i, j) = 3.0 / 4.0*OldLS(i, j) + 1.0 / 4.0*(levelSet(i, j) + k2(i, j));
 		}
 	}
 
@@ -838,9 +888,343 @@ inline void AdvectionMethod2D<TT>::LSReinitializationTVDRK3(LS& levelSet, const 
 	{
 		for (int j = levelSet.grid.jStart; j <= levelSet.grid.jEnd; j++)
 		{
-			k3(i, j) = -sign(originLevelSet(i, j))*dt*ReinitialGodunov(wenoXPlus(i, j), wenoXMinus(i, j), wenoYPlus(i, j), wenoYMinus(i, j), originLevelSet(i, j));
-			levelSet(i, j) = 1.0 / 3.0*originLevelSet(i, j) + 2.0 / 3.0*(levelSet(i, j) + k3(i, j));
+			k3(i, j) = -sign(OldLS(i, j))*dt*ReinitialGodunov(wenoXPlus(i, j), wenoXMinus(i, j), wenoYPlus(i, j), wenoYMinus(i, j), OldLS(i, j));
+			levelSet(i, j) = 1.0 / 3.0*OldLS(i, j) + 2.0 / 3.0*(levelSet(i, j) + k3(i, j));
 		}
+	}
+
+}
+
+template<class TT>
+inline void AdvectionMethod2D<TT>::LSReinitializationTVDRK3(LS & levelSet, const double & dt, const int & iteration)
+{
+
+	levelSet.phi.SaveOld();
+	Array2D<TT>& OldLS = levelSet.phi.dataArrayOld;
+	Array2D<TT> originLS = levelSet.phi.dataArray;
+	Array2D<TT>& k1 = levelSet.phi.K1;
+	Array2D<TT>& k2 = levelSet.phi.K2;
+	Array2D<TT>& k3 = levelSet.phi.K3;
+
+	Array2D<TT>& wenoXMinus = levelSet.phi.dfdxM;
+	Array2D<TT>& wenoXPlus = levelSet.phi.dfdxP;
+	Array2D<TT>& wenoYMinus = levelSet.phi.dfdyM;
+	Array2D<TT>& wenoYPlus = levelSet.phi.dfdyP;
+
+	for (int k = 0; k < iteration; k++)
+	{
+		levelSet.phi.SaveOld();
+
+		WENO5thDerivation(levelSet.phi, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
+#pragma omp parallel for
+		for (int i = levelSet.grid.iStart; i <= levelSet.grid.iEnd; i++)
+		{
+			for (int j = levelSet.grid.jStart; j <= levelSet.grid.jEnd; j++)
+			{
+				k1(i, j) = -sign(originLS(i, j))*dt*ReinitialGodunov(wenoXPlus(i, j), wenoXMinus(i, j), wenoYPlus(i, j), wenoYMinus(i, j), originLS(i, j));
+				levelSet(i, j) = OldLS(i, j) + k1(i, j);
+			}
+		}
+
+		WENO5thDerivation(levelSet.phi, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
+#pragma omp parallel for
+		for (int i = levelSet.grid.iStart; i <= levelSet.grid.iEnd; i++)
+		{
+			for (int j = levelSet.grid.jStart; j <= levelSet.grid.jEnd; j++)
+			{
+				k2(i, j) = -sign(originLS(i, j))*dt*ReinitialGodunov(wenoXPlus(i, j), wenoXMinus(i, j), wenoYPlus(i, j), wenoYMinus(i, j), originLS(i, j));
+				levelSet(i, j) = 3.0 / 4.0*OldLS(i, j) + 1.0 / 4.0*(levelSet(i, j) + k2(i, j));
+			}
+		}
+
+		WENO5thDerivation(levelSet.phi, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
+#pragma omp parallel for
+		for (int i = levelSet.grid.iStart; i <= levelSet.grid.iEnd; i++)
+		{
+			for (int j = levelSet.grid.jStart; j <= levelSet.grid.jEnd; j++)
+			{
+				k3(i, j) = -sign(originLS(i, j))*dt*ReinitialGodunov(wenoXPlus(i, j), wenoXMinus(i, j), wenoYPlus(i, j), wenoYMinus(i, j), originLS(i, j));
+				levelSet(i, j) = 1.0 / 3.0*OldLS(i, j) + 2.0 / 3.0*(levelSet(i, j) + k3(i, j));
+			}
+		}
+	}
+
+}
+
+template<class TT>
+inline void AdvectionMethod2D<TT>::LSReinitializationTVDRK3(LS & levelSet, LS & originLS, const double & dt, const int& spatialOrder)
+{
+	levelSet.phi.SaveOld();
+	Array2D<TT>& OldLS = levelSet.phi.dataArrayOld;
+
+	Array2D<TT>& k1 = levelSet.phi.K1;
+	Array2D<TT>& k2 = levelSet.phi.K2;
+	Array2D<TT>& k3 = levelSet.phi.K3;
+
+	Array2D<TT>& wenoXMinus = levelSet.phi.dfdxM;
+	Array2D<TT>& wenoXPlus = levelSet.phi.dfdxP;
+	Array2D<TT>& wenoYMinus = levelSet.phi.dfdyM;
+	Array2D<TT>& wenoYPlus = levelSet.phi.dfdyP;
+
+
+	if (spatialOrder == 3)
+	{
+		WENO3rdDerivation(levelSet.phi, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
+	}
+	else
+	{
+		WENO5thDerivation(levelSet.phi, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
+	}
+#pragma omp parallel for
+	for (int i = levelSet.grid.iStart; i <= levelSet.grid.iEnd; i++)
+	{
+		for (int j = levelSet.grid.jStart; j <= levelSet.grid.jEnd; j++)
+		{
+			k1(i, j) = -sign(originLS(i, j))*dt*ReinitialGodunov(wenoXPlus(i, j), wenoXMinus(i, j), wenoYPlus(i, j), wenoYMinus(i, j), originLS(i, j));
+			levelSet(i, j) = OldLS(i, j) + k1(i, j);
+		}
+	}
+
+	if (spatialOrder == 3)
+	{
+		WENO3rdDerivation(levelSet.phi, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
+	}
+	else
+	{
+		WENO5thDerivation(levelSet.phi, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
+	}
+#pragma omp parallel for
+	for (int i = levelSet.grid.iStart; i <= levelSet.grid.iEnd; i++)
+	{
+		for (int j = levelSet.grid.jStart; j <= levelSet.grid.jEnd; j++)
+		{
+			k2(i, j) = -sign(originLS(i, j))*dt*ReinitialGodunov(wenoXPlus(i, j), wenoXMinus(i, j), wenoYPlus(i, j), wenoYMinus(i, j), originLS(i, j));
+			levelSet(i, j) = 3.0 / 4.0*OldLS(i, j) + 1.0 / 4.0*(levelSet(i, j) + k2(i, j));
+		}
+	}
+
+	if (spatialOrder == 3)
+	{
+		WENO3rdDerivation(levelSet.phi, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
+	}
+	else
+	{
+		WENO5thDerivation(levelSet.phi, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
+	}
+#pragma omp parallel for
+	for (int i = levelSet.grid.iStart; i <= levelSet.grid.iEnd; i++)
+	{
+		for (int j = levelSet.grid.jStart; j <= levelSet.grid.jEnd; j++)
+		{
+			k3(i, j) = -sign(originLS(i, j))*dt*ReinitialGodunov(wenoXPlus(i, j), wenoXMinus(i, j), wenoYPlus(i, j), wenoYMinus(i, j), originLS(i, j));
+			levelSet(i, j) = 1.0 / 3.0*OldLS(i, j) + 2.0 / 3.0*(levelSet(i, j) + k3(i, j));
+		}
+	}
+}
+
+template<class TT>
+inline void AdvectionMethod2D<TT>::LSOneSidedDerivativesSubcellFixSecondOrder(const LS & levelSet, const Field2D<TT>& ipField, Array2D<TT>& DxMinus, Array2D<TT>& DxPlus, Array2D<TT>& DyMinus, Array2D<TT>& DyPlus)
+{
+	LSOneSidedDerivativesDxSubcellFixSecondOrder(levelSet, ipField, DxMinus, DxPlus);
+	LSOneSidedDerivativesDySubcellFixSecondOrder(levelSet, ipField, DyMinus, DyPlus);
+}
+
+template<class TT>
+inline void AdvectionMethod2D<TT>::LSOneSidedDerivativesDxSubcellFixSecondOrder(const LS & levelSet, const Field2D<TT>& ipField, Array2D<TT>& DxMinus, Array2D<TT>& DxPlus)
+{
+	int iStart = ipField.grid.iStart;
+	int iEnd = ipField.grid.iEnd;
+	double dx = ipField.dx;
+	double dx2 = dx*dx;
+	double thresL = pow(10.0, -10.0);
+	double thresU = 2 / dx;
+
+#pragma omp parallel for
+	for (int i = levelSet.grid.iStart; i <= levelSet.grid.iEnd; i++)
+	{
+		for (int j = levelSet.grid.jStart; j <= levelSet.grid.jEnd; j++)
+		{
+
+			int iLL = max(i - 2, iStart), iL = max(i - 1, iStart), iR = min(i + 1, iEnd), iRR = min(i + 2, iEnd);
+			double lsLL = ipField(iLL, j), lsL = ipField(iL, j), ls = ipField(i, j), lsR = ipField(iR, j), lsRR = ipField(iRR, j);
+			double d2L = ipField.dxxPhi(iL, j), d2C = ipField.dxxPhi(i, j), d2R = ipField.dxxPhi(iR, j);
+
+			if (i == iStart || i == iEnd)
+			{
+				DxMinus(i, j) = ipField.dxPhi(i, j) + 0.5*dx*d2C;
+				DxPlus(i, j) = ipField.dxPhi(i, j) - 0.5*dx*d2C;
+				continue;
+			}
+
+			double dxL = dx;
+			double phixx = MinMod(d2C*dx2, d2L*dx2);
+			if (ls*lsL < 0 && abs(ls)>10 * DBL_EPSILON)
+			{
+				if (abs(phixx) < thresL)
+				{
+					dxL = dx*(ls) / (ls - lsL);
+				}
+				else
+				{
+					double D = (0.5*phixx - ls - lsL)*(0.5*phixx - ls - lsL) - 4 * ls*lsL;
+					dxL = dx*(0.5 + (ls - lsL - sign(ls - lsL)*sqrt(D)) / phixx);
+				}
+				DxMinus(i, j) = ls / dxL + 0.5*dx * phixx / dx2;
+			}
+			else
+			{
+				DxMinus(i, j) = (ls - lsL) / dx + 0.5*dx * phixx / dx2;
+			}
+
+			double dxR = dx;
+			phixx = MinMod(d2C*dx2, d2R*dx2);
+			if (ls*lsR < 0 && abs(ls)>10 * DBL_EPSILON)
+			{
+				if (abs(phixx) < thresL)
+				{
+					dxR = dx*(ls) / (ls - lsR);
+				}
+				else
+				{
+					double D = (0.5*phixx - ls - lsR)*(0.5*phixx - ls - lsR) - 4 * ls*lsR;
+					dxR = dx*(0.5 + (ls - lsR - sign(ls - lsR)*sqrt(D)) / phixx);
+				}
+				DxPlus(i, j) = -ls / dxR - 0.5*dx * phixx / dx2;
+			}
+			else
+			{
+				DxPlus(i, j) = (lsR - ls) / dx - 0.5*dx * phixx / dx2;
+			}
+		}
+	}
+}
+
+template<class TT>
+inline void AdvectionMethod2D<TT>::LSOneSidedDerivativesDySubcellFixSecondOrder(const LS & levelSet, const Field2D<TT>& ipField, Array2D<TT>& DyMinus, Array2D<TT>& DyPlus)
+{
+	int jStart = ipField.grid.jStart;
+	int jEnd = ipField.grid.jEnd;
+	double dy = ipField.dy;
+	double dy2 = dy*dy;
+	double thresL = pow(10.0, -10.0);
+	double thresU = 2 / dy;
+
+#pragma omp parallel for
+	for (int i = levelSet.grid.iStart; i <= levelSet.grid.iEnd; i++)
+	{
+		for (int j = levelSet.grid.jStart; j <= levelSet.grid.jEnd; j++)
+		{
+
+			int jBB = max(j - 2, jStart), jB = max(j - 1, jStart), jT = min(j + 1, jEnd), jTT = min(j + 2, jEnd);
+			double lsBB = ipField(i, jBB), lsB = ipField(i, jB), ls = ipField(i, j), lsT = ipField(i, jT), lsTT = ipField(i, jTT);
+			double d2B = ipField.dyyPhi(i, jB), d2C = ipField.dyyPhi(i, j), d2T = ipField.dyPhi(i, jT);
+
+			if (j == jStart || j == jEnd)
+			{
+				DyMinus(i, j) = ipField.dyPhi(i, j) + 0.5*dy*d2C;
+				DyPlus(i, j) = ipField.dyPhi(i, j) - 0.5*dy*d2C;
+				continue;
+			}
+
+			double dyB = dy;
+			double phiyy = MinMod(d2C*dy2, d2B*dy2);
+			if (ls*lsB < 0 && abs(ls)>10 * DBL_EPSILON)
+			{
+				if (abs(phiyy) < thresL)
+				{
+					dyB = dy*(ls) / (ls - lsB);
+				}
+				else
+				{
+					double D = (0.5*phiyy - ls - lsB)*(0.5*phiyy - ls - lsB) - 4 * ls*lsB;
+					dyB = dy*(0.5 + (ls - lsB - sign(ls - lsB)*sqrt(D)) / phiyy);
+				}
+				DyMinus(i, j) = ls / dyB + 0.5*dy * phiyy / dy2;
+			}
+			else
+			{
+				DyMinus(i, j) = (ls - lsB) / dy + 0.5*dy * phiyy / dy2;
+			}
+
+			double dyT = dy;
+			phiyy = MinMod(d2C*dy2, d2T*dy2);
+			if (ls*lsT < 0 && abs(ls)>10 * DBL_EPSILON)
+			{
+				if (abs(phiyy) < thresL)
+				{
+					dyT = dy*(ls) / (ls - lsT);
+				}
+				else
+				{
+					double D = (0.5*phiyy - ls - lsT)*(0.5*phiyy - ls - lsT) - 4 * ls*lsT;
+					dyT = dy*(0.5 + (ls - lsT - sign(ls - lsT)*sqrt(D)) / phiyy);
+				}
+				DyPlus(i, j) = -ls / dyT - 0.5*dy * phiyy / dy2;
+			}
+			else
+			{
+				DyPlus(i, j) = (lsT - ls) / dy - 0.5*dy * phiyy / dy2;
+			}
+		}
+	}
+}
+
+template<class TT>
+inline void AdvectionMethod2D<TT>::LSReinitializationTVDRK3SubcellFixSecondOrder(LS & levelSet, const double & dt, const int & iter)
+{
+
+	Array2D<TT>& DxMinus = levelSet.phi.dfdxM;
+	Array2D<TT>& DxPlus = levelSet.phi.dfdxP;
+	Array2D<TT>& DyMinus = levelSet.phi.dfdyM;
+	Array2D<TT>& DyPlus = levelSet.phi.dfdyP;
+
+	Array2D<TT> origin = levelSet.phi.dataArray;
+	Array2D<TT>& oldLevelSet = levelSet.phi.dataArrayOld;
+	for (int l = 1; l <= iter; l++)
+	{
+		levelSet.phi.SaveOld();
+
+		AdvectionMethod2D<double>::LSOneSidedDerivativesSubcellFixSecondOrder(levelSet, levelSet.phi, DxMinus, DxPlus, DyMinus, DyPlus);
+#pragma omp parallel for
+		for (int i = levelSet.grid.iStart; i <= levelSet.grid.iEnd; i++)
+		{
+			for (int j = levelSet.grid.jStart; j <= levelSet.grid.jEnd; j++)
+			{
+				double originL = origin(i, j);
+
+				double k1 = -sign(originL)*dt*ReinitialGodunov(DxPlus(i, j), DxMinus(i, j), DyPlus(i, j), DyMinus(i, j), originL);
+				levelSet(i, j) = oldLevelSet(i, j) + k1;
+			}
+		}
+
+		AdvectionMethod2D<double>::LSOneSidedDerivativesSubcellFixSecondOrder(levelSet, levelSet.phi, DxMinus, DxPlus, DyMinus, DyPlus);
+#pragma omp parallel for
+		for (int i = levelSet.grid.iStart; i <= levelSet.grid.iEnd; i++)
+		{
+			for (int j = levelSet.grid.jStart; j <= levelSet.grid.jEnd; j++)
+			{
+				double originL = origin(i, j);
+
+				double k2 = -sign(originL)*dt*ReinitialGodunov(DxPlus(i, j), DxMinus(i, j), DyPlus(i, j), DyMinus(i, j), originL);
+				levelSet(i, j) = 3.0 / 4.0*oldLevelSet(i, j) + 1.0 / 4.0*(levelSet(i, j) + k2);
+			}
+		}
+
+		AdvectionMethod2D<double>::LSOneSidedDerivativesSubcellFixSecondOrder(levelSet, levelSet.phi, DxMinus, DxPlus, DyMinus, DyPlus);
+#pragma omp parallel for
+		for (int i = levelSet.grid.iStart; i <= levelSet.grid.iEnd; i++)
+		{
+			for (int j = levelSet.grid.jStart; j <= levelSet.grid.jEnd; j++)
+			{
+				double originL = origin(i, j);
+
+				double k3 = -sign(originL)*dt*ReinitialGodunov(DxPlus(i, j), DxMinus(i, j), DyPlus(i, j), DyMinus(i, j), originL);
+				levelSet(i, j) = 1.0 / 3.0*oldLevelSet(i, j) + 2.0 / 3.0*(levelSet(i, j) + k3);
+			}
+		}
+		//levelSet.phi.Variable("phi");
+		//MATLAB.Command("plot(0,0);hold on,contour(X, Y, phi0,[0 0],'b');contour(X, Y, phi, [0 0],'r');grid on,axis equal");
+		//MATLAB.Command("hold off");
 	}
 
 }
@@ -866,31 +1250,6 @@ inline TT AdvectionMethod2D<TT>::ReinitialGodunov(const TT& dxPlus, const TT& dx
 
 		return TT(sqrt(max(aMinus*aMinus, bPlus*bPlus) + max(cMinus*cMinus, dPlus*dPlus)) - 1.0);
 	}
-}
-
-template<class TT>
-inline TT AdvectionMethod2D<TT>::ReinitialGodunov(LS & ipLS, const int & i, const int & j)
-{
-	double oneOverdx = ipLS.grid.dx, oneOverdy = ipLS.grid.dy;
-	double a = ipLS.dxMinusPhi(i, j);
-	double b = ipLS.dxPlusPhi(i, j);
-	double c = ipLS.dyMinusPhi(i, j);
-	double d = ipLS.dyPlusPhi(i, j);
-	if (ipLS(i, j)>0)
-	{
-		a = max(a, 0);
-		b = min(b, 0);
-		c = max(c, 0);
-		d = min(d, 0);
-	}
-	else
-	{
-		a = min(a, 0);
-		b = max(b, 0);
-		c = min(c, 0);
-		d = max(d, 0);
-	}
-	return sqrt(max(a*a, b*b) + max(c*c, d*d)) - 1;
 }
 
 template<class TT>
@@ -2037,6 +2396,7 @@ inline void AdvectionMethod2D<TT>::LLSReinitializationTVDRK3(LS & levelSet, cons
 	//Array2D<TT>& k1 = levelSet.phi.K1;
 	//Array2D<TT>& k2 = levelSet.phi.K2;
 	//Array2D<TT>& k3 = levelSet.phi.K3;
+	double dx = levelSet.grid.dx;
 	double k1, k2, k3;
 	double originL;
 	Array2D<TT>& wenoXMinus = levelSet.phi.dfdxM;
@@ -2064,7 +2424,7 @@ inline void AdvectionMethod2D<TT>::LLSReinitializationTVDRK3(LS & levelSet, cons
 			i = levelSet.tubeIndex(k).i;
 			j = levelSet.tubeIndex(k).j;
 			originL = origin(i, j);
-			k1 = -sign(originL)*dt*ReinitialGodunov(wenoXPlus(i, j), wenoXMinus(i, j), wenoYPlus(i, j), wenoYMinus(i, j), originL);
+			k1 = -sign(originL, dx)*dt*ReinitialGodunov(wenoXPlus(i, j), wenoXMinus(i, j), wenoYPlus(i, j), wenoYMinus(i, j), originL);
 			levelSet(i, j) = oldLevelSet(i, j) + k1;
 		}
 
@@ -2082,7 +2442,7 @@ inline void AdvectionMethod2D<TT>::LLSReinitializationTVDRK3(LS & levelSet, cons
 			i = levelSet.tubeIndex(k).i;
 			j = levelSet.tubeIndex(k).j;
 			originL = origin(i, j);
-			k2  = -sign(originL)*dt*ReinitialGodunov(wenoXPlus(i, j), wenoXMinus(i, j), wenoYPlus(i, j), wenoYMinus(i, j), originL);
+			k2  = -sign(originL, dx)*dt*ReinitialGodunov(wenoXPlus(i, j), wenoXMinus(i, j), wenoYPlus(i, j), wenoYMinus(i, j), originL);
 			levelSet(i, j) = 3.0 / 4.0*oldLevelSet(i, j) + 1.0 / 4.0*(levelSet(i, j) + k2);
 		}
 
@@ -2100,12 +2460,13 @@ inline void AdvectionMethod2D<TT>::LLSReinitializationTVDRK3(LS & levelSet, cons
 			i = levelSet.tubeIndex(k).i;
 			j = levelSet.tubeIndex(k).j;
 			originL = origin(i, j);
-			k3 = -sign(originL)*dt*ReinitialGodunov(wenoXPlus(i, j), wenoXMinus(i, j), wenoYPlus(i, j), wenoYMinus(i, j), originL);
+			k3 = -sign(originL, dx)*dt*ReinitialGodunov(wenoXPlus(i, j), wenoXMinus(i, j), wenoYPlus(i, j), wenoYMinus(i, j), originL);
 			levelSet(i, j) = 1.0 / 3.0*oldLevelSet(i, j) + 2.0 / 3.0*(levelSet(i, j) + k3);
 		}
 	}
 }
 
+// Peter Smereka, Subcell fixed reinitialization
 template<class TT>
 inline void AdvectionMethod2D<TT>::LLSReinitializationTVDRK3usingSubcellFix(LS & levelSet, const double & dt, const int & iter, const int & spatialOrder)
 {
@@ -2123,8 +2484,8 @@ inline void AdvectionMethod2D<TT>::LLSReinitializationTVDRK3usingSubcellFix(LS &
 	double Dij, lsL, lsR, lsB, lsT, lsC;
 	double originL;
 	double D1, D2;
-	double a, b, c, d;
-
+	double a, b, c, d, theta;
+	Array2D<TT> DDD(levelSet.grid);
 	Array2D<TT> origin = levelSet.phi.dataArray;
 	Array2D<TT> currentLevelSet(levelSet.grid);
 	Array2D<TT>& oldLevelSet = levelSet.phi.dataArrayOld;
@@ -2153,25 +2514,31 @@ inline void AdvectionMethod2D<TT>::LLSReinitializationTVDRK3usingSubcellFix(LS &
 			lsC = currentLevelSet(i, j);
 
 			originL = origin(i, j);
+			k1 = 0, D1 = 0, D2 = 0, Dij = 0;
 
-			if (((lsL*lsC < 0 || lsR*lsC < 0) && lsL*lsR < 0) || ((lsB*lsC < 0 || lsT*lsC < 0) && lsB*lsT < 0))
+			if (lsL*lsC < 0 || lsR*lsC < 0 || lsB*lsC < 0 || lsT*lsC < 0)
 			{
-				if (lsL*lsR < 0)	D1 = abs(lsR - lsL);
-				else				D1 = 2 * max(max(abs(lsL - lsC), abs(lsR - lsC)), abs(lsR - lsL) / 2);
-				if (lsB*lsT < 0)	D2 = abs(lsT - lsB);
-				else				D2 = 2 * max(max(abs(lsB - lsC), abs(lsT - lsC)), abs(lsT - lsB) / 2);
+				//if (lsL*lsR < 0)	D1 = abs(lsR - lsL) / 2;
+				//else				D1 = max(max(abs(lsL - lsC), abs(lsR - lsC)), DBL_EPSILON);
+				//if (lsB*lsT < 0)	D2 = abs(lsT - lsB) / 2;
+				//else				D2 = max(max(abs(lsB - lsC), abs(lsT - lsC)), DBL_EPSILON);
+				D1 = max(abs(lsR - lsL) / 2, max(max(abs(lsL - lsC), abs(lsR - lsC)), DBL_EPSILON));
+				D2 = max(abs(lsT - lsB) / 2, max(max(abs(lsB - lsC), abs(lsT - lsC)), DBL_EPSILON));
+				Dij = lsC / sqrt(D1*D1 + D2*D2);
 
-				Dij = 2 * lsC / sqrt(D1*D1 + D2*D2);
-			
-				k1 = -dt*(sign(originL)*abs(levelSet(i, j)) * oneOverdx - Dij);
+				//k1 = -dt*(sign(originL)*abs(levelSet(i, j)) * oneOverdx - Dij);
+				k1 = -dt*(sign(originL)*abs(levelSet(i, j)) / sqrt(D1*D1 + D2*D2) - Dij);
+				k1 = 0;
 			}
 			else
 			{
 				k1 = -sign(originL)*dt*ReinitialGodunov(wenoXPlus(i, j), wenoXMinus(i, j), wenoYPlus(i, j), wenoYMinus(i, j), originL);
 			}
-			
 			levelSet(i, j) = oldLevelSet(i, j) + k1;
+			
 		}
+	
+
 		if (spatialOrder == 3)
 		{
 			AdvectionMethod2D<double>::LLSWENO3rdDerivation(levelSet, levelSet.phi, wenoXMinus, wenoXPlus, wenoYMinus, wenoYPlus);
@@ -2195,21 +2562,25 @@ inline void AdvectionMethod2D<TT>::LLSReinitializationTVDRK3usingSubcellFix(LS &
 			lsC = currentLevelSet(i, j);
 
 			originL = origin(i, j);
+			k2 = 0, D1 = 0, D2 = 0, Dij = 0;
 
-			if (((lsL*lsC < 0 || lsR*lsC < 0) && lsL*lsR < 0) || ((lsB*lsC < 0 || lsT*lsC < 0) && lsB*lsT < 0))
+			//if ((lsL*lsC < 0 || lsR*lsC < 0 || lsB*lsC < 0 || lsT*lsC < 0) && (lsL*lsR < 0 || lsB*lsT < 0))
+			if (lsL*lsC < 0 || lsR*lsC < 0 || lsB*lsC < 0 || lsT*lsC < 0)
 			{
-				if (lsL*lsR < 0)	D1 = abs(lsR - lsL);
-				else				D1 = 2 * max(max(abs(lsL - lsC), abs(lsR - lsC)), abs(lsR - lsL) / 2);
-				if (lsB*lsT < 0)	D2 = abs(lsT - lsB);
-				else				D2 = 2 * max(max(abs(lsB - lsC), abs(lsT - lsC)), abs(lsT - lsB) / 2);
+				//if (lsL*lsR < 0)	D1 = abs(lsR - lsL) / 2;
+				//else				D1 = max(max(abs(lsL - lsC), abs(lsR - lsC)), DBL_EPSILON);
+				//if (lsB*lsT < 0)	D2 = abs(lsT - lsB) / 2;
+				//else				D2 = max(max(abs(lsB - lsC), abs(lsT - lsC)), DBL_EPSILON);
+				D1 = max(abs(lsR - lsL) / 2, max(max(abs(lsL - lsC), abs(lsR - lsC)), DBL_EPSILON));
+				D2 = max(abs(lsT - lsB) / 2, max(max(abs(lsB - lsC), abs(lsT - lsC)), DBL_EPSILON));
+				Dij = lsC / sqrt(D1*D1 + D2*D2);
 
-				Dij = 2 * lsC / sqrt(D1*D1 + D2*D2);
-
-				k2 = -dt*(sign(originL)*abs(levelSet(i, j)) * oneOverdx - Dij);
+				//k2 = -dt*(sign(originL, dx)*abs(levelSet(i, j)) * oneOverdx - Dij);
+				k2 = -dt*(sign(originL)*abs(levelSet(i, j)) / sqrt(D1*D1 + D2*D2) - Dij);
 			}
 			else
 			{
-				k2 = -sign(originL)*dt*ReinitialGodunov(wenoXPlus(i, j), wenoXMinus(i, j), wenoYPlus(i, j), wenoYMinus(i, j), originL);
+				k2 = -sign(originL, dx)*dt*ReinitialGodunov(wenoXPlus(i, j), wenoXMinus(i, j), wenoYPlus(i, j), wenoYMinus(i, j), originL);
 			}
 			levelSet(i, j) = 3.0 / 4.0*oldLevelSet(i, j) + 1.0 / 4.0*(levelSet(i, j) + k2);
 		}
@@ -2236,26 +2607,457 @@ inline void AdvectionMethod2D<TT>::LLSReinitializationTVDRK3usingSubcellFix(LS &
 			lsC = currentLevelSet(i, j);
 
 			originL = origin(i, j);
+			k3 = 0, D1 = 0, D2 = 0, Dij = 0;
 
-			if (((lsL*lsC < 0 || lsR*lsC < 0) && lsL*lsR < 0) || ((lsB*lsC < 0 || lsT*lsC < 0) && lsB*lsT < 0))
+			if (lsL*lsC < 0 || lsR*lsC < 0 || lsB*lsC < 0 || lsT*lsC < 0)
 			{
-				if (lsL*lsR < 0)	D1 = abs(lsR - lsL);
-				else				D1 = 2 * max(max(abs(lsL - lsC), abs(lsR - lsC)), abs(lsR - lsL) / 2);
-				if (lsB*lsT < 0)	D2 = abs(lsT - lsB);
-				else				D2 = 2 * max(max(abs(lsB - lsC), abs(lsT - lsC)), abs(lsT - lsB) / 2);
+				//if (lsL*lsR < 0)	D1 = abs(lsR - lsL) / 2;
+				//else				D1 = max(max(abs(lsL - lsC), abs(lsR - lsC)), DBL_EPSILON);
+				//if (lsB*lsT < 0)	D2 = abs(lsT - lsB) / 2;
+				//else				D2 = max(max(abs(lsB - lsC), abs(lsT - lsC)), DBL_EPSILON);
+				D1 = max(abs(lsR - lsL) / 2, max(max(abs(lsL - lsC), abs(lsR - lsC)), DBL_EPSILON));
+				D2 = max(abs(lsT - lsB) / 2, max(max(abs(lsB - lsC), abs(lsT - lsC)), DBL_EPSILON));
+				Dij = lsC / sqrt(D1*D1 + D2*D2);
 
-				Dij = 2 * lsC / sqrt(D1*D1 + D2*D2);
-
-				k3 = -dt*(sign(originL)*abs(levelSet(i, j)) * oneOverdx - Dij);
+				//k3 = -dt*(sign(originL, dx)*abs(levelSet(i, j)) * oneOverdx - Dij);
+				k3 = -dt*(sign(originL)*abs(levelSet(i, j)) / sqrt(D1*D1 + D2*D2) - Dij);
 			}
 			else
 			{
-				k3 = -sign(originL)*dt*ReinitialGodunov(wenoXPlus(i, j), wenoXMinus(i, j), wenoYPlus(i, j), wenoYMinus(i, j), originL);
+				k3 = -sign(originL, dx)*dt*ReinitialGodunov(wenoXPlus(i, j), wenoXMinus(i, j), wenoYPlus(i, j), wenoYMinus(i, j), originL);
 			}
 			levelSet(i, j) = 1.0 / 3.0*oldLevelSet(i, j) + 2.0 / 3.0*(levelSet(i, j) + k3);
 		}
 	}
 }
+
+template<class TT>
+inline void AdvectionMethod2D<TT>::LLSOneSidedDerivativesSubcellFixSecondOrder(const LS & levelSet, const Field2D<TT>& ipField, Array2D<TT>& DxMinus, Array2D<TT>& DxPlus, Array2D<TT>& DyMinus, Array2D<TT>& DyPlus)
+{
+	LLSOneSidedDerivativesDxSubcellFixSecondOrder(levelSet, ipField, DxMinus, DxPlus);
+	LLSOneSidedDerivativesDySubcellFixSecondOrder(levelSet, ipField, DyMinus, DyPlus);
+}
+
+template<class TT>
+inline void AdvectionMethod2D<TT>::LLSOneSidedDerivativesDxSubcellFixSecondOrder(const LS & levelSet, const Field2D<TT>& ipField, Array2D<TT>& DxMinus, Array2D<TT>& DxPlus)
+{
+	int iStart = ipField.grid.iStart;
+	int iEnd = ipField.grid.iEnd;
+	double dx = ipField.dx;
+	double dx2 = dx*dx;
+	double thresL = pow(10.0, -10.0);
+	double thresU = 2 / dx;
+
+#pragma omp parallel for
+	for (int k = 1; k <= levelSet.numTube; k++)
+	{
+		int i = levelSet.tubeIndex(k).i;
+		int j = levelSet.tubeIndex(k).j;
+
+		int iLL = max(i - 2, iStart), iL = max(i - 1, iStart), iR = min(i + 1, iEnd), iRR = min(i + 2, iEnd);
+		double lsLL = ipField(iLL, j), lsL = ipField(iL, j), ls = ipField(i, j), lsR = ipField(iR, j), lsRR = ipField(iRR, j);
+		double d2L = ipField.dxxPhi(iL, j), d2C = ipField.dxxPhi(i, j), d2R = ipField.dxxPhi(iR, j);
+
+		if (i == iStart || i == iEnd)
+		{
+			DxMinus(i, j) = ipField.dxPhi(i, j) + 0.5*dx*d2C;
+			DxPlus(i, j) = ipField.dxPhi(i, j) - 0.5*dx*d2C;
+			continue;
+		}
+
+		double dxL = dx;
+		double phixx = MinMod(d2C*dx2, d2L*dx2);
+		if (ls*lsL < 0 && abs(ls)>10*DBL_EPSILON)
+		{
+			if (abs(phixx) < thresL)
+			{
+				dxL = dx*(ls) / (ls - lsL);
+			}
+			else
+			{
+				double D = (0.5*phixx - ls - lsL)*(0.5*phixx - ls - lsL) - 4 * ls*lsL;
+				dxL = dx*(0.5 + (ls - lsL - sign(ls - lsL)*sqrt(D)) / phixx);
+			}
+			DxMinus(i, j) = ls / dxL + 0.5*dx * phixx / dx2;
+		}
+		else
+		{
+			DxMinus(i, j) = (ls - lsL) / dx + 0.5*dx * phixx / dx2;
+		}
+
+		double dxR = dx;
+		phixx = MinMod(d2C*dx2, d2R*dx2);
+		if (ls*lsR < 0 && abs(ls)>10 * DBL_EPSILON)
+		{
+			if (abs(phixx) < thresL)
+			{
+				dxR = dx*(ls) / (ls - lsR);
+			}
+			else
+			{
+				double D = (0.5*phixx - ls - lsR)*(0.5*phixx - ls - lsR) - 4 * ls*lsR;
+				dxR = dx*(0.5 + (ls - lsR - sign(ls - lsR)*sqrt(D)) / phixx);
+			}
+			DxPlus(i, j) = -ls / dxR - 0.5*dx * phixx / dx2;
+		}
+		else
+		{
+			DxPlus(i, j) = (lsR - ls) / dx - 0.5*dx * phixx / dx2;
+		}
+	}
+}
+
+template<class TT>
+inline void AdvectionMethod2D<TT>::LLSOneSidedDerivativesDySubcellFixSecondOrder(const LS & levelSet, const Field2D<TT>& ipField, Array2D<TT>& DyMinus, Array2D<TT>& DyPlus)
+{
+	int jStart = ipField.grid.jStart;
+	int jEnd = ipField.grid.jEnd;
+	double dy = ipField.dy;
+	double dy2 = dy*dy;
+	double thresL = pow(10.0, -10.0);
+	double thresU = 2 / dy;
+
+#pragma omp parallel for
+	for (int k = 1; k <= levelSet.numTube; k++)
+	{
+		int i = levelSet.tubeIndex(k).i;
+		int j = levelSet.tubeIndex(k).j;
+
+		int jBB = max(j - 2, jStart), jB = max(j - 1, jStart), jT = min(j + 1, jEnd), jTT = min(j + 2, jEnd);
+		double lsBB = ipField(i, jBB), lsB = ipField(i, jB), ls = ipField(i, j), lsT = ipField(i, jT), lsTT = ipField(i, jTT);
+		double d2B = ipField.dyyPhi(i, jB), d2C = ipField.dyyPhi(i, j), d2T = ipField.dyPhi(i, jT);
+
+		if (j == jStart || j == jEnd)
+		{
+			DyMinus(i, j) = ipField.dyPhi(i, j) + 0.5*dy*d2C;
+			DyPlus(i, j) = ipField.dyPhi(i, j) - 0.5*dy*d2C;
+			continue;
+		}
+
+		double dyB = dy;
+		double phiyy = MinMod(d2C*dy2, d2B*dy2);
+		if (ls*lsB < 0 && abs(ls)>10 * DBL_EPSILON)
+		{
+			if (abs(phiyy) < thresL)
+			{
+				dyB = dy*(ls) / (ls - lsB);
+			}
+			else
+			{
+				double D = (0.5*phiyy - ls - lsB)*(0.5*phiyy - ls - lsB) - 4 * ls*lsB;
+				dyB = dy*(0.5 + (ls - lsB - sign(ls - lsB)*sqrt(D)) / phiyy);
+			}
+			DyMinus(i, j) = ls / dyB + 0.5*dy * phiyy / dy2;
+		}
+		else
+		{
+			DyMinus(i, j) = (ls - lsB) / dy + 0.5*dy * phiyy / dy2;
+		}
+
+		double dyT = dy;
+		phiyy = MinMod(d2C*dy2, d2T*dy2);
+		if (ls*lsT < 0 && abs(ls)>10 * DBL_EPSILON)
+		{
+			if (abs(phiyy) < thresL)
+			{
+				dyT = dy*(ls) / (ls - lsT);
+			}
+			else
+			{
+				double D = (0.5*phiyy - ls - lsT)*(0.5*phiyy - ls - lsT) - 4 * ls*lsT;
+				dyT = dy*(0.5 + (ls - lsT - sign(ls - lsT)*sqrt(D)) / phiyy);
+			}
+			DyPlus(i, j) = -ls / dyT - 0.5*dy * phiyy / dy2;
+		}
+		else
+		{
+			DyPlus(i, j) = (lsT - ls) / dy - 0.5*dy * phiyy / dy2;
+		}
+	}
+}
+
+template<class TT>
+inline void AdvectionMethod2D<TT>::LLSReinitializationTVDRK3SubcellFixSecondOrder(LS & levelSet, const double & dt, const int & iter)
+{
+	Array2D<TT>& DxMinus = levelSet.phi.dfdxM;
+	Array2D<TT>& DxPlus = levelSet.phi.dfdxP;
+	Array2D<TT>& DyMinus = levelSet.phi.dfdyM;
+	Array2D<TT>& DyPlus = levelSet.phi.dfdyP;
+
+	Array2D<TT> origin = levelSet.phi.dataArray;
+	Array2D<TT>& oldLevelSet = levelSet.phi.dataArrayOld;
+	for (int l = 1; l <= iter; l++)
+	{
+		levelSet.phi.SaveOld();
+
+		AdvectionMethod2D<double>::LLSOneSidedDerivativesSubcellFixSecondOrder(levelSet, levelSet.phi, DxMinus, DxPlus, DyMinus, DyPlus);
+#pragma omp parallel for
+		for (int k = levelSet.tubeIndex.iStart; k <= levelSet.numTube; k++)
+		{
+			int i = levelSet.tubeIndex(k).i;
+			int j = levelSet.tubeIndex(k).j;
+			double originL = origin(i, j);
+
+			double k1 = -sign(originL)*dt*ReinitialGodunov(DxPlus(i, j), DxMinus(i, j), DyPlus(i, j), DyMinus(i, j), originL);
+			levelSet(i, j) = oldLevelSet(i, j) + k1;
+		}
+
+		AdvectionMethod2D<double>::LLSOneSidedDerivativesSubcellFixSecondOrder(levelSet, levelSet.phi, DxMinus, DxPlus, DyMinus, DyPlus);
+#pragma omp parallel for
+		for (int k = 1; k <= levelSet.numTube; k++)
+		{
+			int i = levelSet.tubeIndex(k).i;
+			int j = levelSet.tubeIndex(k).j;
+			double originL = origin(i, j);
+
+			double k2 = -sign(originL)*dt*ReinitialGodunov(DxPlus(i, j), DxMinus(i, j), DyPlus(i, j), DyMinus(i, j), originL);
+			levelSet(i, j) = 3.0 / 4.0*oldLevelSet(i, j) + 1.0 / 4.0*(levelSet(i, j) + k2);
+		}
+
+		AdvectionMethod2D<double>::LLSOneSidedDerivativesSubcellFixSecondOrder(levelSet, levelSet.phi, DxMinus, DxPlus, DyMinus, DyPlus);
+#pragma omp parallel for
+		for (int k = 1; k <= levelSet.numTube; k++)
+		{
+			int i = levelSet.tubeIndex(k).i;
+			int j = levelSet.tubeIndex(k).j;
+			double originL = origin(i, j);
+
+			double k3 = -sign(originL)*dt*ReinitialGodunov(DxPlus(i, j), DxMinus(i, j), DyPlus(i, j), DyMinus(i, j), originL);
+			levelSet(i, j) = 1.0 / 3.0*oldLevelSet(i, j) + 2.0 / 3.0*(levelSet(i, j) + k3);
+		}
+	}
+}
+
+template<class TT>
+inline void AdvectionMethod2D<TT>::OneSideLeftDerivatives(const double & lsL, const double & lsC, const double & valueL, const double & valueC, const double & dx, double & val, double thetadx)
+{
+	if (lsL*lsC >= 0)
+	{
+		thetadx = dx;
+		val = (valueC - valueL) / thetadx;
+	}
+	else
+	{
+		thetadx = dx*abs(lsC) / (abs(lsC) + abs(lsL));
+		val = (valueC - 0) / thetadx;
+	}
+}
+
+template<class TT>
+inline void AdvectionMethod2D<TT>::OneSideRightDerivatives(const double & lsC, const double & lsR, const double & valueC, const double & valueR, const double & dx, double & val, double thetadx)
+{
+	if (lsR*lsC >= 0)
+	{
+		thetadx = dx;
+		val = (valueR - valueC) / thetadx;
+	}
+	else
+	{
+		thetadx = dx*abs(lsC) / (abs(lsC) + abs(lsR));
+		val = (0 - valueC) / thetadx;
+	}
+}
+
+//template<class TT>
+//inline void AdvectionMethod2D<TT>::LLSOneSidedDerivatives(const LS & levelSet, const Field2D<TT>& ipField, Array2D<TT>& DxMinus, Array2D<TT>& DxPlus, Array2D<TT>& DyMinus, Array2D<TT>& DyPlus)
+//{
+//	LLSOneSidedDerivativesDx(levelSet, ipField, DxMinus, DxPlus);
+//	LLSOneSidedDerivativesDy(levelSet, ipField, DyMinus, DyPlus);
+//}
+//
+//template<class TT>
+//inline void AdvectionMethod2D<TT>::LLSOneSidedDerivativesDx(const LS & levelSet, const Field2D<TT>& ipField, Array2D<TT>& DxMinus, Array2D<TT>& DxPlus)
+//{
+//	int computedDomaion = 1;
+//	int iStart = ipField.grid.iStart;
+//	int iEnd = ipField.grid.iEnd;
+//	double dx = ipField.grid.dx;
+//	double oneOverdx = ipField.grid.oneOverdx;
+//
+//#pragma omp parallel for
+//	for (int k = 1; k <= levelSet.numTube; k++)
+//	{
+//		int i = levelSet.tubeIndex(k).i;
+//		int j = levelSet.tubeIndex(k).j;
+//
+//		int iLLL = max(i - 3, iStart), iLL = max(i - 2, iStart), iL = max(i - 1, iStart);
+//		int iRRR = min(i + 3, iEnd), iRR = min(i + 2, iEnd), iR = min(i + 1, iEnd);
+//		double dx1,dx2,dx3,dx
+//		double dfdx1M3, dfdx1M2, dfdx1M1, dfdx1P1, dfdx1P2;
+//		double dfdx2M2, dfdx2M1, dfdx2, dfdx2P1;
+//		double dfdx3M2, dfdx3M1, dfdx3P1;
+//
+//		double D2M = D2(iL, j);
+//		double D20 = D2(i, j);
+//		if (i == iStart || i == iEnd)
+//		{
+//			DxMinus(i, j) = ipField.dxMinusPhi(i, j);
+//		}
+//		else
+//		{
+//			if (levelSet.tube(i,j) <= computedDomaion)
+//			{
+//				double a;
+//				if (abs(D2M) < abs(D20))
+//				{
+//					a = 2 * dx*dx*MinAbs(D3(iLL, j), D3(iL, j));
+//				}
+//				else
+//				{
+//					a = -dx*dx*MinAbs(D3(iL, j), D3(i, j));
+//				}
+//				DxMinus(i, j) = ipField.dxMinusPhi(i, j) + MinMod(D2M, D20)*dx + a;
+//			}
+//		}
+//		
+//		double D2P = D2(iR, j);
+//		if (i == iStart || i == iEnd)
+//		{
+//			DxPlus(i, j) = ipField.dxPlusPhi(i, j);
+//		}
+//		else
+//		{
+//			if (levelSet.tube(i, j) <= computedDomaion)
+//			{
+//				double b;
+//				if (abs(D20) < abs(D2P))
+//				{
+//					b = -dx*dx*MinAbs(D3(iL, j), D3(i, j));
+//				}
+//				else
+//				{
+//					b = 2 * dx*dx*MinAbs(D3(i, j), D3(iR, j));
+//				}
+//				DxPlus(i, j) = ipField.dxPlusPhi(i, j) - MinMod(D20, D2P)*dx + b;
+//			}
+//
+//		}
+//	}
+//
+//}
+//
+//template<class TT>
+//inline void AdvectionMethod2D<TT>::LLSOneSidedDerivativesDy(const LS & levelSet, const Field2D<TT>& ipField, Array2D<TT>& DyMinus, Array2D<TT>& DyPlus)
+//{
+//	int computedDomaion = 1;
+//	int jStart = ipField.grid.jStart;
+//	int jEnd = ipField.grid.jEnd;
+//	double dy = ipField.grid.dy;
+//	double oneOverdy = ipField.grid.oneOverdy;
+//
+//#pragma omp parallel for
+//	for (int k = 1; k <= levelSet.numTube; k++)
+//	{
+//		int i = levelSet.tubeIndex(k).i;
+//		int j = levelSet.tubeIndex(k).j;
+//
+//		int jBB = j - 2;
+//		int jB = j - 1;
+//		double D2M = D2(i, jB);
+//		double D20 = D2(i, j);
+//		if (j < jStart + 2 || j > jEnd - 1)
+//		{
+//			DyMinus(i, j) = ipField.dyMinusPhi(i, j) + MinMod(D2M, D20)*dy;
+//		}
+//		else
+//		{
+//			if (levelSet.tube(i, j) <= computedDomaion)
+//			{
+//
+//				double a;
+//				if (abs(D2M) < abs(D20))
+//				{
+//					a = 2 * dy*dy*MinAbs(D3(i, jBB), D3(i, jB));
+//				}
+//				else
+//				{
+//					a = -dy*dy*MinAbs(D3(i, jB), D3(i, j));
+//				}
+//				DyMinus(i, j) = ipField.dyMinusPhi(i, j) + MinMod(D2M, D20)*dy + a;
+//			}
+//		}
+//
+//		int jT = j + 1;
+//		double D2P = D2(i, jT);
+//		if (j < jStart + 1 || j > jEnd - 2)
+//		{
+//			DyPlus(i, j) = ipField.dyPlusPhi(i, j) - MinMod(D20, D2P)*dy;
+//		}
+//		else
+//		{
+//			if (levelSet.tube(i, j) <= computedDomaion)
+//			{
+//				double b;
+//				if (abs(D20) < abs(D2P))
+//				{
+//					b = -dy*dy*MinAbs(D3(i, jB), D3(i, j));
+//				}
+//				else
+//				{
+//					b = 2 * dy*dy*MinAbs(D3(i, j), D3(i, jT));
+//				}
+//				DyPlus(i, j) = ipField.dyPlusPhi(i, j) - MinMod(D20, D2P)*dy + b;
+//			}
+//		}
+//	}
+//}
+//
+//// Chene, Min, Gibou, High-order reinitialization
+//template<class TT>
+//inline void AdvectionMethod2D<TT>::LLSReinitializationTVDRK3SubcellFixHighOrder(LS & levelSet, const double & dt, const int & iter)
+//{
+//	Array2D<TT>& DxMinus = levelSet.phi.dfdxM;
+//	Array2D<TT>& DxPlus = levelSet.phi.dfdxP;
+//	Array2D<TT>& DyMinus = levelSet.phi.dfdyM;
+//	Array2D<TT>& DyPlus = levelSet.phi.dfdyP;
+//	
+//	Array2D<TT> origin = levelSet.phi.dataArray;
+//	Array2D<TT>& oldLevelSet = levelSet.phi.dataArrayOld;
+//	for (int l = 1; l <= iter; l++)
+//	{
+//		levelSet.phi.SaveOld();
+//
+//		AdvectionMethod2D<double>::LLSOneSidedDerivatives(levelSet, levelSet.phi, DxMinus, DxPlus, DyMinus, DyPlus);
+//		DxMinus.Variable("DxM");
+//		DxPlus.Variable("DxP");
+//		DyMinus.Variable("DyM");
+//		DyPlus.Variable("DyP");
+//#pragma omp parallel for
+//		for (int k = levelSet.tubeIndex.iStart; k <= levelSet.numTube; k++)
+//		{
+//			int i = levelSet.tubeIndex(k).i;
+//			int j = levelSet.tubeIndex(k).j;
+//			double originL = origin(i, j);
+//
+//			double k1 = -sign(originL)*dt*ReinitialGodunov(DxPlus(i, j), DxMinus(i, j), DyPlus(i, j), DyMinus(i, j), originL);
+//			levelSet(i, j) = oldLevelSet(i, j) + k1;
+//		}
+//
+//		AdvectionMethod2D<double>::LLSOneSidedDerivatives(levelSet, levelSet.phi, DxMinus, DxPlus, DyMinus, DyPlus);
+//#pragma omp parallel for
+//		for (int k = 1; k <= levelSet.numTube; k++)
+//		{
+//			int i = levelSet.tubeIndex(k).i;
+//			int j = levelSet.tubeIndex(k).j;
+//			double originL = origin(i, j);
+//
+//			double k2 = -sign(originL)*dt*ReinitialGodunov(DxPlus(i, j), DxMinus(i, j), DyPlus(i, j), DyMinus(i, j), originL);
+//			levelSet(i, j) = 3.0 / 4.0*oldLevelSet(i, j) + 1.0 / 4.0*(levelSet(i, j) + k2);
+//		}
+//
+//		AdvectionMethod2D<double>::LLSOneSidedDerivatives(levelSet, levelSet.phi, DxMinus, DxPlus, DyMinus, DyPlus);
+//#pragma omp parallel for
+//		for (int k = 1; k <= levelSet.numTube; k++)
+//		{
+//			int i = levelSet.tubeIndex(k).i;
+//			int j = levelSet.tubeIndex(k).j;
+//			double originL = origin(i, j);
+//
+//			double k3 = -sign(originL)*dt*ReinitialGodunov(DxPlus(i, j), DxMinus(i, j), DyPlus(i, j), DyMinus(i, j), originL);
+//			levelSet(i, j) = 1.0 / 3.0*oldLevelSet(i, j) + 2.0 / 3.0*(levelSet(i, j) + k3);
+//		}
+//	}
+//}
 
 template<class TT>
 inline void AdvectionMethod2D<TT>::LLSQuantityExtension(LS & ipLS, FD & ipQuantity, const int & temporalOrder, const int & spatialOrder)

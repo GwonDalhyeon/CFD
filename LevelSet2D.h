@@ -619,7 +619,8 @@ inline void LevelSet2D::LComputeMeanCurvature(const int & tubeRange)
 
 inline double LevelSet2D::ComputeMeanCurvature(const int & i, const int & j)
 {
-	return -(dxxPhi(i, j)*dyPhi(i, j)*dyPhi(i, j) - 2.0*dxyPhi(i, j)*dxPhi(i, j)*dyPhi(i, j) + dyyPhi(i, j)*dxPhi(i, j)*dxPhi(i, j)) / pow(dxPhi(i, j)*dxPhi(i, j) + dyPhi(i, j)*dyPhi(i, j) + DBL_EPSILON, 3.0 / 2.0);
+	double dx = grid.dx, dy = grid.dy;
+	return -(dxxPhi(i, j)*dyPhi(i, j)*dyPhi(i, j) - 2.0*dxyPhi(i, j)*dxPhi(i, j)*dyPhi(i, j) + dyyPhi(i, j)*dxPhi(i, j)*dxPhi(i, j))*dx*dy / (pow(dxPhi(i, j)*dxPhi(i, j) + dyPhi(i, j)*dyPhi(i, j), 3.0 / 2.0)*dx*dy + DBL_EPSILON);
 }
 
 inline double LevelSet2D::ComputeMeanCurvature(const VI & ipVector)

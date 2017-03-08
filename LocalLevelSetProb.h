@@ -65,7 +65,8 @@ inline void LocalLevelSetAdvection::InitialCondition(const int & example)
 		{
 			for (int j = grid.jStart; j <= grid.jEnd; j++)
 			{
-				LLS(i, j) = sqrt((grid(i, j).x - 0.5)*(grid(i, j).x - 0.5) + grid(i, j).y*grid(i, j).y) - 0.25;
+				//LLS(i, j) = sqrt((grid(i, j).x - 0.5)*(grid(i, j).x - 0.5) + grid(i, j).y*grid(i, j).y) - 0.25;
+				LLS(i, j) = sqrt((grid(i, j).x)*(grid(i, j).x ) + grid(i, j).y*grid(i, j).y) - 0.5;
 			}
 		}
 		LLS.InitialTube();
@@ -218,9 +219,10 @@ inline void LocalLevelSetAdvection::AdvectionSolver(const int & example)
 			dt = AdvectionMethod2D<double>::AdaptiveTimeStep(velocityX, velocityY, cflCondition);
 			totalT += dt;
 			before = clock();
-			AdvectionMethod2D<double>::LLSPropagatingTVDRK3(LLS, velocityX, velocityY, dt);
+			//AdvectionMethod2D<double>::LLSPropagatingTVDRK3(LLS, velocityX, velocityY, dt);
 			reinitialIter = int(LLS.gamma1 / min(LLS.phi.dx, LLS.phi.dy));
-			AdvectionMethod2D<double>::LLSReinitializationTVDRK3(LLS, dt, reinitialIter);
+			//AdvectionMethod2D<double>::LLSReinitializationTVDRK3(LLS, 0.5*grid.dx, reinitialIter, reinitialIter);
+			AdvectionMethod2D<double>::LLSReinitializationTVDRK3SubcellFixSecondOrder(LLS, 0.5*grid.dx, reinitialIter);
 			LLS.UpdateInterface();
 			LLS.UpdateLLS();
 
@@ -228,17 +230,16 @@ inline void LocalLevelSetAdvection::AdvectionSolver(const int & example)
 			cout << result << endl;
 			LLS.tube.Variable("Tube");
 			LLS.phi.Variable("phi");
-			MATLAB.Command("subplot(1,3,1)");
-			MATLAB.Command("surf(X, Y, Tube);grid on;axis([-1 1 -1 1]);axis equal;set(gca,'fontsize',20)");
-			MATLAB.Command("subplot(1,3,2)");
+			//MATLAB.Command("subplot(1,3,1)");
+			//MATLAB.Command("surf(X, Y, Tube);grid on;axis([-1 1 -1 1]);axis equal;set(gca,'fontsize',20)");
+			MATLAB.Command("subplot(1,2,1)");
 			//MATLAB.Command("contour(X, Y, Tube);hold on;grid on;axis([-1 1 -1 1]);axis equal;");
 			MATLAB.Command("surf(X,Y,phi);hold off;set(gca,'fontsize',20)");
 			str = string("title(['iteration : ', num2str(") + to_string(i) + string("),', time : ', num2str(") + to_string(totalT) + string(")]);");
 			cmd = str.c_str();
 			MATLAB.Command(cmd);
-			MATLAB.Command("subplot(1,3,3)");
+			MATLAB.Command("subplot(1,2,2)");
 			MATLAB.Command("contour(X, Y, phi0, [0 0],'b');hold on;grid on;contour(X, Y, phi,[0 0],'r');axis([-1 1 -1 1]);axis equal;hold off;set(gca,'fontsize',20)");
-
 		}
 		else
 		{

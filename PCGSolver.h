@@ -122,128 +122,129 @@ inline void PCGSolver::IncompleteCholeskyDecomposition(const CSR<double>& A, CSR
 	int* LIndPrt(L.indPrt.values);
 	double* Lvalues(L.values.values);
 
-	const int N = A.rowNum;
-	const int nz = A.valueNum;
-	int iStart = bc_input.iStart, iEnd = bc_input.iEnd, jStart = bc_input.jStart, jEnd = bc_input.jEnd;
-	int iRes = bc_input.iRes;
-	int number = 0;
-	bool tempBool = true;
-	double sum, coef;
-	for (int j = jStart; j <= jEnd; j++)
-	{
-		for (int i = iStart; i <= iEnd; i++)
-		{
-			sum = 0, coef = 0;
+	//const int N = A.rowNum;
+	//const int nz = A.valueNum;
+	//int iStart = bc_input.iStart, iEnd = bc_input.iEnd, jStart = bc_input.jStart, jEnd = bc_input.jEnd;
+	//int iRes = bc_input.iRes;
+	//int number = 0;
+	//bool tempBool = true;
+	//double sum, coef;
+	//for (int j = jStart; j <= jEnd; j++)
+	//{
+	//	for (int i = iStart; i <= iEnd; i++)
+	//	{
+	//		sum = 0, coef = 0;
 
-		
-			if (j > jStart)
-			{
-				if (bc_input(i, j - 1) > -1)
-				{
-					if (bc_input(i, j) == iRes)
-					{
-						coef = 1 / Lvalues[LIndPrt[bc_input(i, j) - iRes]] * (A(bc_input(i, j - 1), bc_input(i, j)));
-					}
-					else if (((bc_input(i, j) > iRes) && (bc_input(i, j) < 2 * iRes)) || (bc_input(i, j) % iRes == 0))
-					{
-						coef = 1 / Lvalues[LIndPrt[bc_input(i, j) - iRes] + 1] * (A(bc_input(i, j - 1), bc_input(i, j)));
-					}
-					else
-					{
-						tempBool = true;
-						if (i < iEnd)
-						{
-							if (bc_input(i + 1, j) == BC_PER)
-							{
-								coef = 1 / Lvalues[LIndPrt[bc_input(i, j) - iRes] + 3] * (A(bc_input(i, j - 1), bc_input(i, j)));
-								tempBool = false;
-							}
-						}
-						if (tempBool)
-						{
-							coef = 1 / Lvalues[LIndPrt[bc_input(i, j) - iRes] + 2] * (A(bc_input(i, j - 1), bc_input(i, j)));
-						}
-					}
+	//	
+	//		if (j > jStart)
+	//		{
+	//			if (bc_input(i, j - 1) > -1)
+	//			{
+	//				if (bc_input(i, j) == iRes)
+	//				{
+	//					coef = 1 / Lvalues[LIndPrt[bc_input(i, j) - iRes]] * (A(bc_input(i, j - 1), bc_input(i, j)));
+	//				}
+	//				else if (((bc_input(i, j) > iRes) && (bc_input(i, j) < 2 * iRes)) || (bc_input(i, j) % iRes == 0))
+	//				{
+	//					coef = 1 / Lvalues[LIndPrt[bc_input(i, j) - iRes] + 1] * (A(bc_input(i, j - 1), bc_input(i, j)));
+	//				}
+	//				else
+	//				{
+	//					tempBool = true;
+	//					if (i < iEnd)
+	//					{
+	//						if (bc_input(i + 1, j) == BC_PER)
+	//						{
+	//							coef = 1 / Lvalues[LIndPrt[bc_input(i, j) - iRes] + 3] * (A(bc_input(i, j - 1), bc_input(i, j)));
+	//							tempBool = false;
+	//						}
+	//					}
+	//					if (tempBool)
+	//					{
+	//						coef = 1 / Lvalues[LIndPrt[bc_input(i, j) - iRes] + 2] * (A(bc_input(i, j - 1), bc_input(i, j)));
+	//					}
+	//				}
 
-					L.AssignValue(bc_input(i, j), bc_input(i, j - 1), coef);
-					number += 1;
-				}
-			}
-			
-	
-			if (i<iEnd)
-			{
-				if (bc_input(i + 1, j) == BC_PER)
-				{
-					coef = 1 / Lvalues[LIndPrt[bc_input(i, j) - 2] - 1] * (A(bc_input(i, j) - (iRes - 1), bc_input(i, j)));
+	//				L.AssignValue(bc_input(i, j), bc_input(i, j - 1), coef);
+	//				number += 1;
+	//			}
+	//		}
+	//		
+	//
+	//		if (i<iEnd)
+	//		{
+	//			if (bc_input(i + 1, j) == BC_PER)
+	//			{
+	//				coef = 1 / Lvalues[LIndPrt[bc_input(i, j) - 2] - 1] * (A(bc_input(i, j) - (iRes - 1), bc_input(i, j)));
 
-					L.AssignValue(bc_input(i, j), bc_input(i, j) - (iRes - 1), coef);
-					number += 1;
-				}
-			}
-			
+	//				L.AssignValue(bc_input(i, j), bc_input(i, j) - (iRes - 1), coef);
+	//				number += 1;
+	//			}
+	//		}
+	//		
 
-			if (i > iStart)
-			{
-				if (bc_input(i - 1, j) > -1)
-				{
-					tempBool = true;
-					if (i<iEnd)
-					{
-						if (bc_input(i + 1, j) == BC_PER)
-						{
-							coef = 1 / Lvalues[LIndPrt[bc_input(i, j) - 1]] * (A(bc_input(i - 1, j), bc_input(i, j)));
-							tempBool = false;
-						}
-					}
-					if (tempBool)
-					{
-						if (bc_input(i, j) == 1)
-						{
-							coef = 1 / Lvalues[LIndPrt[bc_input(i, j) - 1]] * (A(bc_input(i - 1, j), bc_input(i, j)));
-						}
-						else if (bc_input(i, j) < iRes)
-						{
-							coef = 1 / Lvalues[LIndPrt[bc_input(i, j) - 1] + 1] * (A(bc_input(i - 1, j), bc_input(i, j)));
-						}
-						else
-						{
-							coef = 1 / Lvalues[LIndPrt[bc_input(i, j)] - 1] * (A(bc_input(i - 1, j), bc_input(i, j)));
-						}
-					}
-					
+	//		if (i > iStart)
+	//		{
+	//			if (bc_input(i - 1, j) > -1)
+	//			{
+	//				tempBool = true;
+	//				if (i<iEnd)
+	//				{
+	//					if (bc_input(i + 1, j) == BC_PER)
+	//					{
+	//						coef = 1 / Lvalues[LIndPrt[bc_input(i, j) - 1]] * (A(bc_input(i - 1, j), bc_input(i, j)));
+	//						tempBool = false;
+	//					}
+	//				}
+	//				if (tempBool)
+	//				{
+	//					if (bc_input(i, j) == 1)
+	//					{
+	//						coef = 1 / Lvalues[LIndPrt[bc_input(i, j) - 1]] * (A(bc_input(i - 1, j), bc_input(i, j)));
+	//					}
+	//					else if (bc_input(i, j) < iRes)
+	//					{
+	//						coef = 1 / Lvalues[LIndPrt[bc_input(i, j) - 1] + 1] * (A(bc_input(i - 1, j), bc_input(i, j)));
+	//					}
+	//					else
+	//					{
+	//						coef = 1 / Lvalues[LIndPrt[bc_input(i, j)] - 1] * (A(bc_input(i - 1, j), bc_input(i, j)));
+	//					}
+	//				}
+	//				
 
-					L.AssignValue(bc_input(i, j), bc_input(i - 1, j), coef);
-					number += 1;
-				}
-			}
-			
+	//				L.AssignValue(bc_input(i, j), bc_input(i - 1, j), coef);
+	//				number += 1;
+	//			}
+	//		}
+	//		
 
-			if (bc_input(i, j) == 0)
-			{
-				coef = sqrt(A(bc_input(i, j), bc_input(i, j)));
-			}
-			else
-			{
-				sum = 0;
+	//		if (bc_input(i, j) == 0)
+	//		{
+	//			coef = sqrt(A(bc_input(i, j), bc_input(i, j)));
+	//		}
+	//		else
+	//		{
+	//			sum = 0;
 
-				for (int k = LIndPrt[bc_input(i, j)]; k < number; k++)
-				{
-					sum += Lvalues[k] * Lvalues[k];
-				}
-				coef = sqrt(A(bc_input(i, j), bc_input(i, j)) - sum);
-			}
-			L.AssignValue(bc_input(i, j), bc_input(i, j), coef);
+	//			for (int k = LIndPrt[bc_input(i, j)]; k < number; k++)
+	//			{
+	//				sum += Lvalues[k] * Lvalues[k];
+	//			}
+	//			coef = sqrt(A(bc_input(i, j), bc_input(i, j)) - sum);
+	//		}
+	//		L.AssignValue(bc_input(i, j), bc_input(i, j), coef);
 
-			number += 1;
-		}
-	}
+	//		number += 1;
+	//	}
+	//}
 
 	L.oneOverDiagonal = VectorND<double>(L.rowNum);
 #pragma omp parallel for
 	for (int i = 0; i < L.rowNum; i++)
 	{
-		L.oneOverDiagonal.values[i] = 1. / L(i, i);
+		//L.oneOverDiagonal.values[i] = 1. / L(i, i);
+		L.oneOverDiagonal.values[i] = 1. / A(i, i);
 	}
 }
 

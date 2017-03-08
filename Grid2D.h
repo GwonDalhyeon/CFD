@@ -196,7 +196,7 @@ inline Vector2D<int> Grid2D::cellIndex(const double & x, const double & y)
 inline void Grid2D::Variable()
 {
 	
-	string str = "[X,Y]=meshgrid(" +to_string(xMin) +":" +to_string(dx)+":"+to_string(xMax)+"," + to_string(yMin) + ":" + to_string(dy) + ":" + to_string(yMax) + +");";
+	string str = "[X,Y]=meshgrid(" +to_string(xMin) +":" +to_string(dx)+":"+to_string(xMax+DBL_EPSILON)+"," + to_string(yMin) + ":" + to_string(dy) + ":" + to_string(yMax+ DBL_EPSILON) + +");";
 	const char* cmd = str.c_str();
 	MATLAB.Command(cmd);
 }
