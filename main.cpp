@@ -28,11 +28,7 @@ void main()
 	//	omp_set_num_threads(omp_get_max_threads());
 	//
 	//	cout << omp_get_thread_num() << endl;
-	cout << "Hello!!" << endl;
 	cout << "DALHYEON's Fluid Solver" << endl;
-	cout << endl;
-	cout << "Now Loading MATLAB." << endl;
-	cout << "Wait a Minute." << endl;
 	cout << endl;
 	MATLAB.Command("clc; clear all; close all;");
 	MATLAB.Command("workspace");

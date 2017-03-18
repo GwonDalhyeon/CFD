@@ -3075,8 +3075,9 @@ inline void AdvectionMethod2D<TT>::LLSQuantityExtension(LS & ipLS, FD & ipQuanti
 	Array2D<double>& wenoYMinus = ipQuantity.dfdyM;
 	Array2D<double>& wenoYPlus = ipQuantity.dfdyP;
 
-	ipLS.LComputeNormal();
-	
+	ipLS.LComputeUnitNormal();
+	//ArrayVec2DVariable("unitnormal", ipLS.unitNormal.dataArray);
+
 	VT normal;
 	double signPhi;
 	double tempDxPhi, tempDyPhi;
@@ -3099,7 +3100,7 @@ inline void AdvectionMethod2D<TT>::LLSQuantityExtension(LS & ipLS, FD & ipQuanti
 		ipLS.TubeIndex(k, i, j);
 		if (ipLS.tube(i, j) <= updatedRegion)
 		{
-			normal = ipLS.normal(i, j);
+			normal = ipLS.unitNormal(i, j);
 			signPhi = AdvectionMethod2D<double>::sign(ipLS(i, j));
 			if (signPhi*normal.i >= 0)
 			{
@@ -3138,7 +3139,7 @@ inline void AdvectionMethod2D<TT>::LLSQuantityExtension(LS & ipLS, FD & ipQuanti
 			ipLS.TubeIndex(k, i, j);
 			if (ipLS.tube(i, j) <= updatedRegion)
 			{
-				normal = ipLS.normal(i, j);
+				normal = ipLS.unitNormal(i, j);
 				signPhi = AdvectionMethod2D<double>::sign(ipLS(i, j));
 				if (signPhi*normal.i >= 0)
 				{
@@ -3175,7 +3176,7 @@ inline void AdvectionMethod2D<TT>::LLSQuantityExtension(LS & ipLS, FD & ipQuanti
 			ipLS.TubeIndex(k, i, j);
 			if (ipLS.tube(i, j) <= updatedRegion)
 			{
-				normal = ipLS.normal(i, j);
+				normal = ipLS.unitNormal(i, j);
 				signPhi = AdvectionMethod2D<double>::sign(ipLS(i, j));
 				if (signPhi*normal.i >= 0)
 				{
@@ -3198,6 +3199,7 @@ inline void AdvectionMethod2D<TT>::LLSQuantityExtension(LS & ipLS, FD & ipQuanti
 			}
 		}
 	}
+	
 }
 
 template<class TT>
@@ -3205,15 +3207,15 @@ inline void AdvectionMethod2D<TT>::LLSQuantityExtension(LS & ipLS, FD & ipQuanti
 {
 	int i, j;
 	int updatedRegion = 2;
-//#pragma omp parallel for private(i, j)
-//	for (int k = 1; k <= ipLS.numTube; k++)
-//	{
-//		ipLS.TubeIndex(k, i, j);
-//		if (ipLS.tube(i, j) == updatedRegion)
-//		{
-//			ipQuantity(i, j) = 0;
-//		}
-//	}
+#pragma omp parallel for private(i, j)
+	for (int k = 1; k <= ipLS.numTube; k++)
+	{
+		ipLS.TubeIndex(k, i, j);
+		if (ipLS.tube(i, j) > updatedRegion)
+		{
+			ipQuantity(i, j) = 0;
+		}
+	}
 
 	for (int m = 1;  m <= iter;  m++)
 	{

@@ -57,7 +57,7 @@ inline void LocalLevelSetAdvection::InitialCondition(const int & example)
 
 		cout << "Local Local Level set advection Test - Rotating a circle" << endl;
 
-		grid = Grid2D(-1, 1, 201, -1, 1, 201);
+		grid = Grid2D(-1, 1, 101, -1, 1, 101);
 
 		LLS = LS(grid);
 #pragma omp parallel for
@@ -65,8 +65,8 @@ inline void LocalLevelSetAdvection::InitialCondition(const int & example)
 		{
 			for (int j = grid.jStart; j <= grid.jEnd; j++)
 			{
-				//LLS(i, j) = sqrt((grid(i, j).x - 0.5)*(grid(i, j).x - 0.5) + grid(i, j).y*grid(i, j).y) - 0.25;
-				LLS(i, j) = sqrt((grid(i, j).x)*(grid(i, j).x ) + grid(i, j).y*grid(i, j).y) - 0.5;
+				LLS(i, j) = sqrt((grid(i, j).x - 0.5)*(grid(i, j).x - 0.5) + grid(i, j).y*grid(i, j).y) - 0.25;
+				//LLS(i, j) = sqrt((grid(i, j).x)*(grid(i, j).x ) + grid(i, j).y*grid(i, j).y) - 0.5;
 			}
 		}
 		LLS.InitialTube();
@@ -87,7 +87,7 @@ inline void LocalLevelSetAdvection::InitialCondition(const int & example)
 		cflCondition = 0.5;
 
 		//dt = grid.dx*grid.dy;
-		maxIteration = 1000;
+		maxIteration = 628;
 		writeIter = 100;
 	}
 	else if (example == 2)
@@ -123,7 +123,7 @@ inline void LocalLevelSetAdvection::InitialCondition(const int & example)
 		isVelocity = false;
 		needReinitial = false;
 
-		grid = Grid2D(-1, 1, 201, -1, 1, 201);
+		grid = Grid2D(-1, 1, 101, -1, 1, 101);
 
 
 		LLS = LS(grid);
@@ -176,17 +176,17 @@ inline void LocalLevelSetAdvection::AdvectionSolver(const int & example)
 	LLS.phi.Variable("phi");
 	LLS.tube.Variable("Tube");
 	MATLAB.Command("figure('units','normalized','outerposition',[0 0 1 1])");
-	MATLAB.Command("subplot(1,3,1)");
-	MATLAB.Command("surf(X, Y, Tube);grid on;axis([-1 1 -1 1]);axis equal;");
-	MATLAB.Command("subplot(1,3,2)");
+	//MATLAB.Command("subplot(1,3,1)");
+	//MATLAB.Command("surf(X, Y, Tube);grid on;axis([-1 1 -1 1]);axis equal;");
+	MATLAB.Command("subplot(1,2,1)");
 	//MATLAB.Command("contour(X, Y, Tube);hold on;grid on;axis([-1 1 -1 1]);axis equal;");
 	MATLAB.Command("surf(X,Y,phi);hold off;");
 	str = string("title(['iteration : ', num2str(") + to_string(0) + string("),', time : ', num2str(") + to_string(0) + string(")]);");
 	cmd = str.c_str();
 	MATLAB.Command(cmd);
-	MATLAB.Command("subplot(1,3,3)");
+	MATLAB.Command("subplot(1,2,2)");
 	MATLAB.Command("contour(X, Y, phi0, [0 0],'b'),grid on;axis([-1 1 -1 1]);axis equal;");
-
+	MATLAB.WriteImage("LLS", 0, "png");
 	if (writeFile)
 	{
 		str = "phi0";
@@ -219,10 +219,10 @@ inline void LocalLevelSetAdvection::AdvectionSolver(const int & example)
 			dt = AdvectionMethod2D<double>::AdaptiveTimeStep(velocityX, velocityY, cflCondition);
 			totalT += dt;
 			before = clock();
-			//AdvectionMethod2D<double>::LLSPropagatingTVDRK3(LLS, velocityX, velocityY, dt);
+			AdvectionMethod2D<double>::LLSPropagatingTVDRK3(LLS, velocityX, velocityY, dt);
 			reinitialIter = int(LLS.gamma1 / min(LLS.phi.dx, LLS.phi.dy));
-			//AdvectionMethod2D<double>::LLSReinitializationTVDRK3(LLS, 0.5*grid.dx, reinitialIter, reinitialIter);
-			AdvectionMethod2D<double>::LLSReinitializationTVDRK3SubcellFixSecondOrder(LLS, 0.5*grid.dx, reinitialIter);
+			AdvectionMethod2D<double>::LLSReinitializationTVDRK3(LLS, 0.5*grid.dx, reinitialIter, 3);
+			//AdvectionMethod2D<double>::LLSReinitializationTVDRK3SubcellFixSecondOrder(LLS, 0.5*grid.dx, 3);
 			LLS.UpdateInterface();
 			LLS.UpdateLLS();
 
@@ -230,6 +230,7 @@ inline void LocalLevelSetAdvection::AdvectionSolver(const int & example)
 			cout << result << endl;
 			LLS.tube.Variable("Tube");
 			LLS.phi.Variable("phi");
+			
 			//MATLAB.Command("subplot(1,3,1)");
 			//MATLAB.Command("surf(X, Y, Tube);grid on;axis([-1 1 -1 1]);axis equal;set(gca,'fontsize',20)");
 			MATLAB.Command("subplot(1,2,1)");
@@ -240,6 +241,9 @@ inline void LocalLevelSetAdvection::AdvectionSolver(const int & example)
 			MATLAB.Command(cmd);
 			MATLAB.Command("subplot(1,2,2)");
 			MATLAB.Command("contour(X, Y, phi0, [0 0],'b');hold on;grid on;contour(X, Y, phi,[0 0],'r');axis([-1 1 -1 1]);axis equal;hold off;set(gca,'fontsize',20)");
+			MATLAB.WriteImage("LLS", i, "png");
+
+			
 		}
 		else
 		{
@@ -263,6 +267,7 @@ inline void LocalLevelSetAdvection::AdvectionSolver(const int & example)
 			MATLAB.Command("contour(X, Y, phi0, [0 0],'b');hold on;grid on;contour(X, Y, phi,[0 0],'r');axis([-1 1 -1 1]);axis equal;hold off;");
 			//MATLAB.Command("F=getframe;");
 			//MATLAB.Command("writeVideo(v,F)");
+			MATLAB.WriteImage("LLS", i, "png");
 		}
 
 
@@ -282,6 +287,19 @@ inline void LocalLevelSetAdvection::AdvectionSolver(const int & example)
 			LLS.phi.WriteFile(str);
 		}
 	}
+
+	//MATLAB.Command("subplot(1,3,1)");
+	//MATLAB.Command("surf(X, Y, Tube);grid on;axis([-1 1 -1 1]);axis equal;set(gca,'fontsize',20)");
+	MATLAB.Command("subplot(1,2,1)");
+	//MATLAB.Command("contour(X, Y, Tube);hold on;grid on;axis([-1 1 -1 1]);axis equal;");
+	MATLAB.Command("surf(X,Y,phi);hold off;set(gca,'fontsize',20)");
+	str = string("title(['iteration : ', num2str(") + to_string(maxIteration) + string("),', time : ', num2str(") + to_string(totalT) + string(")]);");
+	cmd = str.c_str();
+	MATLAB.Command(cmd);
+	MATLAB.Command("subplot(1,2,2)");
+	MATLAB.Command("contour(X, Y, phi0, [0 0],'b');hold on;grid on;contour(X, Y, phi,[0 0],'r');axis([-1 1 -1 1]);axis equal;hold off;set(gca,'fontsize',20)");
+	MATLAB.WriteImage("LLS", maxIteration, "png");
+
 	result = (double)(clock() - before) / CLOCKS_PER_SEC;
 	cout << result << endl;
 	//MATLAB.Command("close(v)");
@@ -303,23 +321,33 @@ inline void LocalLevelSetAdvection::QuantityExtensionSolver(const int & example)
 	quantity.Variable("quantity0");
 	
 	MATLAB.Command("figure('units','normalized','outerposition',[0 0 1 1])");
-	MATLAB.Command("surf(X,Y,quantity0);hold on;contour(X, Y, Tube);hold off,");
+	MATLAB.Command("subplot(1,2,1)");
+	MATLAB.Command("surf(X,Y,quantity0);%hold on;contour(X, Y, Tube);hold off,");
+	MATLAB.Command("subplot(1,2,2)");
+	MATLAB.Command("mid = ceil(size(X,1)/2)");
+	MATLAB.Command("plot(X(mid,:),quantity0(mid,:));hold on;plot(X(mid,:), quantity0(mid,:));hold off,axis tight equal");
+	MATLAB.WriteImage("LLS", 0, "png");
 	clock_t before = clock();
 	double  result;
-	for (int i = 1; i <= maxIteration; i++)
+	for (int i = 1; i <= 50; i++)
 	{
 		cout << endl;
 		cout << "********************************" << endl;
 		cout << "Quantity Extension : " << i << endl;
 		AdvectionMethod2D<double>::LLSQuantityExtension(LLS, quantity, timeAdvectionOrder, spacialOrder);
 		quantity.Variable("quantity");
-		//MATLAB.Command("subplot(1,2,1)");
+		MATLAB.Command("subplot(1,2,1)");
 		MATLAB.Command("surf(X,Y,quantity);%hold on;%contour(X, Y, Tube);");
 		str = string("title(['iteration : ', num2str(") + to_string(i) + string(")]);");
 		cmd = str.c_str();
 		MATLAB.Command(cmd);
-		//MATLAB.Command("subplot(1,2,2)");
+		MATLAB.Command("subplot(1,2,2)");
+		MATLAB.Command("plot(X(mid,:),quantity0(mid,:));hold on;plot(X(mid,:), quantity(mid,:));hold off,aaxis tight equal");
 		//MATLAB.Command("surf(X,Y,quantity-quantity0);%hold on;contour(X, Y, Tube);");
+		if (i%10==0)
+		{
+			MATLAB.WriteImage("LLS", i, "png");
+		}
 	}
 	result = (double)(clock() - before) / CLOCKS_PER_SEC;
 	cout << result << endl;

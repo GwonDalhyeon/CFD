@@ -21,6 +21,7 @@ public:
 	FD& V = Fluid.V; // y velocity
 
 	FD& Surfactant = Fluid.Surfactant;
+	FD SurfactantOld;
 	VectorND<double> tempSur;
 
 	double initialSurfactant;
@@ -178,7 +179,7 @@ inline void MovingInterface::InitialCondition(const int & example)
 				Surfactant.BC(i, j) = tempBC++;
 			}
 		}
-
+		SurfactantOld = Surfactant;
 		term = Array2D<double>(grid);
 		termOld = Array2D<double>(grid);
 
@@ -244,6 +245,7 @@ inline void MovingInterface::InitialCondition(const int & example)
 				Surfactant.BC(i, j) = tempBC++;
 			}
 		}
+		SurfactantOld = Surfactant;
 		term = Array2D<double>(grid);
 		termOld = Array2D<double>(grid);
 
@@ -292,7 +294,7 @@ inline void MovingInterface::InitialCondition(const int & example)
 				//Surfactant(i, j) = sqrt((grid(i, j).x)*(grid(i, j).x) + (grid(i, j).y)*(grid(i, j).y)); ExactSurfactant(grid(i, j).x, grid(i, j).y, totalT);
 			}
 		}
-
+		SurfactantOld = Surfactant;
 		AdvectionMethod2D<double>::alpha = 1.5*grid.dx;
 
 		term = Array2D<double>(grid);
@@ -351,13 +353,14 @@ inline void MovingInterface::InitialCondition(const int & example)
 				Surfactant(i, j) = ExactSurfactant(grid(i, j).x, grid(i, j).y, totalT);
 			}
 		}
+		SurfactantOld = Surfactant;
 		initialSurfactant = IntegralSurfactant();
 
 		term = Array2D<double>(grid);
 		termOld = Array2D<double>(grid);
 		cflCondition = 1.0 / 4.0;
 		dt = AdvectionMethod2D<double>::AdaptiveTimeStep(U, cflCondition);
-		maxIteration = 800;
+		maxIteration = 600;
 		totalT = 0;
 
 		Pe = 10;
@@ -418,7 +421,7 @@ inline void MovingInterface::InitialCondition(const int & example)
 				Surfactant(i, j) = ExactSurfactant(grid(i, j).x, grid(i, j).y, totalT);
 			}
 		}
-
+		SurfactantOld = Surfactant;
 		initialSurfactant = IntegralSurfactant();
 
 		term = Array2D<double>(grid);
@@ -477,7 +480,7 @@ inline void MovingInterface::InitialCondition(const int & example)
 				Surfactant(i, j) = ExactSurfactant(grid(i, j).x, grid(i, j).y, totalT);
 			}
 		}
-
+		SurfactantOld = Surfactant;
 		initialSurfactant = IntegralSurfactant();
 
 		term = Array2D<double>(grid);
@@ -542,7 +545,7 @@ inline void MovingInterface::InitialCondition(const int & example)
 				}
 			}
 		}
-
+		SurfactantOld = Surfactant;
 		initialSurfactant = IntegralSurfactant();
 
 		AdvectionMethod2D<double>::alpha = 1.5*grid.dx;
@@ -565,10 +568,10 @@ inline void MovingInterface::InitialCondition(const int & example)
 		levelSet = LS(grid, LspatialOrder * grid.dx);
 		LS levelSet1(grid, LspatialOrder * grid.dx);
 		LS levelSet2(grid, LspatialOrder* grid.dx);
-		//VT center1(-1, 0.25);
-		//VT center2(1, -0.25);
-		VT center1(-0.5, 0.25);
-		VT center2(0.5, -0.25);
+		VT center1(-1, 0.25);
+		VT center2(1, -0.25);
+		//VT center1(-0.5, 0.25);
+		//VT center2(0.5, -0.25);
 		double x, y;
 #pragma omp parallel for private(x, y)
 		for (int i = grid.iStart; i <= grid.iEnd; i++)
@@ -590,6 +593,7 @@ inline void MovingInterface::InitialCondition(const int & example)
 		}
 
 		levelSet.CombineLevelSet(levelSet1, levelSet2);
+		//levelSet.phi = levelSet1.phi;
 		levelSet.InitialTube();
 
 		Surfactant = FD(grid);
@@ -603,7 +607,7 @@ inline void MovingInterface::InitialCondition(const int & example)
 				Surfactant(i, j) = 1;
 			}
 		}
-
+		SurfactantOld = Surfactant;
 		SurfaceTension = FD(grid);
 #pragma omp parallel for
 		for (int i = grid.iStart; i <= grid.iEnd; i++)
@@ -651,7 +655,7 @@ inline void MovingInterface::InitialCondition(const int & example)
 				Surfactant(i, j) = 1;
 			}
 		}
-
+		SurfactantOld = Surfactant;
 		SurfaceTension = FD(grid);
 		DimlessNonlinearLangmuirEOS(1);
 
@@ -815,6 +819,7 @@ inline void MovingInterface::SurfactantNormalTerm(FD& ipField, LS& ipLevelSet, A
 	double curvatureThreshold = 1 / grid.dx;
 	double curvature, vel;
 	VT velG;
+	double oneOverPe = 1 / Pe;
 #pragma omp parallel for private(normal, Hessian, curvature, vel, velG)
 	for (int i = term.iStart; i <= term.iEnd; i++)
 	{
@@ -831,15 +836,15 @@ inline void MovingInterface::SurfactantNormalTerm(FD& ipField, LS& ipLevelSet, A
 			term(i, j) = 0;
 			if (abs(curvature) < curvatureThreshold)
 			{
-				term(i, j) += -curvature*DotProduct(normal, gradientF(i, j));
+				term(i, j) += curvature*DotProduct(normal, gradientF(i, j));
 			}
 			else
 			{
-				term(i, j) += -AdvectionMethod2D<double>::sign(curvature)*curvatureThreshold*DotProduct(normal, gradientF(i, j));
+				term(i, j) += AdvectionMethod2D<double>::sign(curvature)*curvatureThreshold*DotProduct(normal, gradientF(i, j));
 			}
-			term(i, j) += -normal(0)*(Hessian(0, 0)*normal(0) + Hessian(0, 1)*normal(1));
-			term(i, j) += -normal(1)*(Hessian(1, 0)*normal(0) + Hessian(1, 1)*normal(1));
-
+			term(i, j) += normal(0)*(Hessian(0, 0)*normal(0) + Hessian(0, 1)*normal(1));
+			term(i, j) += normal(1)*(Hessian(1, 0)*normal(0) + Hessian(1, 1)*normal(1));
+			term(i, j) *= -oneOverPe;
 			//// Upwind WENO
 			vel = 0.5 * (U(i, j) + U(i + 1, j));
 			term(i, j) += -(AdvectionMethod2D<double>::Plus(vel)*wenoDxMinus(i, j) + AdvectionMethod2D<double>::Minus(vel)*wenoDxPlus(i, j));
@@ -1006,6 +1011,7 @@ inline void MovingInterface::GenerateLinearSystem1(VectorND<double>& vectorB)
 	Array2D<int>& BC = Surfactant.BC;
 	SurfactantNormalTerm(Surfactant, levelSet, term);
 	double oneOverdt = 1 / dt;
+	double oneOverPe = 1 / Pe;
 #pragma omp parallel for
 	for (int j = Surfactant.jStart; j <= Surfactant.jEnd; j++)
 	{
@@ -1015,7 +1021,8 @@ inline void MovingInterface::GenerateLinearSystem1(VectorND<double>& vectorB)
 			{
 				continue;
 			}
-			vectorB(BC(i, j)) = Surfactant(i, j)*oneOverdt + term(i, j);
+			vectorB(BC(i, j)) = Surfactant(i, j)*oneOverdt
+				+ oneOverPe*(Surfactant.dxxPhi(i, j) + Surfactant.dyyPhi(i, j)) + term(i, j);
 
 			if (i > Surfactant.iStart)
 			{
@@ -1191,6 +1198,7 @@ inline void MovingInterface::GenerateLinearSystem2(VectorND<double>& vectorB)
 
 	SurfactantNormalTerm(Surfactant, levelSet, term);
 	double oneOverdt = 1 / dt;
+	double oneOverPe = 1 / Pe;
 #pragma omp parallel for
 	for (int j = Surfactant.jStart; j <= Surfactant.jEnd; j++)
 	{
@@ -1200,8 +1208,8 @@ inline void MovingInterface::GenerateLinearSystem2(VectorND<double>& vectorB)
 			{
 				continue;
 			}
-			vectorB(BC(i, j)) = Surfactant(i, j)*oneOverdt + 0.5 *(Surfactant.dxxPhi(i, j) + Surfactant.dyyPhi(i, j))
-				+ 1.5*term(i, j) - 0.5*termOld(i, j);
+			vectorB(BC(i, j)) = Surfactant(i, j)*oneOverdt
+				+ 0.5 * (oneOverPe*(Surfactant.dxxPhi(i, j) + Surfactant.dyyPhi(i, j)) + 3 * term(i, j) - 1 * termOld(i, j));
 			if (i > Surfactant.jStart)
 			{
 				if (BC(i - 1, j) == BC_DIR)
@@ -1276,6 +1284,7 @@ inline void MovingInterface::LSurfactantDiffusionSolver(const int & example)
 	str = string("title(['iteration : ', num2str(") + to_string(0) + string("),', time : ', num2str(") + to_string(totalT) + string(")]);");
 	cmd = str.c_str();
 	MATLAB.Command(cmd);
+
 	int extensionIter = (int)ceil(levelSet.gamma2 / (0.5*min(grid.dx, grid.dy)));;
 	for (int i = 1; i <= maxIteration; i++)
 	{
@@ -1289,7 +1298,6 @@ inline void MovingInterface::LSurfactantDiffusionSolver(const int & example)
 		AdvectionMethod2D<double>::LLSQuantityExtension(levelSet, Surfactant, temporalOrder, LspatialOrder, extensionIter);
 
 		cout << "------------ Diffusion End ------------- " << endl;
-
 		PlotLocalSurfactant();
 		MATLAB.Command("IntSur=sum(sum(Surfactant.*(Tube<=1)));");
 		MATLAB.Command("loss = (IntSur0-IntSur)/IntSur0*100");
@@ -1306,10 +1314,11 @@ inline void MovingInterface::PlotLocalSurfactant()
 	//MATLAB.Command("SurTube1=Surfactant.*(Tube<=1);");
 	MATLAB.Command("SurTube1=Surfactant;");
 	levelSet.tube.Variable("Tube");
-	bool isLookDown = true;
+	bool isLookDown = false;
 	if (isLookDown)
 	{
-		MATLAB.Command("surf(X,Y,SurTube1), hold on, contour(X,Y,Tube),h=colorbar,h.Limits=[0 max(max(SurTube1))],hold off,set(gca,'fontsize',20);axis([X(1) X(end) Y(1) Y(end)]),axis equal");
+		//MATLAB.Command("surf(X,Y,SurTube1), hold on, contour(X,Y,Tube),h=colorbar,h.Limits=[0 max(max(SurTube1))],hold off,set(gca,'fontsize',20);axis([X(1) X(end) Y(1) Y(end)]),axis equal");
+		MATLAB.Command("surf(X,Y,SurTube1), h=colorbar,h.Limits=[0 max(max(SurTube1))],hold off,set(gca,'fontsize',20);axis([X(1) X(end) Y(1) Y(end)]),axis equal");
 	}
 	else
 	{
@@ -1381,6 +1390,7 @@ inline void MovingInterface::EulerianMovingInterfaceSolver(const int & example)
 		MATLAB.Variable("totalT", totalT);
 		MATLAB.Command("title(['iteration : ', num2str(i),', time : ', num2str(totalT), ', Loss(%)  :',num2str(loss)]);");
 
+		
 		cout << "       Iteration " << to_string(i) << " : End" << endl;
 	}
 
@@ -1396,30 +1406,28 @@ inline void MovingInterface::SurfactantTube2Extrapolation()
 		levelSet.TubeIndex(k, i, j);
 		if (levelSet.tube(i, j) == 2)
 		{
-			temp = Surfactant(i, j);
 			Surfactant(i, j) = 2 * Surfactant(i, j) - Surfactant.dataArrayOld(i, j);
-			Surfactant.dataArrayOld(i, j) = temp;
 		}
 	}
 }
 
 inline void MovingInterface::LSurfactantDiffusion(const int & iter)
 {
-	if (iter == 1)
+	Surfactant.SaveOld();
+	//if (iter == 1)
 	{
 		LGenerateLinearSystem1(Acsr);
 		LOneStepSemiImplicit();
 	}
 
-	if (iter >= 2)
-	{
-		SurfactantTube2Extrapolation();
-		
-		LGenerateLinearSystem2(Acsr);
+	//if (iter >= 2)
+	//{
+	//	SurfactantTube2Extrapolation();
+	//	
+	//	LGenerateLinearSystem2(Acsr);
 
-		LTwoStepSemiImplicit();
-	}
-
+	//	LTwoStepSemiImplicit();
+	//}
 }
 
 inline void MovingInterface::LCountNonZero()
@@ -1521,8 +1529,7 @@ inline void MovingInterface::LTwoStepSemiImplicit()
 	{
 		i = levelSet.tube1Index(k).i;
 		j = levelSet.tube1Index(k).j;
-
-			Surfactant(i, j) = tempSur(k - 1);
+		Surfactant(i, j) = max(tempSur(k - 1), 0);
 	}
 
 #pragma omp parallel for private(i, j)
@@ -1565,8 +1572,8 @@ inline void MovingInterface::LSurfactantNormalTerm(FD & ipField, LS & ipLevelSet
 	Array2D<VT>& GU = U.gradient;
 	Array2D<VT>& GV = V.gradient;
 	VT GUU, GVV;
-	double curvatureThreshold = 3.0;
-	
+	double curvatureThreshold = 1.0 / grid.dx;
+	double oneOverPe = 1 / Pe;
 #pragma omp parallel for private(normal, Hessian, GUU, GVV)
 	for (int k = 1; k <= levelSet.numTube; k++)
 	{
@@ -1576,6 +1583,9 @@ inline void MovingInterface::LSurfactantNormalTerm(FD & ipField, LS & ipLevelSet
 		if (levelSet.tube(i, j) == 1)
 		{
 			normal = ipLevelSet.unitNormal(i, j);
+			double normalx = normal.x;
+			double normaly = normal.y;
+
 			Hessian = Surfactant.Hessian(i, j);
 			double curvature = -2 * ipLevelSet.meanCurvature(i, j); //// LEVELSET.MEANCURVATURE has a nagative sign. so mutiple -1.
 			
@@ -1583,24 +1593,30 @@ inline void MovingInterface::LSurfactantNormalTerm(FD & ipField, LS & ipLevelSet
 			val = 0;
 			if (abs(curvature) < curvatureThreshold)
 			{
-				val += -curvature*DotProduct(normal, gradientF(i, j));
+				val += curvature*DotProduct(normal, gradientF(i, j));
 			}
 			else
 			{
-				val += - curvatureThreshold*DotProduct(normal, gradientF(i, j));
+				val += curvatureThreshold*DotProduct(normal, gradientF(i, j));
 			}
-			val += -normal(0)*(Hessian(0, 0)*normal(0) + Hessian(0, 1)*normal(1));
-			val += -normal(1)*(Hessian(1, 0)*normal(0) + Hessian(1, 1)*normal(1));
+			
+			val += normalx*(Hessian(0, 0)*normalx + Hessian(0, 1)*normaly);
+			val += normaly*(Hessian(1, 0)*normalx + Hessian(1, 1)*normaly);
+			val *= -oneOverPe;
 			double velX = 0.5*(U(i + 1, j) + U(i, j));
 			double velY = 0.5*(V(i, j + 1) + V(i, j));
 			//// Upwind WENO
-			val += -(AdvectionMethod2D<double>::Plus(velX)*wenoDxMinus(i, j) + AdvectionMethod2D<double>::Minus(velX)*wenoDxPlus(i, j));
-			val += -(AdvectionMethod2D<double>::Plus(velY)*wenoDyMinus(i, j) + AdvectionMethod2D<double>::Minus(velY)*wenoDyPlus(i, j));
+			if (velX > 0) val += -velX*wenoDxMinus(i, j);
+			else val += -velX*wenoDxPlus(i, j);
+			
+			if (velY > 0) val += -velY*wenoDyMinus(i, j);
+			else val += -velY*wenoDyPlus(i, j);
+			
 			////
 			GUU = 0.5*(GU(i + 1, j) + GU(i, j));
 			GVV = 0.5*(GV(i, j + 1) + GV(i, j));
-			val += normal(0)*(GUU.x*normal(0) + GUU.y*normal(1))*ipField(i, j);
-			val += normal(1)*(GVV.x*normal(0) + GVV.y*normal(1))*ipField(i, j);
+			val += normalx*(GUU.x*normalx + GUU.y*normaly)*ipField(i, j);
+			val += normaly*(GVV.x*normalx + GVV.y*normaly)*ipField(i, j);
 		}
 	}
 	//term.Variable("surfNormal");
@@ -1728,14 +1744,15 @@ inline void MovingInterface::LGenerateLinearSystem1(VectorND<double>& vectorB)
 
 	LSurfactantNormalTerm(Surfactant, levelSet, term);
 	VI leftIndex, rightIndex, bottomIndex, topIndex;
-	double oneOverPe = 1 / Pe;
+	double oneOverPe = 1. / Pe;
 #pragma omp parallel for private(leftIndex, rightIndex, bottomIndex, topIndex)
 	for (int k = 1; k <= levelSet.numTube1; k++)
 	{
 		int i, j, l, m, n;
 		i = levelSet.tube1Index(k).i;
 		j = levelSet.tube1Index(k).j;
-		bVal[k - 1] = (Surfactant(i, j)*oneOverdt + term(i, j)*oneOverPe);
+		bVal[k - 1] = Surfactant(i, j)*oneOverdt
+			+ oneOverPe*(Surfactant.dxxPhi(i, j) + Surfactant.dyyPhi(i, j)) + term(i, j);
 
 		if (i>iStart)
 		{
@@ -1908,7 +1925,7 @@ inline void MovingInterface::LGenerateLinearSystem2(VectorND<double>& vectorB)
 	double oneOverdy2 = grid.oneOverdy2;
 	
 	double* bVal(vectorB.values);
-	double oneOverPe = 1 / Pe;
+	double oneOverPe = 1. / Pe;
 #pragma omp parallel for private(leftIndex, rightIndex, bottomIndex, topIndex)
 	for (int k = 1; k <= levelSet.numTube1; k++)
 	{
@@ -1916,8 +1933,8 @@ inline void MovingInterface::LGenerateLinearSystem2(VectorND<double>& vectorB)
 
 		i = levelSet.tube1Index(k).i;
 		j = levelSet.tube1Index(k).j;
-		bVal[k - 1] = Surfactant(i, j) * oneOverdt + 0.5 * oneOverPe *((Surfactant.dxxPhi(i, j) + Surfactant.dyyPhi(i, j))
-			+ 3 * term(i, j) - 1 * termOld(i, j));
+		bVal[k - 1] = Surfactant(i, j) * oneOverdt
+			+ 0.5 * (oneOverPe*(Surfactant.dxxPhi(i, j) + Surfactant.dyyPhi(i, j)) + 3 * term(i, j) - 1 * termOld(i, j));
 
 		if (i>iStart)
 		{
