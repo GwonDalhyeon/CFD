@@ -82,7 +82,6 @@ inline void VortexSheet::InitialCondition(const int & example)
 			for (int j = grid.jStart; j <= grid.jEnd; j++)
 			{
 				levelSet(i, j) = grid(i, j).y + 0.05*sin(PI*grid(i, j).x);
-				P(i, j) = DeltaFt(levelSet(i, j));
 			}
 		}
 
@@ -112,14 +111,6 @@ inline void VortexSheet::InitialCondition(const int & example)
 			for (int j = grid.jStart; j <= grid.jEnd; j++)
 			{
 				levelSet(i, j) = grid(i, j).y / (1 - 0.75*sin(PI*grid(i, j).x));
-				if (abs(levelSet(i,j))<8*grid.dx)
-				{
-					P(i, j) = -PI / (2 * eps*eps)*sin(PI*levelSet(i, j) / eps);
-				}
-				else
-				{
-					P(i, j) = 0;
-				}
 			}
 		}
 	}
@@ -161,14 +152,12 @@ inline void VortexSheet::VortexSolver(const int & example)
 	VectorND<double> streamV(innerIRes*innerJRes);
 
 	double eps = 8*grid.dx;
-	int idx;	
+		
 
 
 	if (writeFile)
 	{
-		str = "phi0";
-		levelSet.phi.WriteFile(str);
-
+		levelSet.phi.WriteFile("phi0");
 	}
 
 	//// Write Movie 1-3
@@ -177,9 +166,9 @@ inline void VortexSheet::VortexSolver(const int & example)
 	MATLAB.Variable("eps", eps);
 	MATLAB.Command("figure('units','normalized','outerposition',[0 0 1 1])");
 	levelSet.phi.Variable("phi0");
-	MATLAB.Command("subplot(1, 3, 1)");
-	MATLAB.Command("surf(X,Y,phi0)");
-	MATLAB.Command("subplot(1, 3, 2)");
+	//MATLAB.Command("subplot(1, 3, 1)");
+	//MATLAB.Command("surf(X,Y,phi0)");
+	MATLAB.Command("subplot(1, 2, 1)");
 	if (example == 1)
 	{
 		MATLAB.Command("contour(X, Y, phi0, [0 0],'b');");
@@ -199,7 +188,7 @@ inline void VortexSheet::VortexSolver(const int & example)
 		MATLAB.Command(cmd);
 	}
 
-	MATLAB.Command("subplot(1, 3, 3)");
+	MATLAB.Command("subplot(1, 2, 2)");
 	velocityX.Variable("velocityX");
 	velocityY.Variable("velocityY");
 	MATLAB.Command("quiver(X,Y,velocityX,velocityY);");
@@ -216,6 +205,32 @@ inline void VortexSheet::VortexSolver(const int & example)
 		cout << "*************************************************" << endl;
 		cout << "iteration : " << i << endl;
 
+#pragma omp parallel for 
+		for (int i = grid.iStart; i <= grid.iEnd; i++)
+		{
+			for (int j = grid.jStart; j <= grid.jEnd; j++)
+			{
+				double tempLS = levelSet(i, j);
+				if (example == 1)
+				{
+					P(i, j) = DeltaFt(tempLS);
+				}
+				else if (example == 2)
+				{
+					if (abs(tempLS)<8 * grid.dx)
+					{
+						P(i, j) = -PI / (2 * eps*eps)*sin(PI*tempLS / eps);
+					}
+					else
+					{
+						P(i, j) = 0;
+					}
+				}
+			}
+		}
+		//P.Variable("P");
+
+
 		GenerateLinearSystem(P, vectorB, -grid.dx*grid.dy);
 		int solver = 1;
 		if (solver == 1)
@@ -226,16 +241,16 @@ inline void VortexSheet::VortexSolver(const int & example)
 		{
 			CGSolver::SolverSparse(poissonMatrix.iRes, a, row, col, vectorB, streamV);
 		}
-		streamV.Variable("streamV");
+		//streamV.Variable("streamV");
 
-#pragma omp parallel for private(idx)
+#pragma omp parallel for
 		for (int i = innerIStart; i <= innerIEnd; i++)
 		{
 			streamFunction(i, grid.jStart) = 0;
 			streamFunction(i, grid.jEnd) = 0;
 			for (int j = innerJStart; j <= innerJEnd; j++)
 			{
-				idx = (i - innerIStart) + (j - innerJStart)*innerIRes;
+				int idx = (i - innerIStart) + (j - innerJStart)*innerIRes;
 				streamFunction(i, j) = streamV(idx);
 
 				if (i==innerIStart)
@@ -277,80 +292,49 @@ inline void VortexSheet::VortexSolver(const int & example)
 
 
 		AdvectionMethod2D<double>::LSPropagatingTVDRK3(levelSet, velocityX, velocityY, dt);
+
+
+
+		//MATLAB.Command("subplot(1, 3, 1)");
+		//MATLAB.Command("surf(X,Y,phi)");
+		MATLAB.Command("subplot(1, 2, 1)");
 		levelSet.phi.Variable("phi");
-
-#pragma omp parallel for 
-		for (int i = grid.iStart; i <= grid.iEnd; i++)
-		{
-			for (int j = grid.jStart; j <= grid.jEnd; j++)
-			{
-				if (example == 1)
-				{
-					P(i, j) = DeltaFt(levelSet(i, j));
-				}
-				else if (example == 2)
-				{
-					if (abs(levelSet(i, j))<8 * grid.dx)
-					{
-						P(i, j) = -PI / (2 * eps*eps)*sin(PI*levelSet(i, j) / eps);
-					}
-					else
-					{
-						P(i, j) = 0;
-					}
-				}
-			}
-		}
-		P.Variable("P");
-
-		MATLAB.Command("subplot(1, 3, 1)");
-		MATLAB.Command("surf(X,Y,phi)");
 		if (example == 1)
 		{
-			MATLAB.Command("subplot(1, 3, 2)");
-			MATLAB.Command("contour(X, Y, phi0, [0 0],'b');");
-			MATLAB.Command("hold on");
-			MATLAB.Command("contour(X, Y, phi, [0 0],'r');");
-			MATLAB.Command("grid on");
-			MATLAB.Command("hold off");
-			str = string("title(['iteration : ', num2str(") + to_string(i) + string(")]);");
+			MATLAB.Command("contour(X, Y, phi0, [0 0],'b');hold on,contour(X, Y, phi, [0 0],'r');grid on,quiver(X,Y,velocityX,velocityY);axis([X(1) X(end) Y(1) Y(end)]),hold off,axis equal tight;");
+			str = string("title(['iteration : ', num2str(") + to_string(i) + string(")]);axis([X(1) X(end) Y(1) Y(end)])");
 			cmd = str.c_str();
 			MATLAB.Command(cmd);
+			MATLAB.Command("subplot(1, 2, 2)");
+			//MATLAB.Command("surf(X,Y,stream);");
+			MATLAB.Command("contour(X, Y, phi, [0 0],'r'); hold on, streamslice(X,Y,velocityX,velocityY,'g'),hold off, axis equal tight");
 		}
 		else if (example == 2)
 		{
-			MATLAB.Command("subplot(1, 3, 2)");
 			str = string("contour(X, Y, phi0, [") + to_string(-eps / 2) + string(",") + to_string(eps / 2) + string("],'b');");
-			cmd = str.c_str();
-			MATLAB.Command(cmd);
+			MATLAB.Command(str.c_str());
 			MATLAB.Command("hold on");
 			str = string("contour(X, Y, phi, [") + to_string(-eps / 2) + string(",") + to_string(eps / 2) + string("],'r');");
-			cmd = str.c_str();
-			MATLAB.Command(cmd);
+			MATLAB.Command(str.c_str());
 			MATLAB.Command("grid on");
-			MATLAB.Command("hold off");
-			str = string("title(['iteration : ', num2str(") + to_string(i) + string(")]);");
+			MATLAB.Command("quiver(X,Y,velocityX,velocityY);axis([X(1) X(end) Y(1) Y(end)]),hold off");
+			str = string("title(['iteration : ', num2str(") + to_string(i) + string(")]);axis([X(1) X(end) Y(1) Y(end)]),axis equal tight");
 			cmd = str.c_str();
 			MATLAB.Command(cmd);
+			MATLAB.Command("subplot(1, 2, 2)");
+			MATLAB.Command("surf(X,Y,stream);");
 		}
-		MATLAB.Command("subplot(1, 3, 3)");
-		MATLAB.Command("quiver(X,Y,velocityX,velocityY);");
+
+		
 
 
 
 		if (writeFile && i%writeOutputIteration==0)
 		{
-			str = "velocityX" + to_string(i);
-			velocityX.WriteFile(str);
-
-			str = "velocityY" + to_string(i);
-			velocityY.WriteFile(str);
-
-			str = "phi" + to_string(i);
-			levelSet.phi.WriteFile(str);
-
-			str = "stream" + to_string(i);
-			P.WriteFile(str);
+			velocityX.WriteFile("velocityX" + to_string(i));
+			velocityY.WriteFile("velocityY" + to_string(i));
+			levelSet.phi.WriteFile("phi" + to_string(i));
+			P.WriteFile("stream" + to_string(i));
 		}
 
 		//// Write Movie 2-3
@@ -559,7 +543,7 @@ inline double VortexSheet::AdaptiveTimeStep(const FD& velocity1, const FD& veloc
 
 inline double VortexSheet::DeltaFt(const double & ip)
 {
-	double eps = 3 * min(grid.dx, grid.dy);
+	double eps = 12 * min(grid.dx, grid.dy);
 	if (abs(ip)<eps)
 	{
 		return (1 + cos(PI*ip / eps)) / (2 * eps);
