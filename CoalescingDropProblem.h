@@ -125,7 +125,7 @@ inline void Coalescence::InitialCondition(const int & example)
 		cout << "      -- F Blanchette & T Bigioni-- " << endl;
 		cout << "*************************" << endl;
 
-		int gridSize = 500;
+		int gridSize = 250;
 		double xLength = 2.5;
 		grid = Grid2D(-xLength, xLength, gridSize + 1, -xLength, xLength, gridSize + 1);
 
@@ -324,8 +324,6 @@ inline void Coalescence::InitialCondition(const int & example)
 	conditionFile << "dx = " << grid.dx << endl;
 	conditionFile << "finalT = " << finalT << endl;
 	conditionFile.close();
-
-
 }
 
 inline void Coalescence::DropCoalescenceSolver(const int & example)

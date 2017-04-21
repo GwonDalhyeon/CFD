@@ -179,8 +179,8 @@ void main()
 	}
 	else
 	{
-		problem = 15;
-		example = 1;
+		problem = 4;
+		example = 6;
 	}
 
 	if (problem == 0) //// GMRES test :: example 1,2,3,4
@@ -230,7 +230,6 @@ void main()
 			FluidSolver2D Fluid;
 			Fluid.Solver(example);
 		}
-
 	}
 	else if (problem == 5) // SURFACE RECONSTRUCTION USING SPLIT BREGMAN : EXAMPLE 1 ~ 6 ??
 	{

@@ -43,7 +43,7 @@ public:
 	bool isGravity = false;
 	bool isCSFmodel = true;
 	bool isDeltaFunction = true;
-	const double gravity = -9.8; // -9.8 m/s^2
+	double gravity = -9.8; // -9.8 m/s^2
 	 
 	const double densityWater = 1000; // Water : 1000kg/m^3
 	const double densityAir = 1.226; // Air : 1.226kg/m^3
@@ -133,6 +133,7 @@ public:
 	inline void GenerateLinearSystemPressure(VectorND<double>& vectorB);
 
 	inline void AdvectionTerm(FD& U, FD& V, FD& TermU, FD& TermV);
+	inline void AdvectionTermJumpCondition(FD& U, FD& V, FD& TermU, FD& TermV);
 	inline void DiffusionTerm(const FD& U, const FD& V, FD& TermU, FD& TermV);
 
 	inline void DetermineViscosity();
@@ -592,7 +593,7 @@ inline void FluidSolver2D::InitialCondition(const int & example)
 
 		double xLength = 1 * scaling;
 		double yLength = 2 * scaling;
-		int domainRes = 80;
+		int domainRes = 40;
 		if (example == 4) grid = Grid2D(-xLength, xLength, domainRes + 1, -xLength, yLength, 1.5*domainRes + 1);
 		if (example == 5) grid = Grid2D(-xLength, xLength, domainRes + 1, -yLength, xLength, 1.5*domainRes + 1);
 		gridU = Grid2D(grid.xMin - grid.dx / 2, grid.xMax + grid.dx / 2, grid.iRes + 1,
@@ -728,6 +729,159 @@ inline void FluidSolver2D::InitialCondition(const int & example)
 		dt = 0;
 		finalT = 1;
 		if (isSmallBubble) finalT /= 10;
+		totalT = 0;
+		writeOutputIteration = 30;
+		iteration = 0;
+	}
+
+	if (example == 6)
+	{
+		cout << "*************************************************" << endl;
+		cout << "    --- Navier-Stokes equation ---" << endl;
+		cout << "     Rayleigh-Taylor instability" << endl;
+		cout << "      Heavy fluid / Light Fluid" << endl;
+		cout << "*************************************************" << endl;
+		cout << endl;
+
+		////////////////////////////////////////////////////////////////////////////
+		// CSF model with delta function 
+		// Boundary Condition Capturing method without delta function 
+		///////////////////////////////////////////////////////////////////////////
+		isCSFmodel = false;
+		isDeltaFunction = false;
+
+		dimensionlessForm = false;
+		isMultiPhase = true;
+		isGravity = true;
+
+		double xLength = 1;
+		double yLength = 2;
+		int domainRes = 80;
+		grid = Grid2D(-xLength, xLength, domainRes + 1, -yLength, yLength, 2*domainRes + 1);
+		gridU = Grid2D(grid.xMin - grid.dx / 2, grid.xMax + grid.dx / 2, grid.iRes + 1,
+			grid.yMin, grid.yMax, grid.jRes);
+
+		gridV = Grid2D(grid.xMin, grid.xMax, grid.iRes,
+			grid.yMin - grid.dy / 2, grid.yMax + grid.dy / 2, grid.jRes + 1);
+
+		Pressure = FD(grid);
+		int tempBC = 0;
+		//// Boundary Condition
+		for (int j = Pressure.jStart; j <= Pressure.jEnd; j++)
+		{
+			for (int i = Pressure.iStart; i <= Pressure.iEnd; i++)
+			{
+				Pressure.BC(i, j) = tempBC++;
+			}
+		}
+
+		U = FD(gridU);
+		tempBC = 0;
+		for (int j = U.jStart; j <= U.jEnd; j++)
+		{
+			for (int i = U.iStart; i <= U.iEnd; i++)
+			{
+				if (i == U.iStart || i == U.iEnd)
+				{
+					U.BC(i, j) = BC_INTERPOLATION;
+					continue;
+				}
+				if (j == U.jStart)
+				{
+					//U.BC(i, j) = BC_NEUM;
+					U.BC(i, j) = BC_DIR;
+					continue;
+				}
+				if (j == U.jEnd)
+				{
+					//U.BC(i, j) = BC_NEUM;
+					U.BC(i, j) = BC_DIR;
+					continue;
+				}
+				U.BC(i, j) = tempBC++;
+			}
+		}
+		originU = U;
+
+		V = FD(gridV);
+		tempBC = 0;
+		for (int j = V.jStart; j <= V.jEnd; j++)
+		{
+			for (int i = V.iStart; i <= V.iEnd; i++)
+			{
+				if (i == V.iStart || i == V.iEnd)
+				{
+					V.BC(i, j) = BC_INTERPOLATION;
+					continue;
+				}
+				if (j == V.jStart)
+				{
+					//V.BC(i, j) = BC_NEUM;
+					V.BC(i, j) = BC_REFLECTION;
+					continue;
+				}
+				if (j == V.jEnd)
+				{
+					//V.BC(i, j) = BC_NEUM;
+					V.BC(i, j) = BC_REFLECTION;
+					continue;
+				}
+				V.BC(i, j) = tempBC++;
+			}
+		}
+		originV = V;
+
+		levelSet = LS(grid);
+		double x, y;
+#pragma omp parallel for private(x, y)
+		for (int i = grid.iStart; i <= grid.iEnd; i++)
+		{
+			for (int j = grid.jStart; j <= grid.jEnd; j++)
+			{
+				x = grid(i, j).x, y = grid(i, j).y;
+				levelSet(i, j) = 0.05*cos(PI*(x+1)) - y + 0.5;
+			}
+		}
+		levelSet.InitialTube();
+		levelSet.LComputeMeanCurvature();
+
+		// Negative Level Set : Inside
+		// Positive Level Set : Outside
+
+		densityE = 0.17;
+		densityI = 1.2;
+		viscosityE = 3 * pow(10, -3);
+		viscosityI = viscosityE;
+
+		gamma0 = 0.015;
+		gravity = -1;
+
+		Density = FD(grid);
+		Density.dataArray = 1;
+		DensityU = FD(gridU);
+		DensityV = FD(gridV);
+		Viscosity = FD(grid);
+		Viscosity.dataArray = 1;
+		ViscosityU = FD(gridU);
+		ViscosityV = FD(gridV);
+		Nu = FD(grid);
+
+		AdvectionU = FD(gridU);
+		AdvectionV = FD(gridV);
+
+		DiffusionU = FD(gridU);
+		DiffusionV = FD(gridV);
+
+		SurfaceForce = FD(grid);
+		SurfaceForceX = FD(gridU);
+		SurfaceForceY = FD(gridV);
+		SurfaceTension = FD(grid);
+		Surfactant = FD(grid);
+
+		ProjectionOrder = 1;
+
+		dt = 0;
+		finalT = 5;
 		totalT = 0;
 		writeOutputIteration = 30;
 		iteration = 0;
@@ -924,7 +1078,7 @@ inline void FluidSolver2D::Solver(const int & example)
 			PlotVelocity();
 			MATLAB.Command("subplot(1,2,2)");
 			Pressure.Variable("Pressure");
-			MATLAB.Command("[C,h]=contourf(X,Y,Pressure,100);colormap(jet), set(h,'LineColor','none'),hold on,contour(X,Y,phi,[0 0],'r'), hold off");
+			MATLAB.Command("[C,h]=contourf(X,Y,Pressure,100),axis equal;colormap(jet), set(h,'LineColor','none'),hold on,contour(X,Y,phi,[0 0],'r'), hold off;");
 			//MATLAB.WriteImage("fluid", iteration, "fig");
 			MATLAB.WriteImage("fluid", iteration, "png");
 		}
@@ -2390,10 +2544,12 @@ inline void FluidSolver2D::TreatBCAlongXaxis(FD & ipField)
 #pragma omp parallel for 
 	for (int i = ipField.iStart; i <= ipField.iEnd; i++)
 	{
-		if (BC(i, ipField.jStart) == BC_NEUM)		fieldData(i, ipField.jStart) = fieldData(i, ipField.jStartI);
-		if (BC(i, ipField.jStart) == BC_REFLECTION) fieldData(i, ipField.jStart) = -fieldData(i, ipField.jStartI);
-		if (BC(i, ipField.jEnd) == BC_NEUM)			fieldData(i, ipField.jEnd)   = fieldData(i, ipField.jEndI);
-		if (BC(i, ipField.jEnd) == BC_REFLECTION)	fieldData(i, ipField.jEnd)   = -fieldData(i, ipField.jEndI);
+		if (BC(i, ipField.jStart) == BC_NEUM)			fieldData(i, ipField.jStart) = fieldData(i, ipField.jStartI);
+		if (BC(i, ipField.jStart) == BC_REFLECTION)		fieldData(i, ipField.jStart) = 0; -fieldData(i, ipField.jStartI);
+		if (BC(i, ipField.jStart) == BC_INTERPOLATION)	fieldData(i, ipField.jStart) = 2 * fieldData(i, ipField.jStart + 1) - fieldData(i, ipField.jStart + 2);
+		if (BC(i, ipField.jEnd) == BC_NEUM)				fieldData(i, ipField.jEnd)   = fieldData(i, ipField.jEndI);
+		if (BC(i, ipField.jEnd) == BC_REFLECTION)		fieldData(i, ipField.jEnd) = 0; -fieldData(i, ipField.jEndI);
+		if (BC(i, ipField.jEnd) == BC_INTERPOLATION)	fieldData(i, ipField.jEnd) = 2 * fieldData(i, ipField.jEnd - 1) - fieldData(i, ipField.jEnd - 2);
 	}
 }
 
@@ -2404,10 +2560,12 @@ inline void FluidSolver2D::TreatBCAlongYaxis(FD & ipField)
 #pragma omp parallel for 
 	for (int j = ipField.jStart; j <= ipField.jEnd; j++)
 	{
-		if (BC(ipField.iStart, j) == BC_NEUM)		fieldData(ipField.iStart, j) = fieldData(ipField.iStartI, j);
-		if (BC(ipField.iStart, j) == BC_REFLECTION) fieldData(ipField.iStart, j) = -fieldData(ipField.iStartI, j);
-		if (BC(ipField.iEnd, j) == BC_NEUM)			fieldData(ipField.iEnd, j)   = fieldData(ipField.iEndI, j);
-		if (BC(ipField.iEnd, j) == BC_REFLECTION)	fieldData(ipField.iEnd, j)   = -fieldData(ipField.iEndI, j);
+		if (BC(ipField.iStart, j) == BC_NEUM)			fieldData(ipField.iStart, j) = fieldData(ipField.iStartI, j);
+		if (BC(ipField.iStart, j) == BC_REFLECTION)		fieldData(ipField.iStart, j) = 0; -fieldData(ipField.iStartI, j);
+		if (BC(ipField.iStart, j) == BC_INTERPOLATION)	fieldData(ipField.iStart, j) = 2 * fieldData(ipField.iStart + 1, j) - fieldData(ipField.iStart + 2, j);
+		if (BC(ipField.iEnd, j) == BC_NEUM)				fieldData(ipField.iEnd, j)   = fieldData(ipField.iEndI, j);
+		if (BC(ipField.iEnd, j) == BC_REFLECTION)		fieldData(ipField.iEnd, j) = 0; -fieldData(ipField.iEndI, j);
+		if (BC(ipField.iEnd, j) == BC_INTERPOLATION)	fieldData(ipField.iEnd, j) = 2 * fieldData(ipField.iEnd - 1, j) - fieldData(ipField.iEnd - 2, j);
 	}
 }
 

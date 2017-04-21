@@ -192,14 +192,15 @@ inline void VortexSheet::VortexSolver(const int & example)
 	velocityX.Variable("velocityX");
 	velocityY.Variable("velocityY");
 	MATLAB.Command("quiver(X,Y,velocityX,velocityY);");
-	
+	//MATLAB.WriteImage("VortexSheet", 0, "fig");
+	//MATLAB.WriteImage("VortexSheet", 0, "png");
+
 	/////////////////////////
 	////                /////
 	////    Iteration   /////
 	////                /////
 	/////////////////////////
-	//for (int i = 1; i <= maxIteration; i++)
-	for (int i = 1; i <= 200; i++)
+	for (int i = 1; i <= maxIteration; i++)
 	{
 		cout << endl;
 		cout << "*************************************************" << endl;
@@ -275,24 +276,23 @@ inline void VortexSheet::VortexSolver(const int & example)
 		}
 		totalT += dt;
 
+		AdvectionMethod2D<double>::LSPropagatingTVDRK3(levelSet, velocityX, velocityY, dt);
+
 		// Left and Right side
 		// Level set boundary condition
+		int iStart = grid.iStart, iEnd = grid.iEnd;
 #pragma omp parallel for
 		for (int j = grid.jStart; j <= grid.jEnd; j++)
 		{
-			if (velocityX(grid.iStart,j)>0)
+			if (velocityX(iStart,j)>0)
 			{
-				levelSet(grid.iStart, j) = levelSet(grid.iEnd, j);
+				levelSet(iStart, j) = levelSet(iEnd, j);
 			}
 			else
 			{
-				levelSet(grid.iEnd, j) = levelSet(grid.iStart, j);
+				levelSet(iEnd, j) = levelSet(iStart, j);
 			}
 		}
-
-
-		AdvectionMethod2D<double>::LSPropagatingTVDRK3(levelSet, velocityX, velocityY, dt);
-
 
 
 		//MATLAB.Command("subplot(1, 3, 1)");
@@ -303,6 +303,7 @@ inline void VortexSheet::VortexSolver(const int & example)
 		{
 			MATLAB.Command("contour(X, Y, phi0, [0 0],'b');hold on,contour(X, Y, phi, [0 0],'r');grid on,quiver(X,Y,velocityX,velocityY);axis([X(1) X(end) Y(1) Y(end)]),hold off,axis equal tight;");
 			str = string("title(['iteration : ', num2str(") + to_string(i) + string(")]);axis([X(1) X(end) Y(1) Y(end)])");
+			str = string("title(['iteration : ', num2str(") + to_string(i) + string("),', time : ', num2str(") + to_string(totalT) + string(")]);");
 			cmd = str.c_str();
 			MATLAB.Command(cmd);
 			MATLAB.Command("subplot(1, 2, 2)");
@@ -324,10 +325,9 @@ inline void VortexSheet::VortexSolver(const int & example)
 			MATLAB.Command("subplot(1, 2, 2)");
 			MATLAB.Command("surf(X,Y,stream);");
 		}
-
 		
-
-
+		//MATLAB.WriteImage("VortexSheet", i, "fig");
+		//MATLAB.WriteImage("VortexSheet", i, "png");
 
 		if (writeFile && i%writeOutputIteration==0)
 		{

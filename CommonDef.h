@@ -43,3 +43,4 @@ using namespace std;
 #define BC_OTHER -6
 #define BC_IMPLICIT -7
 #define BC_REFLECTION -8
+#define BC_INTERPOLATION -9
