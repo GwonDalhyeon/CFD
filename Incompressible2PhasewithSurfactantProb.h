@@ -133,10 +133,10 @@ inline void InsolubleSurfactant::InitialCondition(const int & example)
 		// Initialize Velocity Fields
 		Fluid.InitialCondition(3);
 		ProjectionOrder = 1;
-		Re = 100;
-		Ca = 0.3;
+		Re = 10;
+		Ca = 0.5;
 		Xi = 0.3;
-		El = 0.2;
+		El = 0.5;
 		Pe = 10;
 		cflCondition = 0.4;
 		dt = cflCondition*min(grid.dx, grid.dy);
@@ -151,7 +151,7 @@ inline void InsolubleSurfactant::InitialCondition(const int & example)
 		InterfaceSurfactant.cflCondition = cflCondition;
 		InterfaceSurfactant.dt = dt;
 
-		Fluid.isCSFmodel = true;
+		Fluid.isCSFmodel = false;
 		Fluid.isDeltaFunction = false;
 		Fluid.dimensionlessForm = false;
 		Fluid.isMultiPhase = true;
@@ -179,7 +179,7 @@ inline void InsolubleSurfactant::InitialCondition(const int & example)
 		//Fluid.isPCG = true;
 		Fluid.InitialCondition(3);
 		ProjectionOrder = 1;
-		Re = 100;
+		Re = 10;
 		Ca = 0.1;
 		Xi = 0.1;
 		El = 0.2;
@@ -210,6 +210,7 @@ inline void InsolubleSurfactant::InitialCondition(const int & example)
 
 	ofstream conditionFile;
 	conditionFile.open("D:\\Data/Condition.txt", ios::binary);
+	conditionFile << "csf = " << Fluid.isCSFmodel << endl;
 	conditionFile << "Re = " << Re << endl;
 	conditionFile << "Ca = " << Ca << endl;
 	conditionFile << "Xi = " << Xi << endl;
@@ -314,6 +315,9 @@ inline void InsolubleSurfactant::ContinuumMethodWithSurfactantSolver(const int &
 			PlotSurfactant();
 			MATLAB.Command("subplot(2,1,2)");
 			PlotVelocity();
+			//MATLAB.Command("subplot(2,2,[3 4])");
+			//MATLAB.Command("contour(X, Y, phi, [0 0], 'r'), grid on, hold off; axis equal, axis([X(1) X(end) Y(1) Y(end)]);");
+			//MATLAB.Command("hold on,quiver(X, Y, surfaceGradientX.*(abs(phi) <= Y(2)-Y(1)), surfaceGradientY.*(abs(phi) <= Y(2)-Y(1))), hold off");
 			//MATLAB.WriteImage("surfactant", iteration, "fig");
 			MATLAB.WriteImage("surfactant", iteration, "png");
 		}
@@ -323,6 +327,18 @@ inline void InsolubleSurfactant::ContinuumMethodWithSurfactantSolver(const int &
 		cout << "       Iteration " << to_string(iteration) << " : End" << endl;
 		cout << "*******************************************************************" << endl;
 	}
+	//SurfaceTension.Variable("SurfaceTension");
+	//Pressure.Variable("Pressure");
+	MATLAB.Command("subplot(2,1,1)");
+	PlotSurfactant();
+	MATLAB.Command("subplot(2,1,2)");
+	PlotVelocity();
+	//MATLAB.Command("subplot(2,2,[3 4])");
+	//MATLAB.Command("contour(X, Y, phi, [0 0], 'r'), grid on, hold off; axis equal, axis([X(1) X(end) Y(1) Y(end)]);");
+	//MATLAB.Command("hold on,quiver(X, Y, surfaceGradientX.*(abs(phi) <= Y(2)-Y(1)), surfaceGradientY.*(abs(phi) <= Y(2)-Y(1))), hold off");
+	//MATLAB.WriteImage("surfactant", iteration, "fig");
+	MATLAB.WriteImage("surfactant", iteration, "png");
+	levelSet.phi.WriteFile("phi_my");
 }
 
 inline void InsolubleSurfactant::PlotSurfactant()

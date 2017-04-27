@@ -179,8 +179,8 @@ void main()
 	}
 	else
 	{
-		problem = 4;
-		example = 6;
+		problem = 14;
+		example = 1;
 	}
 
 	if (problem == 0) //// GMRES test :: example 1,2,3,4

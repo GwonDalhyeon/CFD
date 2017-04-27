@@ -566,7 +566,7 @@ inline void FluidSolver2D::InitialCondition(const int & example)
 	{
 		cout << "*************************************************" << endl;
 		cout << "    --- Navier-Stokes equation ---" << endl;
-		cout << "    A Boundary Conditio nCapturing Method for" << endl;
+		cout << "    A Boundary Condition Capturing Method for" << endl;
 		cout << "        Multiphase Incompressible Flow" << endl;
 		if (example == 4) cout << "           Example : Air Bubble" << endl;
 		if (example == 5) cout << "           Example : Water Drop" << endl;
@@ -2203,6 +2203,9 @@ inline void FluidSolver2D::ComputeJJJJ(Array2D<double> & J11, Array2D<double> & 
 		UnitTangent.values[i].y = -UnitNormal.values[i].x;
 	}
 	
+	bool isMarangoni = true;
+
+	double oneOverReCa = 1 / (Re*Ca);
 	const double viscosityJump = viscosityE - viscosityI;
 	VT  normal, tangent;
 	double oneOverdx = U.oneOverdx, oneOverdy = U.oneOverdy;
@@ -2222,27 +2225,44 @@ inline void FluidSolver2D::ComputeJJJJ(Array2D<double> & J11, Array2D<double> & 
 		tangent = UnitTangent(i, j);
 		t1 = tangent.x, t2 = tangent.y;
 		
+		VT STG, STSurfaceG;
+		STG.x = SurfaceTension.dxPhi(i, j);
+		STG.y = SurfaceTension.dyPhi(i, j);
+		STSurfaceG = STG - DotProduct(normal, STG)*normal;
+		if (isMarangoni == false)
+		{
+			STSurfaceG = 0;
+		}
+
 		ux = (U(iR, j) - U(i, j))*oneOverdx;
 		uy = 0.5*(U.dyPhi(i, j) + U.dyPhi(iR, j));
 		vx = 0.5*(V.dxPhi(i, j) + V.dxPhi(i, jT));
 		vy = (V(i, jT) - V(i, j))*oneOverdy;
 		//T1(i, j) = t1, T2(i, j) = t2, N1(i, j) = n1, N2(i, j) = n2;
 		//U1(i, j) = ux, U2(i, j) = uy, V1(i, j) = vx, V2(i, j) = vy;
-		J11(i, j) = t1*t1*ux + t1*t2*uy + (n1*n1*ux + n1*n2*vx)*n1*n1 + (n1*n1*uy + n1*n2*vy)*n1*n2
+		double& j11 = J11(i, j);
+		j11 = t1*t1*ux + t1*t2*uy + (n1*n1*ux + n1*n2*vx)*n1*n1 + (n1*n1*uy + n1*n2*vy)*n1*n2
 			- (t1*t1*ux + t1*t2*uy)*n1*n1 - (t1*t1*vx + t1*t2*vy)*n1*n2;
-		J11(i, j) *= viscosityJump;
+		j11 *= viscosityJump;
+		j11 += -(t1*t1*STSurfaceG.x*n1 + t1*t2*uy*STSurfaceG.y*t1) / Ca;//*oneOverReCa;
 
-		J12(i, j) = t1*t2*ux + t2*t2*uy + (n1*n1*ux + n1*n2*vx)*n1*n2 + (n1*n1*uy + n1*n2*vy)*n2*n2
+		double& j12 = J12(i, j);
+		j12 = t1*t2*ux + t2*t2*uy + (n1*n1*ux + n1*n2*vx)*n1*n2 + (n1*n1*uy + n1*n2*vy)*n2*n2
 			- (t1*t1*ux + t1*t2*uy)*n1*n2 - (t1*t1*vx + t1*t2*vy)*n2*n2;
-		J12(i, j) *= viscosityJump;
-
-		J21(i, j) = t1*t1*vx + t1*t2*vy + (n1*n2*ux + n2*n2*vx)*n1*n1 + (n1*n2*uy + n2*n2*vy)*n1*n2
+		j12 *= viscosityJump;
+		j12 += -(t1*t1*STSurfaceG.x*n2 + t1*t2*STSurfaceG.y*t2) / Ca;//*oneOverReCa;
+		
+		double& j21 = J21(i, j);
+		j21 = t1*t1*vx + t1*t2*vy + (n1*n2*ux + n2*n2*vx)*n1*n1 + (n1*n2*uy + n2*n2*vy)*n1*n2
 			- (t1*t2*ux + t2*t2*uy)*n1*n1 - (t1*t2*vx + t2*t2*vy)*n1*n2;
-		J21(i, j) *= viscosityJump;
-		J22(i, j) = t1*t2*vx + t2*t2*vy + (n1*n2*ux + n2*n2*vx)*n1*n2 + (n1*n2*uy + n2*n2*vy)*n2*n2
-			- (t1*t2*ux + t2*t2*uy)*n1*n2 - (t1*t2*vx + t2*t2*vy)*n2*n2;
-		J22(i, j) *= viscosityJump;
+		j21 *= viscosityJump;
+		j21 += -(t1*t2*STSurfaceG.x*n1 + t2*t2*STSurfaceG.y*t1) / Ca;//*oneOverReCa;
 
+		double& j22 = J22(i, j);
+		j22 = t1*t2*vx + t2*t2*vy + (n1*n2*ux + n2*n2*vx)*n1*n2 + (n1*n2*uy + n2*n2*vy)*n2*n2
+			- (t1*t2*ux + t2*t2*uy)*n1*n2 - (t1*t2*vx + t2*t2*vy)*n2*n2;
+		j22 *= viscosityJump;
+		j22 += -(t1*t2*STSurfaceG.x*n2 + t2*t2*STSurfaceG.y*t2) / Ca;// *oneOverReCa;
 	}
 
 	//N1.Variable("N1");
@@ -2255,7 +2275,7 @@ inline void FluidSolver2D::ComputeJJJJ(Array2D<double> & J11, Array2D<double> & 
 	//V2.Variable("V2");
 }
 
-// Interpolation Data using Level Set and Internally Dividign Point.
+// Interpolation Data using Level Set and Internally Divided Point.
 template <class TT>
 inline TT FluidSolver2D::InterpolationGridtoU(const Array2D<TT>& ipData, const int & ui, const int & uj)
 {
@@ -2283,7 +2303,7 @@ inline TT FluidSolver2D::InterpolationGridtoU(const Array2D<TT>& ipData, const i
 	else					return ipData(iEnd, tempJ);
 }
 
-// Interpolation Data using Level Set and Internally Dividign Point.
+// Interpolation Data using Level Set and Internally Divided Point.
 template <class TT>
 inline TT FluidSolver2D::InterpolationGridtoV(const Array2D<TT>& ipData, const int & vi, const int & vj)
 {
@@ -2338,7 +2358,7 @@ inline void FluidSolver2D::ComputeSurfaceForce()
 	int numTube = levelSet.numTube;
 	const double viscosityJump = viscosityE - viscosityI;
 	int iEndu = grid.iEnd, jEndv = grid.jEnd;
-	
+	//Array2D<VT> surfacegradient(grid);
 	VT normal, GU, GV, STG, STSurfaceG;
 #pragma omp parallel for private(normal, GU, GV, STG,  STSurfaceG)
 	for (int k = 1; k <= numTube; k++)
@@ -2350,8 +2370,9 @@ inline void FluidSolver2D::ComputeSurfaceForce()
 		if (tube(i, j) <= ComputedTubeRange)
 		{
 			curvature = -2*meanCurvature(i, j);
-			if (dimensionlessForm) SurfaceForce(i, j) = -SurfaceTension(i, j) * curvature * oneOverReCa;
-			else
+			//SurfaceTension(i, j) = gamma0;
+			//if (dimensionlessForm) SurfaceForce(i, j) = -SurfaceTension(i, j) * curvature * oneOverReCa;
+			//else
 			{
 				normal = LunitNormal(i, j);
 				double mag = sqrt(normal.x*normal.x + normal.y*normal.y);
@@ -2361,9 +2382,10 @@ inline void FluidSolver2D::ComputeSurfaceForce()
 				GU = 0.5 * (U.gradient(i, j) + U.gradient(ii, j));
 				GV = 0.5 * (V.gradient(i, j) + V.gradient(i, jj));
 				
-				STG.x = SurfaceTension.dxPhi(i, j);
-				STG.y = SurfaceTension.dyPhi(i, j);
-				STSurfaceG = STG - DotProduct(normal, STG)*normal;
+				//STG.x = SurfaceTension.dxPhi(i, j);
+				//STG.y = SurfaceTension.dyPhi(i, j);
+				//STSurfaceG = 0; STG - DotProduct(normal, STG)*normal;
+				//surfacegradient(i, j) = STSurfaceG;
 				//UG1(i, j) = GU.x;
 				//UG2(i, j) = GU.y;
 				//VG1(i, j) = GV.x;
@@ -2373,7 +2395,7 @@ inline void FluidSolver2D::ComputeSurfaceForce()
 				//UG2(i, j) = levelSet.dxxPhi(i, j);
 				//VG1(i, j) = levelSet.dyPhi(i, j);
 				//VG2(i, j) = levelSet.dyyPhi(i, j);
-				SurfaceForce(i, j) = -SurfaceTension(i, j) * curvature;
+				SurfaceForce(i, j) = -SurfaceTension(i, j) * curvature;// +DotProduct(normal, STSurfaceG);
 				if (isDeltaFunction) 
 				{
 
@@ -2382,6 +2404,7 @@ inline void FluidSolver2D::ComputeSurfaceForce()
 				{
 					SurfaceForce(i, j) += 2 * viscosityJump * ((GU.x*normal.x + GU.y*normal.y)*normal.x + (GV.x*normal.x + GV.y*normal.y)*normal.y);
 				}
+				SurfaceForce(i, j) *= oneOverReCa;
 			}
 		}
 		else
@@ -2395,6 +2418,7 @@ inline void FluidSolver2D::ComputeSurfaceForce()
 	//UG2.Variable("UG2");
 	//VG1.Variable("VG1");
 	//VG2.Variable("VG2");
+	//ArrayVec2DVariable("surfaceGradient", surfacegradient);
 }
 
 inline void FluidSolver2D::ComputeSurfaceForceUV()
@@ -2409,6 +2433,8 @@ inline void FluidSolver2D::ComputeSurfaceForceUV()
 	Array2D<double>& meanCurvature = levelSet.meanCurvature.dataArray;
 	Array2D<VT>& LunitNormal = levelSet.unitNormal.dataArray;
 	Array2D<int>& tube = levelSet.tube;
+
+	bool isMarangoni = true;
 
 	int ComputedTubeRange = 1;
 	int numTube = levelSet.numTube;
@@ -2447,7 +2473,10 @@ inline void FluidSolver2D::ComputeSurfaceForceUV()
 				STG.x = (STval - STvalLeft) * oneOverdx;
 				STG.y = 0.5 * (SurfaceTension.dyPhi(iL, j) + SurfaceTension.dyPhi(i, j));
 				STSurfaceG = STG - DotProduct(LUN, STG)*LUN;
-
+				if (isMarangoni == false)
+				{
+					STSurfaceG = 0;
+				}
 				curvature = -0.5 * (2 * meanCurvature(i, j) + 2 * meanCurvature(iL, j));
 				ST = 0.5 * (STval + STvalLeft);
 
@@ -2473,7 +2502,10 @@ inline void FluidSolver2D::ComputeSurfaceForceUV()
 				STG.x = 0.5 * (SurfaceTension.dxPhi(i, j) + SurfaceTension.dxPhi(i, jB));
 				STG.y = (STval - STvalBottom) * oneOverdy;
 				STSurfaceG = STG - DotProduct(LUN, STG)*LUN;
-
+				if (isMarangoni == false)
+				{
+					STSurfaceG = 0;
+				}
 				curvature = -0.5 * (2 * meanCurvature(i, j) + 2 * meanCurvature(i, jB));
 				ST = 0.5 * (STval + STvalBottom);
 				double filmThickness = thickness0 * 0.5 * (Surfactant(i, j) + Surfactant(i, jB));
